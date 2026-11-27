@@ -30,6 +30,7 @@ function roleOf(a,email){
   if(lower(a.owner)===email)return 'owner';
   if((a.editors||[]).map(lower).includes(email))return 'editor';
   if((a.viewers||[]).map(lower).includes(email))return 'viewer';
+  if(Object.keys(a.perms||{}).map(lower).includes(email))return 'custom:'+JSON.stringify(a.perms[Object.keys(a.perms).find(k=>lower(k)===email)]);
   return 'none';
 }
 const ROLE_RU={owner:'владелец',editor:'может вносить',viewer:'только просмотр'};
@@ -85,6 +86,7 @@ function api(){
       isOwner:async()=>role==='owner',
       canEdit:async()=>canWrite,
       can:async n=>n==='data.write'?canWrite:false,
+      sections:async()=>{if(canWrite)return {stock:true,orders:true,returns:true,plan:true,catalog:true};if(role.startsWith('custom:'))return JSON.parse(role.slice(7));return {};},
       me:async()=>({id:me.uid,name:me.displayName||'',email:me.email,isOwner:role==='owner',canEdit:canWrite}),
       profiles:async ids=>{
         const out={};
@@ -135,30 +137,46 @@ async function importSnap(snap,progress){
   return k;
 }
 /* ---- раздел «Доступ» (только владелец) ---- */
+const SEC=[['stock','Склад','ввод и журнал'],['orders','Заказы','заказы и их выдача'],['returns','Возвр.','возвраты и приёмка'],['plan','План',''],['catalog','Справ.','справочники']];
+function people(a){
+  const out=new Map();
+  for(const e of a.viewers||[])out.set(lower(e),{});
+  for(const [e,p] of Object.entries(a.perms||{}))out.set(lower(e),{...p});
+  for(const e of a.editors||[]){const all={};SEC.forEach(([k])=>all[k]=true);out.set(lower(e),all);}
+  return out;
+}
 function openAccess(){
   let d=$('sa-access');if(!d){d=document.createElement('div');d.id='sa-access';document.body.appendChild(d);}
-  const a=access||{};
-  const rows=[...(a.editors||[]).map(e=>[e,'editor']),...(a.viewers||[]).map(e=>[e,'viewer'])];
-  d.innerHTML='<div class="ag-card" style="max-width:520px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ к складу</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
-    '<p class="muted" style="margin:0 0 12px;font-size:13px">Владелец: <b>'+esc(a.owner)+'</b>. Человек входит своим Google-аккаунтом. «Может вносить» даёт право записывать и менять, «Только просмотр» даёт только смотреть. Проверку делает сама база.</p>'+
-    (rows.length?'<div class="tbl-wrap" style="margin-bottom:12px"><table><tbody>'+rows.map(([e,r])=>'<tr><td>'+esc(e)+'</td><td><select data-sa-role="'+esc(e)+'"><option value="editor"'+(r==='editor'?' selected':'')+'>может вносить</option><option value="viewer"'+(r==='viewer'?' selected':'')+'>только просмотр</option></select></td><td class="act"><button type="button" class="ghost del" data-sa-rm="'+esc(e)+'">Убрать</button></td></tr>').join('')+'</tbody></table></div>':'<p class="muted">Пока доступ есть только у вас.</p>')+
+  const a=access||{};const P=people(a);
+  const rows=[...P.entries()];
+  d.innerHTML='<div class="ag-card" style="max-width:640px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ к складу</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
+    '<p class="muted" style="margin:0 0 12px;font-size:13px">Владелец: <b>'+esc(a.owner)+'</b>. Человек входит своим Google-аккаунтом и видит всё. Галочка в разделе даёт право <b>вносить и менять</b> в нём, без галочек только просмотр. Изменения сохраняются сразу, проверку делает сама база.</p>'+
+    (rows.length?'<div class="tbl-wrap" style="margin-bottom:12px"><table class="sa-t"><thead><tr><th>Почта</th>'+SEC.map(([k,l,t])=>'<th title="'+esc(t)+'" style="text-align:center">'+esc(l)+'</th>').join('')+'<th></th></tr></thead><tbody>'+
+      rows.map(([e,p])=>'<tr><td style="white-space:normal;word-break:break-all">'+esc(e)+'<br><small class="muted">'+(SEC.every(([k])=>p[k])?'все разделы':SEC.some(([k])=>p[k])?'выборочно':'только просмотр')+'</small></td>'+
+        SEC.map(([k])=>'<td style="text-align:center"><input type="checkbox" data-sa-p="'+esc(e)+'" data-k="'+k+'"'+(p[k]?' checked':'')+' style="width:20px;height:20px"></td>').join('')+
+        '<td class="act"><button type="button" class="ghost del" data-sa-rm="'+esc(e)+'">Убрать</button></td></tr>').join('')+'</tbody></table></div>':'<p class="muted">Пока доступ есть только у вас.</p>')+
     '<div class="filters" style="margin:0"><label class="fld wide"><span>Почта Google</span><input type="text" id="sa-email" inputmode="email" placeholder="name@gmail.com"></label>'+
-    '<label class="fld"><span>Права</span><select id="sa-role"><option value="editor">может вносить</option><option value="viewer">только просмотр</option></select></label>'+
-    '<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="sa-add" style="padding:8px 16px">Добавить</button></label></div><p class="err" id="sa-err" hidden></p>'+
+    '<label class="fld"><span>Права</span><select id="sa-role"><option value="viewer">только просмотр</option><option value="editor">все разделы</option><option value="orders">только заказы</option></select></label>'+
+    '<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="sa-add" style="padding:8px 16px">Добавить</button></label></div><p class="muted" style="font-size:12px;margin:6px 0 0">После добавления галочки в таблице можно поменять.</p><p class="err" id="sa-err" hidden></p>'+
     '<h3 style="margin:18px 0 6px">Перенос данных</h3><p class="muted" style="margin:0 0 8px;font-size:13px">Загрузите файл копии склада (.json): заказы, возвраты, журнал, справочники и план запишутся в эту базу. Записи с теми же номерами заменятся, остальное не трогается.</p>'+
     '<input type="file" id="sa-file" accept=".json,application/json"><p class="hint" id="sa-imp"></p></div>';
   d.hidden=false;
   const err=m=>{const e=$('sa-err');e.textContent=m||'';e.hidden=!m;};
-  const save=async(editors,viewers)=>{try{await ACC.update({editors,viewers});access={...access,editors,viewers};openAccess();}catch(e){err('Не удалось сохранить: '+(e.code||e.message));}};
-  const lists=()=>({ed:(access.editors||[]).map(lower),vw:(access.viewers||[]).map(lower)});
+  const save=async P2=>{
+    const editors=[],viewers=[],perms={};
+    for(const [e,p] of P2){const on=SEC.filter(([k])=>p[k]).map(([k])=>k);
+      if(on.length===SEC.length)editors.push(e);else if(!on.length)viewers.push(e);else{perms[e]={};on.forEach(k=>perms[e][k]=true);}}
+    try{await ACC.update({editors,viewers,perms});access={...access,editors,viewers,perms};openAccess();}catch(x){err('Не удалось сохранить: '+(x.code||x.message));}
+  };
   $('sa-x').onclick=()=>{d.hidden=true;};
   $('sa-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;const h=$('sa-imp');
     try{const snap=JSON.parse(await f.text());h.textContent='Переносим…';const n=await importSnap(snap,k=>h.textContent='Переносим… записано '+k);h.textContent='Готово: перенесено '+n+' записей. Страница обновится.';setTimeout(()=>location.reload(),1500);}
     catch(x){h.textContent='Не получилось: '+(x.message||x.code||x);}};
   $('sa-add').onclick=()=>{const e=lower($('sa-email').value);if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){err('Впишите почту полностью, например name@gmail.com');return;}
-    if(e===lower(access.owner)){err('Это ваш адрес, у вас и так все права.');return;}
-    let {ed,vw}=lists();ed=ed.filter(x=>x!==e);vw=vw.filter(x=>x!==e);($('sa-role').value==='editor'?ed:vw).push(e);save(ed,vw);};
-  d.querySelectorAll('[data-sa-rm]').forEach(b=>b.onclick=()=>{if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Точно?';return;}const e=b.dataset.saRm;const {ed,vw}=lists();save(ed.filter(x=>x!==e),vw.filter(x=>x!==e));});
-  d.querySelectorAll('[data-sa-role]').forEach(s=>s.onchange=()=>{const e=s.dataset.saRole;let {ed,vw}=lists();ed=ed.filter(x=>x!==e);vw=vw.filter(x=>x!==e);(s.value==='editor'?ed:vw).push(e);save(ed,vw);});
+    if(e===lower(a.owner)){err('Это ваш адрес, у вас и так все права.');return;}
+    const r=$('sa-role').value;const p={};if(r==='editor')SEC.forEach(([k])=>p[k]=true);if(r==='orders')p.orders=true;
+    const P2=people(access);P2.set(e,p);save(P2);};
+  d.querySelectorAll('[data-sa-rm]').forEach(b=>b.onclick=()=>{if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Точно?';return;}const P2=people(access);P2.delete(b.dataset.saRm);save(P2);});
+  d.querySelectorAll('[data-sa-p]').forEach(c=>c.onchange=()=>{const P2=people(access);const p={...(P2.get(c.dataset.saP)||{})};if(c.checked)p[c.dataset.k]=true;else delete p[c.dataset.k];P2.set(c.dataset.saP,p);save(P2);});
 }
 })();

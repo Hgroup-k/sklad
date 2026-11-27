@@ -17,6 +17,7 @@
 .ag-card{background:var(--surface,#fff);border:1px solid var(--line,#d9e0e1);border-radius:10px;padding:24px;max-width:420px;width:100%;text-align:center;display:grid;gap:12px;font-family:Inter,system-ui,sans-serif}
 .ag-card p{margin:0}
 #sa-bar{display:inline-flex;gap:6px;align-items:center;margin-left:8px}
+.sa-t th,.sa-t td{padding:6px 5px!important}
 .sa-b{font-size:12px!important;padding:4px 10px!important}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -276,7 +277,7 @@ const OPS=[
   {k:'move',label:'Перемещение',btn:'Перемещение',sign:0,g:'move'}
 ];
 const OPM=Object.fromEntries(OPS.map(o=>[o.k,o]));
-const WH=['Склад 1','Склад 2','Производство'];
+const WH=['Склад 1','Склад 2','Склад карнизов','Склад колера и затирок','Производство'];
 const SORTS=['Первый','Второй'];
 const STATES=['Новая технология','Старая технология','Эксклюзив','Отложено под заказ','Отложено (эксклюзив)'];
 const RESERVED=new Set(['Отложено под заказ','Отложено (эксклюзив)']);
@@ -309,7 +310,7 @@ const ALL=['','все'];
 /* ---------- state ---------- */
 const S={
   catalog:null, plan:null, orders:[], returns:[], lists:null, ordersLoaded:false, returnsLoaded:false, monthOps:{}, watched:new Set(), pending:new Set(), firstLoad:true,
-  me:null, readOnly:false, names:{}, view:'input', edit:null, err:null,
+  me:null, readOnly:false, can:{stock:true,orders:true,returns:true,plan:true,catalog:true,full:true}, names:{}, view:'input', edit:null, err:null,
   f:{
     journal:{from:monthStart(),to:todayStr(),op:'',c:'',wh:'',q:''},
     stock:{date:todayStr(),c:'',wh:'',sort:'',st:'',sb:'',by:'wh',zero:false,q:''},
@@ -322,6 +323,8 @@ const S={
 const form={op:ls.get('op','prod'),c:ls.get('c',''),n:'',s:'',q:'',wh:ls.get('wh','Склад 1'),to:'',sort:'',st:'',tost:'',sb:ls.get('sb',''),amo:'',note:'',d:todayStr()};
 let db=null,user=null,dl=null;
 
+const SECS={stock:'Склад (ввод и журнал)',orders:'Заказы',returns:'Возвраты',plan:'План',catalog:'Справочники'};
+function RO(sec){return S.readOnly||!S.can[sec];}
 /* ---------- catalog accessors ---------- */
 function cats(){return S.catalog?(S.catalog.order||Object.keys(S.catalog.cats||{})):[];}
 function cat(c){return (S.catalog&&S.catalog.cats&&S.catalog.cats[c])||{unit:'шт.',names:[],sizes:[]};}
@@ -371,7 +374,7 @@ function chipRow(el,values,cur,labels,disabled){
   el.innerHTML=values.map((v,i)=>'<button type="button" class="chip" data-v="'+esc(v)+'" aria-pressed="'+(v===cur)+'"'+(disabled?' disabled':'')+'>'+esc(labels?labels[i]:(v||'—'))+'</button>').join('');
 }
 function renderForm(){
-  const ro=S.readOnly;
+  const ro=RO('stock');
   $('f-op').innerHTML=OPS.map((o,i)=>'<button type="button" class="chip'+(i>2?' minor':'')+'" data-v="'+o.k+'" aria-pressed="'+(o.k===form.op)+'"'+(ro?' disabled':'')+'>'+o.btn+'</button>').join('');
   const cs=cats();
   if(form.c&&!cs.includes(form.c))form.c='';
@@ -455,7 +458,7 @@ function validate(){
 let saving=false;
 async function saveForm(ev){
   ev.preventDefault();
-  if(S.readOnly||saving)return;
+  if(RO('stock')||saving)return;
   readForm();
   const err=validate();formErr(err);if(err)return;
   if(!db){formErr('Нет связи с базой. Обновите страницу.');return;}
@@ -486,7 +489,7 @@ async function saveForm(ev){
     $('f-q').focus();
   }catch(e){
     formErr(e&&e.code==='quota_exceeded'?'База заполнена: место закончилось. Напишите Claude, чтобы освободить место.':e&&e.code==='invalid_argument'?'Не удалось сохранить: похоже, у вас нет прав на запись.':'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.');
-  }finally{saving=false;$('f-save').disabled=S.readOnly;}
+  }finally{saving=false;$('f-save').disabled=RO('stock');}
 }
 function startEdit(o){
   S.edit={id:o.id,m:o.m,by:o.by,at:o.at};
@@ -551,7 +554,7 @@ function renderRecent(){
 function findOp(key){const [m,id]=key.split('/');return (S.monthOps[m]||[]).find(o=>o.id===id);}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-edit]');
-  if(b){const o=findOp(b.dataset.edit);if(o&&!S.readOnly)startEdit(o);else if(o&&S.readOnly)toast('Только просмотр');}
+  if(b){const o=findOp(b.dataset.edit);if(o&&!RO('stock'))startEdit(o);else if(o&&RO('stock'))toast('Только просмотр');}
 });
 
 /* ---------- views ---------- */
@@ -605,7 +608,7 @@ VIEWS.journal={
     resolveNames(rows.map(o=>o.by));
     if(!rows.length){$('journal-b').innerHTML='<div class="panel empty">'+(S.pending.size?'Загружаем…':'За выбранный период записей нет.')+'</div>';return;}
     const shown=rows.slice(0,600);
-    let h='<div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Операция</th><th>Наименование</th><th>Размер</th><th class="num">Кол-во</th><th>Склад</th><th>Сорт</th><th>Состояние</th><th>С/Б</th><th>№ АМО / клиент</th><th>Примечание</th><th>Внёс</th>'+(S.readOnly?'':'<th></th>')+'</tr></thead><tbody>';
+    let h='<div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Операция</th><th>Наименование</th><th>Размер</th><th class="num">Кол-во</th><th>Склад</th><th>Сорт</th><th>Состояние</th><th>С/Б</th><th>№ АМО / клиент</th><th>Примечание</th><th>Внёс</th>'+(RO('stock')?'':'<th></th>')+'</tr></thead><tbody>';
     for(const o of shown){
       const d=OPM[o.op]||{label:o.op,sign:1};
       const sign=o.op==='move'?'':d.sign<0?'−':'';
@@ -613,7 +616,7 @@ VIEWS.journal={
         '<td class="num">'+sign+fmt(o.q)+' <span class="muted">'+esc(unit(o.c))+'</span></td>'+
         '<td>'+esc(o.wh)+(o.op==='move'?' → '+esc(o.to):'')+'</td><td>'+esc(o.sort)+'</td><td>'+esc(o.st)+(o.tost?' → '+esc(o.tost):'')+'</td><td>'+esc(o.sb)+'</td>'+
         '<td>'+esc(o.amo)+'</td><td class="wrap">'+esc(o.note)+'</td><td class="muted">'+esc(S.names[o.by]||'')+'</td>'+
-        (S.readOnly?'':'<td class="act"><button type="button" class="ghost" data-edit="'+esc(o.m+'/'+o.id)+'">Изменить</button> <button type="button" class="ghost del" data-del="'+esc(o.m+'/'+o.id)+'">Удалить</button></td>')+'</tr>';
+        (RO('stock')?'':'<td class="act"><button type="button" class="ghost" data-edit="'+esc(o.m+'/'+o.id)+'">Изменить</button> <button type="button" class="ghost del" data-del="'+esc(o.m+'/'+o.id)+'">Удалить</button></td>')+'</tr>';
     }
     h+='</tbody></table></div><p class="note">Записей: '+rows.length+(rows.length>shown.length?', показаны первые '+shown.length+'. Сузьте период или фильтр.':'')+'</p>';
     $('journal-b').innerHTML=h;
@@ -827,7 +830,7 @@ VIEWS.plan={
     if(f.c)list=list.filter(r=>r.c===f.c);
     if(f.only)list=list.filter(r=>r.todo>0);
     let h='';
-    if(!S.readOnly){
+    if(!RO('plan')){
       const ac=planAdd.c&&cats().includes(planAdd.c)?planAdd.c:'';
       h+='<div class="panel" style="margin-bottom:14px"><div class="filters" id="plan-add" style="margin:0">'+
         selField('pa-c','Категория',[['','—'],...cats()],ac)+selField('pa-n','Наименование',[['','—'],...(ac?cat(ac).names:[])],planAdd.n)+
@@ -838,18 +841,18 @@ VIEWS.plan={
     if(!list.length)h+='<div class="panel empty">'+(rows.length?'По этим условиям строк нет.':'План пока пустой.')+'</div>';
     else{
       S.planPrint=[];
-      h+=planPrintBar()+'<div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" data-psel-all aria-label="Выбрать все"></th><th>Наименование</th><th>Размер</th><th>Категория</th><th class="num">План</th><th class="num">Под заказы</th><th class="num">Остаток сейчас</th><th class="num">Сделать</th><th>Ед.</th>'+(S.readOnly?'':'<th></th>')+'</tr></thead><tbody>';
+      h+=planPrintBar()+'<div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" data-psel-all aria-label="Выбрать все"></th><th>Наименование</th><th>Размер</th><th>Категория</th><th class="num">План</th><th class="num">Под заказы</th><th class="num">Остаток сейчас</th><th class="num">Сделать</th><th>Ед.</th>'+(RO('plan')?'':'<th></th>')+'</tr></thead><tbody>';
       for(const r of list){
         const auto=r.i<0;const pk='a|'+r.c+'|'+r.n+'|'+(r.s||'');
         S.planPrint.push({key:pk,it:{c:r.c,n:r.n,s:r.s||'',ex:r.ex},make:r.todo,for:r.nos&&r.nos.length?'заказы № '+r.nos.join(', '):'на склад'});
         h+='<tr>'+'<td><input type="checkbox" data-psel="'+esc(pk)+'"'+(PSEL.has(pk)?' checked':'')+' aria-label="Выбрать для печати"></td>'+'<td>'+esc(r.n)+(r.ex?EXB:'')+'</td><td>'+esc(r.s)+'</td><td class="muted">'+esc(r.c)+'</td>'+
-          (S.readOnly||auto?numCell(r.q):'<td class="num"><input class="plan-q" data-pi="'+r.i+'" inputmode="decimal" value="'+esc(String(r.q).replace('.',','))+'"></td>')+
+          (RO('plan')||auto?numCell(r.q):'<td class="num"><input class="plan-q" data-pi="'+r.i+'" inputmode="decimal" value="'+esc(String(r.q).replace('.',','))+'"></td>')+
           (r.oq?'<td class="num">'+fmt(r.oq)+'<br><small class="muted">№ '+r.nos.map(esc).join(', ')+'</small></td>':numCell(0))+
           numCell(r.b)+numCell(r.todo,'b')+'<td class="muted">'+esc(unit(r.c))+'</td>'+
-          (S.readOnly?'':auto?'<td class="muted" style="font-size:12px">из заказов</td>':'<td class="act"><button type="button" class="ghost del" data-pdel="'+r.i+'">Убрать</button></td>')+'</tr>';
+          (RO('plan')?'':auto?'<td class="muted" style="font-size:12px">из заказов</td>':'<td class="act"><button type="button" class="ghost del" data-pdel="'+r.i+'">Убрать</button></td>')+'</tr>';
       }
       const tq=list.reduce((a,r)=>a+(Number(r.q)||0),0),tt=list.reduce((a,r)=>a+r.todo,0);
-      if(f.c)h+='<tr class="tot"><td colspan="4">Итого</td>'+numCell(tq)+numCell(list.reduce((a,r)=>a+(r.oq||0),0))+numCell(list.reduce((a,r)=>a+r.b,0))+numCell(tt)+'<td class="muted">'+esc(unit(f.c))+'</td>'+(S.readOnly?'':'<td></td>')+'</tr>';
+      if(f.c)h+='<tr class="tot"><td colspan="4">Итого</td>'+numCell(tq)+numCell(list.reduce((a,r)=>a+(r.oq||0),0))+numCell(list.reduce((a,r)=>a+r.b,0))+numCell(tt)+'<td class="muted">'+esc(unit(f.c))+'</td>'+(RO('plan')?'':'<td></td>')+'</tr>';
       h+='</tbody></table></div><p class="note">«Сделать» = план + ещё не выданное по заказам − остаток по всем складам (не меньше нуля). Строки «из заказов» добавляются сами, когда товара по заказу не хватает, и уходят, когда заказ выдан или отменён. План меняется прямо в таблице и сохраняется для всех.</p>';
     }
     const active=document.activeElement&&document.activeElement.classList.contains('plan-q')?document.activeElement.dataset.pi:null;
@@ -924,7 +927,7 @@ function planByOrders(bal,f){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-plan-order]');if(!b)return;go('orders');openOrder(b.dataset.planOrder);});
 async function savePlan(rows){
-  if(!db||S.readOnly)return false;
+  if(!db||RO('plan'))return false;
   try{await db.doc('config/plan').set({rows});return true;}catch(e){toast('Не удалось сохранить план');return false;}
 }
 document.addEventListener('change',async e=>{
@@ -950,8 +953,8 @@ document.addEventListener('click',async e=>{
 VIEWS.catalog={
   controls(){
     if(!S.catalog){$('catalog-b').innerHTML='<div class="panel empty">Справочники ещё не загружены.</div>';return;}
-    const ro=S.readOnly?' disabled':'';
-    let h='<div class="bar"><p class="muted" style="margin:0">Одна строка = одно наименование или один размер. Удаление из списка не трогает уже сделанные записи.</p>'+(S.readOnly?'':'<button type="button" class="primary" id="cat-save">Сохранить справочники</button>')+'</div><div class="cat-grid">';
+    const ro=RO('catalog')?' disabled':'';
+    let h='<div class="bar"><p class="muted" style="margin:0">Одна строка = одно наименование или один размер. Удаление из списка не трогает уже сделанные записи.</p>'+(RO('catalog')?'':'<button type="button" class="primary" id="cat-save">Сохранить справочники</button>')+'</div><div class="cat-grid">';
     for(const c of cats()){
       const k=cat(c);
       h+='<div class="panel cat-card"><div class="panel-head" style="margin:0"><h3>'+esc(c)+'</h3><label class="fld" style="grid-template-columns:auto auto;align-items:center"><span>Ед.</span><select data-cu="'+esc(c)+'"'+ro+'>'+['м²','шт.','кг','м'].map(u=>opt(u,u,k.unit)).join('')+'</select></label></div>'+
@@ -1131,7 +1134,7 @@ VIEWS.orders={
   controls(){
     $('orders-f').innerHTML='<label class="fld wide"><span>Поиск: №, объект, фирма, товар</span><input type="text" id="o-q" value="'+esc(OV.q)+'"></label>'+
       '<label class="fld"><span>Показать</span><select id="o-flt">'+[['all','Все по разделам'],['open','Не выданные'],['hot','Горит и просроченные'],['new','Новые'],['work','В работе'],['ready','Готовы к выдаче'],['done','Выданные'],['cancel','Отменённые']].map(x=>opt(x[0],x[1],OV.flt)).join('')+'</select></label>'+
-      (S.readOnly?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="o-new">Новый заказ</button></label>');
+      (RO('orders')?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="o-new">Новый заказ</button></label>');
     $('o-q').oninput=e=>{OV.q=e.target.value;this.list();};
     $('o-flt').onchange=e=>{OV.flt=e.target.value;this.list();};
     if($('o-new'))$('o-new').onclick=()=>newOrder();
@@ -1152,7 +1155,7 @@ VIEWS.orders={
       return [o.no,o.obj,o.firm,o.note,...(o.items||[]).map(i=>i.n)].some(x=>String(x||'').toLowerCase().includes(q));
     }).sort((a,b)=>(b.d||'').localeCompare(a.d||'')||(parseInt(b.no,10)||0)-(parseInt(a.no,10)||0));
     const el=$('orders-list');
-    if(!list.length){el.innerHTML='<div class="empty">'+(S.ordersLoaded?(S.orders.length?'По этим условиям заказов нет.':'Заказов пока нет.'+(S.readOnly?'':' Нажмите «Новый заказ».')):'Загружаем…')+'</div>';return;}
+    if(!list.length){el.innerHTML='<div class="empty">'+(S.ordersLoaded?(S.orders.length?'По этим условиям заказов нет.':'Заказов пока нет.'+(RO('orders')?'':' Нажмите «Новый заказ».')):'Загружаем…')+'</div>';return;}
     const SEC=[['new','Новые'],['work','В работе'],['ready','Готовы, ждут клиента'],['done','Выданные'],['cancel','Отменённые']];
     const rk=o=>{const d=dueState(o);return d?d.r:(o.urgent?2:3);};
     const byDue=(a,b)=>rk(a)-rk(b)||(b.urgent?1:0)-(a.urgent?1:0)||(a.due||'9').localeCompare(b.due||'9')||(parseInt(a.no,10)||0)-(parseInt(b.no,10)||0);
@@ -1170,7 +1173,7 @@ VIEWS.orders={
   }
 };
 function curOrder(){return S.orders.find(o=>o.id===OV.sel)||null;}
-function renderOrderEmpty(){$('orders-d').innerHTML='<div class="panel empty">Выберите заказ слева'+(S.readOnly?'.':' или нажмите «Новый заказ».')+'</div>';}
+function renderOrderEmpty(){$('orders-d').innerHTML='<div class="panel empty">Выберите заказ слева'+(RO('orders')?'.':' или нажмите «Новый заказ».')+'</div>';}
 function openOrder(id){if(id!==OV.sel){OV.justCreated=null;OV.issuedNow=null;}OV.sel=id;OV.mode='view';VIEWS.orders.list();renderOrderDetail();if(window.innerWidth<900)$('orders-d').scrollIntoView({behavior:'smooth',block:'start'});}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-order]');if(b)openOrder(b.dataset.order);});
 
@@ -1216,7 +1219,7 @@ function renderOrderEditor(){
 function oErr(m){const e=$('o-err');if(!e)return;e.textContent=m||'';e.hidden=!m;}
 let oSaving=false;
 async function saveOrder(ev){
-  ev.preventDefault();if(oSaving||S.readOnly)return;
+  ev.preventDefault();if(oSaving||RO('orders'))return;
   const d=OV.draft;readHead($('o-form'),d);
   const pe=pendingPick(d);if(pe){oErr(pe);return;}
   const items=d.items;
@@ -1253,7 +1256,7 @@ async function saveOrder(ev){
 }
 function renderOrderDetail(){
   const o=curOrder();if(!o){if(OV.pending===OV.sel){$('orders-d').innerHTML='<div class="panel empty">Сохраняем…</div>';return;}OV.mode='list';renderOrderEmpty();return;}
-  const [st,cls]=orderStatus(o);const ro=S.readOnly;
+  const [st,cls]=orderStatus(o);const ro=RO('orders');
   const left=(o.items||[]).some((it,i)=>issuedQ(o,i)<(Number(it.q)||0)-1e-9);
   const info=[['Дата',fmtDate(o.d)],['Выдать до',fmtDate(o.due)],o.work&&o.work.d?['В работе с',fmtDate(o.work.d)]:null,o.ready?['Готов с',fmtDate(o.ready.d)]:null,['Оформил',o.by],['Оплата',o.pay],['Способ выдачи',o.recv+(o.whole?', '+o.whole.toLowerCase():'')],o.recv==='Доставка'?['Адрес',o.addr]:null,['Накладная',o.inv],o.firm?['Фирма',o.firm]:null,o.note?['Примечание',o.note]:null].filter(Boolean);
   let h='<div class="panel"><div class="panel-head"><div><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj)+(o.urgent?URG:'')+'</h2></div><span class="bdg"><span class="badge '+cls+'">'+esc(st)+'</span>'+dueBadge(o)+'</span></div>'+
@@ -1270,7 +1273,7 @@ function renderOrderDetail(){
       (!ro&&!o.cancel&&left?'<button type="button" class="'+(o.ready||o.stage!=='work'?'ghost':'primary')+'" id="o-ready">'+(o.ready?'Снять «готов»':'Отметить: готов')+'</button>':'')+
       (!ro&&!o.cancel&&left&&o.stage==='work'&&!o.ready?'<button type="button" class="ghost" id="o-unwork">Вернуть в новые</button>':'')+
       (!ro&&!o.cancel&&left?'<button type="button" class="ghost" id="o-urg">'+(o.urgent?'Снять «срочно»':'Пометить срочным')+'</button>':'')+
-      (!ro&&(o.iss||[]).length?'<button type="button" class="ghost" id="o-ret">Оформить возврат</button>':'')+
+      (!RO('returns')&&(o.iss||[]).length?'<button type="button" class="ghost" id="o-ret">Оформить возврат</button>':'')+
       (!ro&&!(o.iss||[]).length?'<button type="button" class="ghost del" id="o-del">'+(o.cancel?'Удалить':'Отменить заказ')+'</button>':'')+
       (!ro&&o.cancel?'<button type="button" class="ghost" id="o-uncancel">Вернуть в работу</button>':'')+
     '</div>';
@@ -1382,12 +1385,12 @@ VIEWS.returns={
   controls(){
     $('returns-f').innerHTML='<label class="fld wide"><span>Поиск: № заказа, объект, товар</span><input type="text" id="r-q" value="'+esc(RV.q)+'"></label>'+
       '<label class="fld"><span>Показать</span><select id="r-flt">'+[['open','Ждут приёмки'],['all','Все']].map(x=>opt(x[0],x[1],RV.flt)).join('')+'</select></label>'+
-      (S.readOnly?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="r-new">Новый возврат</button></label>');
+      (RO('returns')?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="r-new">Новый возврат</button></label>');
     $('r-q').oninput=e=>{RV.q=e.target.value;this.list();};
     $('r-flt').onchange=e=>{RV.flt=e.target.value;this.list();};
     if($('r-new'))$('r-new').onclick=()=>newReturn();
   },
-  update(){this.list();if(RV.mode==='view')renderReturnDetail();if(RV.mode==='list')$('returns-d').innerHTML='<div class="panel empty">Выберите возврат слева'+(S.readOnly?'.':' или нажмите «Новый возврат». Возврат удобно оформлять прямо из заказа.')+'</div>';},
+  update(){this.list();if(RV.mode==='view')renderReturnDetail();if(RV.mode==='list')$('returns-d').innerHTML='<div class="panel empty">Выберите возврат слева'+(RO('returns')?'.':' или нажмите «Новый возврат». Возврат удобно оформлять прямо из заказа.')+'</div>';},
   list(){
     const q=RV.q.toLowerCase();
     const list=S.returns.filter(r=>(RV.flt==='all'||!r.acc)&&(!q||[r.no,r.obj,r.note,...(r.items||[]).map(i=>i.n)].some(x=>String(x||'').toLowerCase().includes(q)))).sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -1433,7 +1436,7 @@ function renderReturnEditor(){
 }
 let rSaving=false;
 async function saveReturn(ev){
-  ev.preventDefault();if(rSaving||S.readOnly)return;
+  ev.preventDefault();if(rSaving||RO('returns'))return;
   const d=RV.draft;readHead($('r-form'),d);
   const errEl=$('r-err');const err=m=>{errEl.textContent=m;errEl.hidden=!m;};
   const pe=pendingPick(d);if(pe){err(pe);return;}
@@ -1456,7 +1459,7 @@ async function saveReturn(ev){
 }
 function renderReturnDetail(){
   const r=curRet();if(!r){if(RV.pending===RV.sel){$('returns-d').innerHTML='<div class="panel empty">Сохраняем…</div>';return;}RV.mode='list';VIEWS.returns.update();return;}
-  const [st,cls]=retStatus(r);const ro=S.readOnly;
+  const [st,cls]=retStatus(r);const ro=RO('returns');
   const info=[['Дата',fmtDate(r.d)],['Заказ №',r.no],['Оформил',r.by],['Состояние',r.state],['Причина',r.reason],r.note?['Примечание',r.note]:null,r.acc?['Принято',fmtDate(r.acc.d)+', '+r.acc.wh]:null].filter(Boolean);
   let h='<div class="panel"><div class="panel-head"><h2>Возврат'+(r.no?' по заказу №'+esc(r.no):'')+' · '+esc(r.obj)+'</h2><span class="badge '+cls+'">'+esc(st)+'</span></div>'+
     '<dl class="info">'+info.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v||'—')+'</dd>').join('')+'</dl>'+
@@ -1654,11 +1657,11 @@ async function backupNow(manual){
 function fmtStamp(iso){const d=new Date(iso);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());}
 function backupPanel(){
   const list=(S.bk&&S.bk.list)||[];
-  let h='<div class="panel" style="margin-top:14px"><div class="panel-head" style="margin-bottom:8px"><h3>Резервные копии</h3>'+(S.readOnly?'':'<button type="button" class="ghost" id="bk-now">Сделать копию сейчас</button>')+'</div>'+
+  let h='<div class="panel" style="margin-top:14px"><div class="panel-head" style="margin-bottom:8px"><h3>Резервные копии</h3>'+(!S.can.full?'':'<button type="button" class="ghost" id="bk-now">Сделать копию сейчас</button>')+'</div>'+
     '<p class="note" style="margin:0 0 10px">Копия всех данных (заказы, возвраты, журнал, справочники, план) делается сама через несколько секунд после каждого изменения. Хранятся 5 последних: новая заменяет самую старую. Любую копию можно скачать файлом на компьютер или восстановить.</p>';
   if(!list.length)h+='<div class="muted">Копий пока нет. Первая появится после ближайшего изменения.</div>';
   else{h+='<div class="tbl-wrap"><table><thead><tr><th>Когда</th><th class="num">Заказов</th><th class="num">Возвратов</th><th class="num">Записей журнала</th><th></th></tr></thead><tbody>';
-    list.forEach((b,i)=>{h+='<tr><td>'+fmtStamp(b.at)+(i===0?' <span class="badge ready" style="font-size:11px">последняя</span>':'')+'</td><td class="num">'+b.orders+'</td><td class="num">'+b.returns+'</td><td class="num">'+b.ops+'</td><td class="act"><button type="button" class="ghost" data-bkdl="'+esc(b.slot)+'">Скачать</button>'+(S.readOnly?'':' <button type="button" class="ghost del" data-bkrs="'+esc(b.slot)+'">Восстановить</button>')+'</td></tr>';});
+    list.forEach((b,i)=>{h+='<tr><td>'+fmtStamp(b.at)+(i===0?' <span class="badge ready" style="font-size:11px">последняя</span>':'')+'</td><td class="num">'+b.orders+'</td><td class="num">'+b.returns+'</td><td class="num">'+b.ops+'</td><td class="act"><button type="button" class="ghost" data-bkdl="'+esc(b.slot)+'">Скачать</button>'+(!S.can.full?'':' <button type="button" class="ghost del" data-bkrs="'+esc(b.slot)+'">Восстановить</button>')+'</td></tr>';});
     h+='</tbody></table></div>';}
   return h+'</div>';
 }
@@ -1696,8 +1699,8 @@ async function restoreBackup(slot){
   if(snap.lists)await put('config/lists',snap.lists);
 }
 function staffPanel(){
-  const ro=S.readOnly?' disabled':'';
-  return '<div class="panel cat-card" style="margin-top:14px;max-width:420px"><h3>Оформители заказов и возвратов</h3><label class="fld"><span>По одному имени в строке</span><textarea id="staff-ta" style="min-height:100px"'+ro+'>'+esc(staff().join('\n'))+'</textarea></label>'+(S.readOnly?'':'<div><button type="button" class="ghost" id="staff-save">Сохранить список</button></div>')+'</div>';
+  const ro=RO('catalog')?' disabled':'';
+  return '<div class="panel cat-card" style="margin-top:14px;max-width:420px"><h3>Оформители заказов и возвратов</h3><label class="fld"><span>По одному имени в строке</span><textarea id="staff-ta" style="min-height:100px"'+ro+'>'+esc(staff().join('\n'))+'</textarea></label>'+(RO('catalog')?'':'<div><button type="button" class="ghost" id="staff-save">Сохранить список</button></div>')+'</div>';
 }
 function wireStaff(){
   const b=$('staff-save');if(!b)return;
@@ -1727,7 +1730,9 @@ function render(){
   if(rq)return;
   rq=requestAnimationFrame(()=>{
     rq=0;
-    $('ro').hidden=!S.readOnly;
+    {const part=!S.readOnly&&!S.can.full;const ok=Object.keys(SECS).filter(k=>S.can[k]).map(k=>SECS[k]);
+     $('ro').hidden=!S.readOnly&&!part;
+     $('ro').textContent=S.readOnly?'Режим просмотра: вносить записи и изменения могут только те, кому владелец дал права. Остатки и отчёты обновляются сами.':'Вам можно вносить изменения в разделах: '+ok.join(', ')+'. Остальное только для просмотра.';}
     renderRecent();updateHint();
     const v=VIEWS[S.view];if(v)v.update();
     setSync();
@@ -1808,7 +1813,14 @@ async function init(){
   if(user){
     try{S.me=await user.id();}catch(e){}
     /* писать могут владелец и те, кому он дал роль «Редактор» (правило базы write:admin) */
-    try{const own=await user.isOwner();const ed=await user.canEdit();if(own!==true&&ed!==true){S.readOnly=true;renderForm();}}catch(e){S.readOnly=true;renderForm();}
+    try{const own=await user.isOwner();const ed=await user.canEdit();
+      if(own!==true&&ed!==true){
+        let secs=null;try{if(user.sections)secs=await user.sections();}catch(e){}
+        S.can={stock:false,orders:false,returns:false,plan:false,catalog:false,full:false};
+        if(secs)for(const k in SECS)S.can[k]=!!secs[k];
+        S.readOnly=!Object.keys(SECS).some(k=>S.can[k]);
+        renderForm();const v=VIEWS[S.view];if(v&&v.controls)v.controls();
+      }}catch(e){S.readOnly=true;renderForm();}
   }else{S.readOnly=true;renderForm();}
   setupDesktop();
   subscribe();

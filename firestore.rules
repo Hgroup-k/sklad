@@ -5,25 +5,53 @@ service cloud.firestore {
     function signedIn() { return request.auth != null && request.auth.token.email != null; }
     function email() { return request.auth.token.email.lower(); }
     function isOwner() { return signedIn() && email() == acc().owner; }
-    function canWrite() { return signedIn() && (isOwner() || email() in acc().editors); }
-    function canRead() { return signedIn() && (canWrite() || email() in acc().viewers); }
+    function isFull() { return signedIn() && (isOwner() || email() in acc().editors); }
+    function perms() { return acc().get('perms', {}); }
+    function sec(s) { return isFull() || (signedIn() && email() in perms() && perms()[email()].get(s, false) == true); }
+    function anyWrite() { return isFull() || (signedIn() && email() in perms()); }
+    function canRead() { return anyWrite() || (signedIn() && email() in acc().viewers); }
 
-    // список доступа: читают все вошедшие, меняет только владелец;
-    // создать можно один раз, при первом входе владельца
     match /access/main {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.owner == email();
       allow update, delete: if isOwner();
     }
-    // имя человека для подписи «кто внёс»: каждый пишет только своё
     match /people/{uid} {
       allow read: if canRead();
       allow write: if signedIn() && request.auth.uid == uid;
     }
-    // все данные склада
-    match /{coll}/{rest=**} {
-      allow read: if coll != 'access' && coll != 'people' && canRead();
-      allow write: if coll != 'access' && coll != 'people' && canWrite();
+    match /orders/{id} {
+      allow read: if canRead();
+      allow write: if sec('orders');
+    }
+    match /returns/{id} {
+      allow read: if canRead();
+      allow write: if sec('returns');
+    }
+    match /months/{m}/ops/{id} {
+      allow read: if canRead();
+      allow create, update: if sec('stock')
+        || (sec('orders') && request.resource.data.get('order', '') != '')
+        || (sec('returns') && request.resource.data.get('ret', '') != '');
+      allow delete: if sec('stock')
+        || (sec('orders') && resource.data.get('order', '') != '')
+        || (sec('returns') && resource.data.get('ret', '') != '');
+    }
+    match /config/plan {
+      allow read: if canRead();
+      allow write: if sec('plan');
+    }
+    match /config/{doc} {
+      allow read: if canRead();
+      allow write: if (doc == 'catalog' || doc == 'lists') && sec('catalog');
+    }
+    match /config/backups {
+      allow read: if canRead();
+      allow write: if anyWrite();
+    }
+    match /backups/{id} {
+      allow read: if canRead();
+      allow write: if anyWrite();
     }
   }
 }
