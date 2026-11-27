@@ -288,7 +288,7 @@ async function importSnap(snap,progress){
   return k;
 }
 /* ---- раздел «Доступ» (только владелец) ---- */
-const HINT={chatmod:'«Редактирует» = может удалять любые сообщения без следа и менять свои без пометки',chatall:'автоматически состоит в общем чате',chatord:'вопросы по заказам',input:'приход, отгрузка, переучёт, перемещения',orders:'заказы и выдача со склада',returns:'возвраты и приёмка',journal:'все записи, правка и удаление',porders:'взять в работу, отметить готов',catalog:'товары, размеры, оформители'};
+const HINT={tasks:'«Просмотр» — видит все задачи; «Редактирует» — ещё и ставит задачи другим. Свои задачи каждый видит всегда',chatmod:'«Редактирует» = может удалять любые сообщения без следа и менять свои без пометки',chatall:'автоматически состоит в общем чате',chatord:'вопросы по заказам',input:'приход, отгрузка, переучёт, перемещения',orders:'заказы и выдача со склада',returns:'возвраты и приёмка',journal:'все записи, правка и удаление',porders:'взять в работу, отметить готов',catalog:'товары, размеры, оформители'};
 function SEC(){return (window.SKLAD_TABS||[]).map(t=>[t.k,t.l,HINT[t.k]||'',t.ed?1:0,t.g]);}
 const LV=[['edit','Редактирует'],['view','Просмотр'],['none','Нет доступа']];
 const OLD={input:'stock',journal:'stock',stock:'stock',period:'stock',sizes:'stock',months:'stock'};
@@ -315,7 +315,7 @@ function openAccess(){
   const a=access||{};const P=people(a);
   const pend=pendingList();
   const rows=[...pend.map(e=>[e,allNone(),true]),...P.entries()];
-  d.innerHTML='<div class="ag-card" style="max-width:560px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ к складу</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
+  d.innerHTML='<div class="ag-card" style="max-width:560px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
     '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(PEOPLE[lower(a.owner)]||a.owner)+'</b>. Каждый сам создаёт аккаунт (имя пользователя и пароль). Новые аккаунты стоят первыми и ничего не видят, пока вы не дадите права. Нажмите на человека, чтобы открыть его права. Для каждой вкладки: <b>Редактирует</b>, <b>Просмотр</b> или <b>Нет доступа</b> (вкладки не видно совсем). Изменения сохраняются сразу.</p>'+
     (rows.length?rows.map(([e,p,isNew])=>'<details class="sa-person'+(isNew?' sa-new':'')+'" data-sa-d="'+esc(e)+'"'+(OPEN.has(e)?' open':'')+'><summary class="sa-ph"><span style="min-width:0"><b>'+esc(PEOPLE[e]||'ещё не создал аккаунт')+'</b> '+(isNew?'<span class="cbadge" style="background:#d97706">новый, без доступа</span> ':'')+'<span class="muted" style="font-size:12px;word-break:break-all">'+esc(e)+(isNew?'':' · '+summary(p))+'</span></span>'+(isNew?'':'<button type="button" class="ghost del sa-b" data-sa-rm="'+esc(e)+'" style="margin-left:auto">Убрать</button>')+'</summary>'+
       SEC().map(([k,l,t,ed,g],i,A)=>(i===0||A[i-1][4]!==g?'<div class="sa-grp">'+esc(g)+'</div>':'')+'<label class="sa-row"><span>'+esc(l)+(t?'<br><small class="muted">'+esc(t)+'</small>':'')+'</span><select data-sa-p="'+esc(e)+'" data-k="'+k+'">'+LV.filter(([v])=>ed||v!=='edit').map(([v,n])=>'<option value="'+v+'"'+(p[k]===v?' selected':'')+'>'+n+'</option>').join('')+'</select></label>').join('')+'</details>').join('')

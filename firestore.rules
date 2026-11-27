@@ -69,6 +69,13 @@ service cloud.firestore {
         allow delete: if anyAccess() && (resource.data.uid == me() || clean());
       }
     }
+    match /tasks/{id} {
+      allow read: if signedIn() && (canView('tasks') || resource.data.to == me() || resource.data.by == me());
+      allow create: if canEdit('tasks') && request.resource.data.by == me();
+      allow update: if canEdit('tasks') || (signedIn() && resource.data.to == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'cm', 'upd']));
+      allow delete: if canEdit('tasks');
+    }
     match /reads/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
