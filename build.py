@@ -1,6 +1,6 @@
 """Собирает отдельную версию склада: standalone/index.html из ../sklad.html (исходник артефакта).
 Запуск: python3 build.py. Код страницы не меняется: shim.js подменяет window.claude на Firebase."""
-import re, pathlib
+import re, pathlib, datetime, hashlib
 here = pathlib.Path(__file__).parent
 src = ((here / 'sklad-artifact.html') if (here / 'sklad-artifact.html').exists() else (here.parent / 'sklad.html')).read_text(encoding='utf8')
 # убрать обёртку артефакта, если она есть
@@ -11,6 +11,8 @@ src = src.replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '
 # кнопка установки Claude-версии здесь не нужна
 src = src.replace('<button type="button" class="ghost" id="install-app" hidden style="font-size:12px;padding:4px 10px;margin-left:4px">Установить как программу</button>', '')
 V = '10.12.2'
+H = hashlib.md5((here/'shim.js').read_bytes()+(here/'firebase-config.js').read_bytes()+src.encode()).hexdigest()[:8]
+VER = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=2))).strftime('%d.%m %H:%M')
 head = f'''<!doctype html>
 <html lang="ru"><head>
 <meta charset="utf-8">
@@ -40,8 +42,9 @@ head = f'''<!doctype html>
 <script src="https://www.gstatic.com/firebasejs/{V}/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/{V}/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/{V}/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
-<script src="shim.js"></script>
+<script>window.SKLAD_VERSION='{VER}';</script>
+<script src="firebase-config.js?v={H}"></script>
+<script src="shim.js?v={H}"></script>
 </head><body>
 '''
 out = head + src + '\n</body></html>\n'

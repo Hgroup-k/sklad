@@ -8,7 +8,12 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 let resolveReady;const ready=new Promise(r=>resolveReady=r);
 window.claude={use:async name=>{const api=await ready;return api?api[name]||null:null;}};
 
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker' in navigator){
+  const hadCtl=!!navigator.serviceWorker.controller;let reloaded=false;
+  /* новая версия программы подхватывается сама: страница один раз перезагружается */
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadCtl&&!reloaded){reloaded=true;location.reload();}});
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{setInterval(()=>r.update().catch(()=>{}),30*60*1000);}).catch(()=>{}));
+}
 
 function gate(html){let g=$('auth-gate');if(!g){g=document.createElement('div');g.id='auth-gate';document.body.appendChild(g);}g.innerHTML='<div class="ag-card">'+html+'</div>';g.hidden=false;return g;}
 function ungate(){const g=$('auth-gate');if(g)g.hidden=true;}
@@ -154,7 +159,7 @@ function openAccess(){
   const a=access||{};const P=people(a);
   const rows=[...P.entries()];
   d.innerHTML='<div class="ag-card" style="max-width:560px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ к складу</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
-    '<p class="muted" style="margin:0 0 12px;font-size:13px">Владелец: <b>'+esc(a.owner)+'</b>. Человек входит своим Google-аккаунтом. Для каждого раздела выберите: <b>Редактирует</b>, <b>Просмотр</b> (только смотрит) или <b>Нет доступа</b> (раздела не видно совсем). Изменения сохраняются сразу, проверку делает сама база.</p>'+
+    '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(a.owner)+'</b>. Человек входит своим Google-аккаунтом. Для каждого раздела выберите: <b>Редактирует</b>, <b>Просмотр</b> (только смотрит) или <b>Нет доступа</b> (раздела не видно совсем). Изменения сохраняются сразу, проверку делает сама база.</p>'+
     (rows.length?rows.map(([e,p])=>'<div class="sa-person"><div class="sa-ph"><b style="word-break:break-all">'+esc(e)+'</b> <span class="muted" style="font-size:12px">'+summary(p)+'</span><button type="button" class="ghost del sa-b" data-sa-rm="'+esc(e)+'" style="margin-left:auto">Убрать</button></div>'+
       SEC.map(([k,l,t])=>'<label class="sa-row"><span>'+esc(l)+'<br><small class="muted">'+esc(t)+'</small></span><select data-sa-p="'+esc(e)+'" data-k="'+k+'">'+LV.map(([v,n])=>'<option value="'+v+'"'+(p[k]===v?' selected':'')+'>'+n+'</option>').join('')+'</select></label>').join('')+'</div>').join('')
       :'<p class="muted">Пока доступ есть только у вас.</p>')+
