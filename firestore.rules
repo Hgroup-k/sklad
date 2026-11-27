@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function acc() { return get(/databases/$(database)/documents/access/main).data; }
+    function signedIn() { return request.auth != null && request.auth.token.email != null; }
+    function email() { return request.auth.token.email.lower(); }
+    function isOwner() { return signedIn() && email() == acc().owner; }
+    function canWrite() { return signedIn() && (isOwner() || email() in acc().editors); }
+    function canRead() { return signedIn() && (canWrite() || email() in acc().viewers); }
+
+    // список доступа: читают все вошедшие, меняет только владелец;
+    // создать можно один раз, при первом входе владельца
+    match /access/main {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == email();
+      allow update, delete: if isOwner();
+    }
+    // имя человека для подписи «кто внёс»: каждый пишет только своё
+    match /people/{uid} {
+      allow read: if canRead();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+    // все данные склада
+    match /{coll}/{rest=**} {
+      allow read: if coll != 'access' && coll != 'people' && canRead();
+      allow write: if coll != 'access' && coll != 'people' && canWrite();
+    }
+  }
+}
