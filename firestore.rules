@@ -14,6 +14,7 @@ service cloud.firestore {
     function canEdit(s) { return isFull() || (custom() && (lv(s) == 'edit' || lv(s) == true)); }
     function canView(s) { return canEdit(s) || isViewer() || (custom() && lv(s) == 'view'); }
     function anyAccess() { return isFull() || isViewer() || custom(); }
+    function clean() { return isOwner() || (custom() && lv('chatmod') == 'edit'); }
     function opsView() { return canView('input') || canView('journal') || canView('stock') || canView('period')
       || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan')
       || canView('porders') || canView('cast11') || canView('dry11') || canView('demold11') || canView('cut11')
@@ -51,9 +52,20 @@ service cloud.firestore {
         allow read: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
         allow create: if anyAccess() && request.resource.data.uid == me()
           && (fx(id) ? clv(fk(id)) == 'edit' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
-        allow update: if anyAccess() && resource.data.uid == me() && request.resource.data.uid == me()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['t', 'ed']);
-        allow delete: if anyAccess() && (resource.data.uid == me() || isOwner());
+        allow update: if anyAccess() && (
+          (resource.data.uid == me() && request.resource.data.uid == me()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['t', 'ed'])
+            && (request.resource.data.diff(resource.data).affectedKeys().hasAll(['ed']) || clean()))
+          || ((resource.data.uid == me() || clean()) && request.resource.data.kind == 'del'
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.keys().hasOnly(['uid', 'at', 'kind', 'del', 'by'])));
+        allow delete: if anyAccess() && clean();
+      }
+      match /files/{f} {
+        allow read: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
+        allow create: if anyAccess() && request.resource.data.uid == me()
+          && (fx(id) ? clv(fk(id)) == 'edit' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
+        allow delete: if anyAccess() && (resource.data.uid == me() || clean());
       }
     }
     match /reads/{uid} {

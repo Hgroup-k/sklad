@@ -286,7 +286,7 @@ async function importSnap(snap,progress){
   return k;
 }
 /* ---- раздел «Доступ» (только владелец) ---- */
-const HINT={chatall:'автоматически состоит в общем чате',chatord:'вопросы по заказам',input:'приход, отгрузка, переучёт, перемещения',orders:'заказы и выдача со склада',returns:'возвраты и приёмка',journal:'все записи, правка и удаление',porders:'взять в работу, отметить готов',catalog:'товары, размеры, оформители'};
+const HINT={chatmod:'«Редактирует» = может удалять любые сообщения без следа и менять свои без пометки',chatall:'автоматически состоит в общем чате',chatord:'вопросы по заказам',input:'приход, отгрузка, переучёт, перемещения',orders:'заказы и выдача со склада',returns:'возвраты и приёмка',journal:'все записи, правка и удаление',porders:'взять в работу, отметить готов',catalog:'товары, размеры, оформители'};
 function SEC(){return (window.SKLAD_TABS||[]).map(t=>[t.k,t.l,HINT[t.k]||'',t.ed?1:0,t.g]);}
 const LV=[['edit','Редактирует'],['view','Просмотр'],['none','Нет доступа']];
 const OLD={input:'stock',journal:'stock',stock:'stock',period:'stock',sizes:'stock',months:'stock'};
@@ -337,7 +337,7 @@ function openAccess(){
     catch(x){h.textContent='Не получилось: '+(x.message||x.code||x);}};
   $('sa-add').onclick=()=>{const e=lower($('sa-email').value);if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){err('Впишите почту полностью, например name@gmail.com');return;}
     if(e===lower(a.owner)){err('Это ваш адрес, у вас и так все права.');return;}
-    const pr=PRESET[$('sa-role').value];const p={};SEC().forEach(([k,,,ed])=>{const l=isChat(k)&&$('sa-role').value!=='view'?'edit':pr(k);p[k]=l==='edit'&&!ed?'view':l;});
+    const pr=PRESET[$('sa-role').value];const p={};SEC().forEach(([k,,,ed])=>{const l=k==='chatmod'?'none':isChat(k)&&$('sa-role').value!=='view'?'edit':pr(k);p[k]=l==='edit'&&!ed?'view':l;});
     const P2=people(access);P2.set(e,p);save(P2);};
   d.querySelectorAll('[data-sa-d]').forEach(x=>x.addEventListener('toggle',()=>{if(x.open)OPEN.add(x.dataset.saD);else OPEN.delete(x.dataset.saD);}));
   d.querySelectorAll('[data-sa-rm]').forEach(b=>b.onclick=ev=>{ev.preventDefault();ev.stopPropagation();if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Точно?';return;}const P2=people(access);P2.delete(b.dataset.saRm);save(P2);});
