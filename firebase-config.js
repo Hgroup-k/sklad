@@ -8,4 +8,4 @@ window.SKLAD_FIREBASE_CONFIG = {
   appId: "1:257123454358:web:928c8aeffd5ab926b721b7"
 };
 /* Уведомления: публичный ключ VAPID (не секрет) и адрес сервера уведомлений (Cloudflare Worker). */
-window.SKLAD_PUSH = { key: "BB-N5W30jrgQleaUPLnepLfYtOqpqUmvOFiM3jZIn0vGieLdYgrTZubhPxaB_vc1OOJ5de6WcsvbekKkZUQxlmw", url: "" };
+window.SKLAD_PUSH = { key: "BB-N5W30jrgQleaUPLnepLfYtOqpqUmvOFiM3jZIn0vGieLdYgrTZubhPxaB_vc1OOJ5de6WcsvbekKkZUQxlmw", url: "https://broken-pine-c9a2.haltemangroupsrl.workers.dev" };
