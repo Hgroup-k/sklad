@@ -1,6 +1,6 @@
 {
-  "name": "Складской учёт",
-  "short_name": "Склад",
+  "name": "Общий учёт",
+  "short_name": "Общий учёт",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",

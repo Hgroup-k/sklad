@@ -1,6 +1,6 @@
 /* Склад: офлайн-оболочка. Всегда сначала свежая версия из сети (мимо кэша браузера),
    без сети — сохранённая копия. Данные синхронизирует Firebase. */
-const C='sklad-v4';
+const C='sklad-v5';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{
@@ -13,8 +13,8 @@ self.addEventListener('fetch',e=>{
 });
 /* уведомления (push): приходят даже когда программа закрыта */
 self.addEventListener('push',e=>{
-  let d={};try{d=e.data?e.data.json():{};}catch(x){d={title:'Склад',body:e.data?e.data.text():''};}
-  e.waitUntil(self.registration.showNotification(d.title||'Склад',{body:d.body||'',icon:'icons/icon-192.png',badge:'icons/icon-192.png',tag:d.tag||undefined,data:{go:d.go||''}}));
+  let d={};try{d=e.data?e.data.json():{};}catch(x){d={title:'Общий учёт',body:e.data?e.data.text():''};}
+  e.waitUntil(self.registration.showNotification(d.title||'Общий учёт',{body:d.body||'',icon:'icons/icon-192.png',badge:'icons/icon-192.png',tag:d.tag||undefined,data:{go:d.go||''}}));
 });
 self.addEventListener('notificationclick',e=>{
   e.notification.close();const go=(e.notification.data&&e.notification.data.go)||'';

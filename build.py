@@ -6,7 +6,7 @@ src = ((here / 'sklad-artifact.html') if (here / 'sklad-artifact.html').exists()
 # убрать обёртку артефакта, если она есть
 src = re.sub(r'^<!doctype html><html><head>.*?</head><body>\n?', '', src, count=1, flags=re.S)
 src = re.sub(r'\n?</body></html>\s*$', '', src)
-src = src.replace('<title>Складской учёт</title>\n', '', 1)
+src = src.replace('<title>Общий учёт</title>\n', '', 1)
 src = src.replace('<meta name="claude:viewport-fit-sides" content="cover">\n', '', 1)
 # кнопка установки Claude-версии здесь не нужна
 src = src.replace('<button type="button" class="ghost" id="install-app" hidden style="font-size:12px;padding:4px 10px;margin-left:4px">Установить как программу</button>', '')
@@ -17,11 +17,11 @@ head = f'''<!doctype html>
 <html lang="ru"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Складской учёт</title>
+<title>Общий учёт</title>
 <meta name="theme-color" content="#2e6a6c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Склад">
+<meta name="apple-mobile-web-app-title" content="Общий учёт">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">

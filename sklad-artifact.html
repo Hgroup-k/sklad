@@ -1,4 +1,4 @@
-<title>Складской учёт</title>
+<title>Общий учёт</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -272,7 +272,7 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
 </style>
 
 <header class="top"><div class="wrap">
-  <div class="brand"><h1>Склад</h1><span id="sync">подключение…</span><button type="button" class="ghost" id="install-app" hidden style="font-size:12px;padding:4px 10px;margin-left:4px">Установить как программу</button></div>
+  <div class="brand"><h1>Общий учёт</h1><span id="sync"></span><button type="button" class="ghost" id="install-app" hidden style="font-size:12px;padding:4px 10px;margin-left:4px">Установить как программу</button></div>
   <nav class="groups" id="groups" aria-label="Разделы"></nav>
   <nav class="tabs" id="tabs" aria-label="Вкладки"></nav>
 </div></header>
@@ -2565,7 +2565,7 @@ function setSync(msg){
   if(msg!==undefined)syncMsg=msg;
   const el=$('sync');
   if(syncMsg){el.textContent=syncMsg;return;}
-  el.textContent=S.err?'ошибка связи с базой':S.pending.size?'загрузка…':'данные общие, обновляются сами';
+  el.textContent=S.err?'нет связи с базой':'';
 }
 
 /* ---------- data ---------- */
@@ -2618,7 +2618,7 @@ async function setupDesktop(){
     const st=await desktop.install.state();
     if(st!=='available')return;
     const b=$('install-app');b.hidden=false;
-    b.onclick=async()=>{try{const r=await desktop.install.request();if(r==='installed'){b.hidden=true;toast('Программа «Складской учёт» устанавливается');}else if(r==='failed')toast('Не удалось установить. Попробуйте через меню артефакта: «Install as app».');}catch(e){toast('Установка недоступна в этом окне');}};
+    b.onclick=async()=>{try{const r=await desktop.install.request();if(r==='installed'){b.hidden=true;toast('Программа «Общий учёт» устанавливается');}else if(r==='failed')toast('Не удалось установить. Попробуйте через меню артефакта: «Install as app».');}catch(e){toast('Установка недоступна в этом окне');}};
   }catch(e){}
 }
 async function init(){

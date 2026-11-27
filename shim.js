@@ -57,7 +57,7 @@ const aerr=e=>AERR[e&&e.code]||('Не получилось: '+((e&&(e.message||e
 function fld2(id,label,type,ph){const pw=type==='password';return '<label class="fld" style="text-align:left"><span>'+label+'</span>'+(pw?'<span class="ag-pw">':'')+'<input id="'+id+'" type="'+(type||'text')+'" autocomplete="'+(pw?'current-password':'username')+'"'+(ph?' placeholder="'+ph+'"':'')+'>'+(pw?'<button type="button" class="ag-eye" data-eye="'+id+'" title="Показать пароль" aria-label="Показать пароль">👁</button></span>':'')+'</label>';}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-eye]');if(!b)return;e.preventDefault();const i=$(b.dataset.eye);if(!i)return;const show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'🙈':'👁';b.title=show?'Скрыть пароль':'Показать пароль';});
 function showLogin(msg){
-  const g=gate('<h2>Складской учёт</h2><form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя или почта')+fld2('ag-p','Пароль','password')+
+  const g=gate('<h2>Общий учёт</h2><form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя или почта')+fld2('ag-p','Пароль','password')+
     '<p class="err" id="ag-err"'+(msg?'':' hidden')+'>'+esc(msg||'')+'</p><button type="submit" class="primary">Войти</button></form>'+
     '<p style="margin:8px 0"><button type="button" class="ghost" id="ag-reg">Создать аккаунт</button></p>'+
     '<p style="margin:8px 0"><button type="button" class="link" id="ag-forgot">Забыли пароль?</button></p>');
@@ -163,14 +163,14 @@ auth.onAuthStateChanged(async u=>{
   const isGoogle=(u.providerData||[]).some(p=>p.providerId==='google.com');
   try{await u.reload();u=auth.currentUser||u;}catch(e){}
   if(!u.emailVerified){showVerify(u);return;}
-  gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
+  gate('<h2>Общий учёт</h2><p>Загрузка…</p>');
   /* сначала аккаунт: без имени пользователя в программу не пускаем */
   let prof=null;try{const ps=await fs.doc('people/'+u.uid).get();prof=ps.exists?ps.data():null;}catch(e){}
   if(!prof||!prof.uname){
     let done=false,nm='';if(pendingName&&lower(pendingName.email)===email){try{await claimName(u,pendingName.name);done=true;nm=pendingName.name;}catch(e){}}
     if(!done)nm=await askName(u,isGoogle);
     prof={name:nm,uname:nm};
-    gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
+    gate('<h2>Общий учёт</h2><p>Загрузка…</p>');
   }else fs.doc('people/'+u.uid).set({email,at:new Date().toISOString()},{merge:true}).catch(()=>{});
   /* потом доступ: новый аккаунт ничего не видит, пока владелец не даст права */
   let snap;
@@ -225,10 +225,9 @@ function addBar(){
   const bar=document.createElement('span');bar.id='sa-bar';
   bar.innerHTML='<button type="button" class="ghost sa-b" id="sa-install"'+(installEvt?'':' hidden')+'>Установить</button>'+
     (role==='owner'?'<button type="button" class="ghost sa-b" id="sa-acc">Доступ</button>':'')+
-    '<button type="button" class="sa-ava" id="sa-prof" title="Профиль"></button><button type="button" class="link sa-b" id="sa-out" title="'+esc(me.email)+'">Выйти</button>';
+    '<button type="button" class="sa-ava" id="sa-prof" title="Профиль и выход"></button>';
   fs.doc('people/'+me.uid).onSnapshot(s=>{MYP=s.exists?s.data():{};const n=MYP.name||'';window.SKLAD_ME_NAME=n;const b=$('sa-prof');if(b)b.innerHTML=avaHtml(MYP,30);},()=>{});
   brand.appendChild(bar);
-  $('sa-out').onclick=()=>{if(confirm('Выйти из программы?'))auth.signOut();};
   $('sa-prof').onclick=openProfile;
   if(role==='owner')loadPeople().then(()=>{const n=pendingList().length;const b=$('sa-acc');if(b&&n)b.innerHTML='Доступ <span class="cbadge">'+n+'</span>';});
   $('sa-install').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice;}catch(e){}installEvt=null;$('sa-install').hidden=true;};
@@ -252,11 +251,13 @@ function openProfile(){
     '<h3 style="margin:18px 0 6px">Пароль</h3><div style="display:grid;gap:10px">'+fld2('pf-old','Текущий пароль','password')+fld2('pf-new','Новый пароль (не меньше 6 знаков)','password')+
     '<button type="button" class="ghost" id="pf-pw">Сменить пароль</button><button type="button" class="link" id="pf-mail" style="justify-self:start">Не помню текущий: прислать ссылку на почту</button><p class="err" id="pf-perr" hidden></p></div>'+
     '<h3 style="margin:18px 0 6px">Уведомления</h3><p class="muted" style="margin:0 0 8px;font-size:13px">'+(notif==='granted'?'Включены на этом устройстве.':notif==='denied'?'Запрещены в настройках браузера. Разрешите уведомления для этого сайта в настройках.':notif==='unsupported'?'Этот браузер не поддерживает уведомления. На iPhone добавьте программу на экран «Домой».':'Выключены на этом устройстве.')+'</p>'+
-    (notif==='default'?'<button type="button" class="ghost" id="pf-notif">Включить уведомления</button>':'')+'</div>';
+    (notif==='default'?'<button type="button" class="ghost" id="pf-notif">Включить уведомления</button>':'')+'</div>'+
+    '<div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--line,#ddd)"><button type="button" class="ghost del" id="pf-out" style="width:100%">Выйти из программы</button></div>';
   d.hidden=false;
   $('pf-name').value=p.name||'';$('pf-full').value=p.full||'';$('pf-pos').value=p.pos||'';$('pf-phone').value=p.phone||'';
   const err=(id,m,ok)=>{const e=$(id);e.textContent=m||'';e.hidden=!m;e.style.color=ok?'var(--accent,#2b6)':'';};
   $('pf-x').onclick=()=>{d.hidden=true;};
+  $('pf-out').onclick=()=>{if(confirm('Выйти из программы?'))auth.signOut();};
   $('pf-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const a=await smallAva(f);await fs.doc('people/'+me.uid).set({ava:a},{merge:true});MYP.ava=a;openProfile();}catch(x){err('pf-err','Не удалось загрузить фото.');}};
   const na=$('pf-noava');if(na)na.onclick=async()=>{await fs.doc('people/'+me.uid).set({ava:''},{merge:true});MYP.ava='';openProfile();};
   $('pf-save').onclick=async()=>{const name=$('pf-name').value.trim().replace(/\s+/g,' ');

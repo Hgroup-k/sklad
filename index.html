@@ -2,11 +2,11 @@
 <html lang="ru"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Складской учёт</title>
+<title>Общий учёт</title>
 <meta name="theme-color" content="#2e6a6c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Склад">
+<meta name="apple-mobile-web-app-title" content="Общий учёт">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='27.11 17:42';</script>
-<script src="firebase-config.js?v=867b9d02"></script>
-<script src="shim.js?v=867b9d02"></script>
+<script>window.SKLAD_VERSION='27.11 17:44';</script>
+<script src="firebase-config.js?v=e5fe95b3"></script>
+<script src="shim.js?v=e5fe95b3"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -314,7 +314,7 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
 </style>
 
 <header class="top"><div class="wrap">
-  <div class="brand"><h1>Склад</h1><span id="sync">подключение…</span></div>
+  <div class="brand"><h1>Общий учёт</h1><span id="sync"></span></div>
   <nav class="groups" id="groups" aria-label="Разделы"></nav>
   <nav class="tabs" id="tabs" aria-label="Вкладки"></nav>
 </div></header>
@@ -2607,7 +2607,7 @@ function setSync(msg){
   if(msg!==undefined)syncMsg=msg;
   const el=$('sync');
   if(syncMsg){el.textContent=syncMsg;return;}
-  el.textContent=S.err?'ошибка связи с базой':S.pending.size?'загрузка…':'данные общие, обновляются сами';
+  el.textContent=S.err?'нет связи с базой':'';
 }
 
 /* ---------- data ---------- */
@@ -2660,7 +2660,7 @@ async function setupDesktop(){
     const st=await desktop.install.state();
     if(st!=='available')return;
     const b=$('install-app');b.hidden=false;
-    b.onclick=async()=>{try{const r=await desktop.install.request();if(r==='installed'){b.hidden=true;toast('Программа «Складской учёт» устанавливается');}else if(r==='failed')toast('Не удалось установить. Попробуйте через меню артефакта: «Install as app».');}catch(e){toast('Установка недоступна в этом окне');}};
+    b.onclick=async()=>{try{const r=await desktop.install.request();if(r==='installed'){b.hidden=true;toast('Программа «Общий учёт» устанавливается');}else if(r==='failed')toast('Не удалось установить. Попробуйте через меню артефакта: «Install as app».');}catch(e){toast('Установка недоступна в этом окне');}};
   }catch(e){}
 }
 async function init(){
