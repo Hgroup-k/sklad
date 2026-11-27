@@ -95,7 +95,8 @@ let pendingName=null;
 function showPending(u,name){
   const g=gate('<h2>Ждём доступа</h2><p>Аккаунт <b>'+esc(name||u.email)+'</b> создан. Владелец склада ещё не дал вам доступ. Как только даст, программа откроется сама.</p><p class="muted" style="font-size:13px">Вы вошли с почтой <b>'+esc(u.email)+'</b>. Если вы владелец или вам уже дали доступ на другую почту, нажмите «Выйти» и войдите с той почтой и паролем (если пароля нет, нажмите «Забыли пароль?»).</p><button type="button" class="ghost" id="ag-out">Выйти</button>');
   g.querySelector('#ag-out').onclick=()=>auth.signOut();
-  clearInterval(window.__pendT);window.__pendT=setInterval(async()=>{try{const s=await ACC.get();if(s.exists&&roleOf(s.data(),lower(u.email))!=='none')location.reload();}catch(e){}},20000);
+  {const r=document.createElement('button');r.type='button';r.className='primary';r.textContent='Проверить снова';r.style.marginTop='8px';r.style.width='100%';r.onclick=()=>location.reload();g.querySelector('#ag-out').before(r);}
+  clearInterval(window.__pendT);window.__pendT=setInterval(async()=>{try{await u.getIdToken(true);const s=await ACC.get({source:'server'});if(s.exists&&roleOf(s.data(),lower(u.email))!=='none')location.reload();}catch(e){}},15000);
 }
 async function claimName(u,name){
   const k=unKey(name);const ref=UN.doc(k);
