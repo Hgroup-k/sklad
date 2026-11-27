@@ -47,15 +47,77 @@ function signIn(){
     if(e&&e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')alert('Не удалось войти: '+(e.message||e.code));
   });
 }
-function showLogin(){
-  const g=gate('<h2>Складской учёт</h2><p>Войдите через Google-аккаунт, которому владелец дал доступ.</p><button type="button" class="primary" id="ag-in">Войти через Google</button>');
+/* ---- вход: имя пользователя + пароль (почта подставляется сама), первый вход = создание учётной записи ---- */
+const UN=fs.collection('unames');
+const unKey=n=>lower(n).replace(/\s+/g,' ');
+const AERR={'auth/invalid-credential':'Неверное имя пользователя или пароль.','auth/wrong-password':'Неверный пароль.','auth/user-not-found':'Неверное имя пользователя или пароль.',
+  'auth/too-many-requests':'Слишком много попыток. Подождите несколько минут.','auth/weak-password':'Пароль слишком короткий: нужно не меньше 6 знаков.',
+  'auth/invalid-email':'Почта написана с ошибкой.','auth/network-request-failed':'Нет интернета.','auth/operation-not-allowed':'Вход по паролю ещё не включён в Firebase (владелец включает его один раз).'};
+const aerr=e=>AERR[e&&e.code]||('Не получилось: '+((e&&(e.message||e.code))||e));
+function fld2(id,label,type,ph){return '<label class="fld" style="text-align:left"><span>'+label+'</span><input id="'+id+'" type="'+(type||'text')+'" autocomplete="'+(type==='password'?'current-password':'username')+'"'+(ph?' placeholder="'+ph+'"':'')+'></label>';}
+function showLogin(msg){
+  const g=gate('<h2>Складской учёт</h2><form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя')+fld2('ag-p','Пароль','password')+
+    '<p class="err" id="ag-err"'+(msg?'':' hidden')+'>'+esc(msg||'')+'</p><button type="submit" class="primary">Войти</button></form>'+
+    '<p style="margin:8px 0"><button type="button" class="link" id="ag-reg">Первый вход: создать учётную запись</button></p>'+
+    '<p style="margin:8px 0"><button type="button" class="link" id="ag-forgot">Забыли пароль?</button></p>'+
+    '<p style="margin:14px 0 0"><button type="button" class="ghost" id="ag-in">Войти через Google</button></p>');
+  const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
   g.querySelector('#ag-in').onclick=signIn;
+  g.querySelector('#ag-reg').onclick=()=>showRegister();
+  g.querySelector('#ag-forgot').onclick=async()=>{const u=unKey(g.querySelector('#ag-u').value);if(!u){err('Впишите имя пользователя, и нажмите «Забыли пароль?» ещё раз.');return;}
+    try{const s=await UN.doc(u).get();if(!s.exists){err('Такого имени пользователя нет.');return;}await auth.sendPasswordResetEmail(s.data().email);err('Письмо для смены пароля отправлено на почту '+maskMail(s.data().email)+'.');}catch(e){err(aerr(e));}};
+  g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();const u=unKey(g.querySelector('#ag-u').value),pw=g.querySelector('#ag-p').value;
+    if(!u||!pw){err('Впишите имя пользователя и пароль.');return;}
+    try{const s=await UN.doc(u).get();if(!s.exists){err('Неверное имя пользователя или пароль.');return;}await auth.signInWithEmailAndPassword(s.data().email,pw);}
+    catch(x){err(aerr(x));}};
 }
-function showNoAccess(email){
-  const g=gate('<h2>Нет доступа</h2><p>Вы вошли как <b>'+esc(email)+'</b>. Этому адресу доступ к складу не дан.</p><p>Попросите владельца добавить этот адрес в разделе «Доступ».</p><button type="button" class="ghost" id="ag-out">Войти другим аккаунтом</button>');
+function maskMail(m){const [a,b]=String(m).split('@');return (a||'').slice(0,2)+'***@'+(b||'');}
+function showRegister(){
+  const g=gate('<h2>Создать учётную запись</h2><p class="muted" style="font-size:13px">Впишите почту, на которую владелец дал доступ, придумайте имя пользователя и пароль. Потом входить нужно будет только по имени и паролю.</p>'+
+    '<form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-e','Почта, на которую дали доступ','email','name@gmail.com')+fld2('ag-u','Имя пользователя (его будут видеть все)','text','например Миша')+
+    fld2('ag-p','Пароль (не меньше 6 знаков)','password')+fld2('ag-p2','Пароль ещё раз','password')+'<p class="err" id="ag-err" hidden></p><button type="submit" class="primary">Создать</button></form>'+
+    '<p><button type="button" class="link" id="ag-back">Назад ко входу</button></p>');
+  const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
+  g.querySelector('#ag-back').onclick=()=>showLogin();
+  g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();
+    const em=lower(g.querySelector('#ag-e').value),name=g.querySelector('#ag-u').value.trim().replace(/\s+/g,' '),pw=g.querySelector('#ag-p').value,pw2=g.querySelector('#ag-p2').value;
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))return err('Впишите почту полностью.');
+    if(name.length<2||name.length>30)return err('Имя пользователя: от 2 до 30 знаков.');
+    if(pw.length<6)return err('Пароль: не меньше 6 знаков.');if(pw!==pw2)return err('Пароли не совпадают.');
+    try{const s=await UN.doc(unKey(name)).get();if(s.exists&&lower(s.data().email)!==em)return err('Такое имя пользователя уже занято, придумайте другое.');}catch(x){return err(aerr(x));}
+    pendingName={name,email:em};
+    try{const c=await auth.createUserWithEmailAndPassword(em,pw);try{await claimName(c.user,name);}catch(x){}try{await c.user.sendEmailVerification();}catch(x){}}
+    catch(x){pendingName=null;if(x.code==='auth/email-already-in-use')return err('С этой почтой уже входили. Если раньше входили через Google, нажмите «Назад ко входу» → «Войти через Google», и там программа попросит придумать имя и пароль. Если забыли пароль, нажмите «Забыли пароль?».');return err(aerr(x));}
+  };
+}
+let pendingName=null;
+async function claimName(u,name){
+  const k=unKey(name);const ref=UN.doc(k);
+  await fs.runTransaction(async t=>{const s=await t.get(ref);if(s.exists&&s.data().uid!==u.uid)throw {code:'taken'};t.set(ref,{uid:u.uid,email:lower(u.email),name});});
+  await fs.doc('people/'+u.uid).set({name,uname:k,email:lower(u.email),at:new Date().toISOString()},{merge:true});
+}
+function showVerify(u){
+  const g=gate('<h2>Подтвердите почту</h2><p>Мы отправили письмо на <b>'+esc(u.email)+'</b>. Откройте его и нажмите ссылку в письме (если письма нет, проверьте папку «Спам»). Потом вернитесь сюда и нажмите «Я подтвердил».</p>'+
+    '<p class="err" id="ag-err" hidden></p><div style="display:grid;gap:8px"><button type="button" class="primary" id="ag-ok">Я подтвердил</button><button type="button" class="ghost" id="ag-again">Отправить письмо ещё раз</button><button type="button" class="link" id="ag-out">Выйти</button></div>');
+  const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
+  g.querySelector('#ag-ok').onclick=async()=>{try{await u.reload();if(auth.currentUser.emailVerified){await auth.currentUser.getIdToken(true);location.reload();}else err('Почта ещё не подтверждена. Нажмите ссылку в письме.');}catch(x){err(aerr(x));}};
+  g.querySelector('#ag-again').onclick=async()=>{try{await u.sendEmailVerification();err('Письмо отправлено ещё раз.');}catch(x){err(aerr(x));}};
   g.querySelector('#ag-out').onclick=()=>auth.signOut();
 }
-
+function askName(u,isGoogle){
+  return new Promise(res=>{
+    const g=gate('<h2>Придумайте имя пользователя</h2><p class="muted" style="font-size:13px">Это имя будут видеть все вместо вашей почты.'+(isGoogle?' Если задать пароль, потом можно входить просто по имени и паролю.':'')+'</p>'+
+      '<form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя','text','например Миша')+(isGoogle?fld2('ag-p','Пароль для входа по имени (не меньше 6 знаков)','password'):'')+
+      '<p class="err" id="ag-err" hidden></p><button type="submit" class="primary">Сохранить</button></form>');
+    const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
+    g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();const name=g.querySelector('#ag-u').value.trim().replace(/\s+/g,' ');const pe=g.querySelector('#ag-p');const pw=pe?pe.value:'';
+      if(name.length<2||name.length>30)return err('Имя пользователя: от 2 до 30 знаков.');
+      if(isGoogle&&pw&&pw.length<6)return err('Пароль: не меньше 6 знаков (или оставьте пустым).');
+      try{await claimName(u,name);}catch(x){if(x&&x.code==='taken')return err('Такое имя уже занято, придумайте другое.');if(x&&/permission/.test(x.code||'')){res(name);return;}return err(aerr(x));}
+      if(isGoogle&&pw){try{await u.linkWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,pw));}catch(x){if(x.code!=='auth/provider-already-linked')alert('Имя сохранено, но пароль не задан: '+aerr(x));}}
+      res(name);};
+  });
+}
 let started=false;
 auth.getRedirectResult().catch(()=>{});
 const domReady=new Promise(r=>document.readyState==='loading'?document.addEventListener('DOMContentLoaded',r):r());
@@ -64,6 +126,8 @@ auth.onAuthStateChanged(async u=>{
   if(!u){if(started){location.reload();return;}showLogin();return;}
   if(started&&me&&u.uid!==me.uid){location.reload();return;}
   me=u;const email=lower(u.email);
+  const isGoogle=(u.providerData||[]).some(p=>p.providerId==='google.com');
+  if(!u.emailVerified&&!isGoogle){showVerify(u);return;}
   gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
   let snap;
   try{snap=await ACC.get();}catch(e){gate('<h2>Нет связи с базой</h2><p>Проверьте интернет и обновите страницу.</p>');return;}
@@ -74,7 +138,12 @@ auth.onAuthStateChanged(async u=>{
   }
   access=snap.data();role=roleOf(access,email);
   if(role==='none'){showNoAccess(email);return;}
-  fs.doc('people/'+u.uid).set({name:u.displayName||email,email,at:new Date().toISOString()},{merge:true}).catch(()=>{});
+  let prof=null;try{const ps=await fs.doc('people/'+u.uid).get();prof=ps.exists?ps.data():null;}catch(e){}
+  if(!prof||!prof.uname){
+    let done=false;if(pendingName&&lower(pendingName.email)===email){try{await claimName(u,pendingName.name);done=true;}catch(e){}}
+    if(!done)await askName(u,isGoogle);
+    gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
+  }else fs.doc('people/'+u.uid).set({email,at:new Date().toISOString()},{merge:true}).catch(()=>{});
   ACC.onSnapshot(s=>{if(!s.exists)return;const nr=roleOf(s.data(),email);access=s.data();if(nr!==role)location.reload();},()=>{});
   ungate();started=true;
   addBar();
@@ -121,10 +190,11 @@ function addBar(){
   bar.innerHTML='<button type="button" class="ghost sa-b" id="sa-install"'+(installEvt?'':' hidden')+'>Установить</button>'+
     (role==='owner'?'<button type="button" class="ghost sa-b" id="sa-acc">Доступ</button>':'')+
     '<button type="button" class="link sa-b" id="sa-out" title="'+esc(me.email)+'">Выйти</button>';
+  fs.doc('people/'+me.uid).get().then(s=>{const n=s.exists&&s.data().name;const b=$('sa-out');if(n&&b)b.title=n;window.SKLAD_ME_NAME=n||'';}).catch(()=>{});
   brand.appendChild(bar);
-  $('sa-out').onclick=()=>auth.signOut();
+  $('sa-out').onclick=()=>{if(confirm('Выйти из программы?'))auth.signOut();};
   $('sa-install').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice;}catch(e){}installEvt=null;$('sa-install').hidden=true;};
-  const ab=$('sa-acc');if(ab)ab.onclick=openAccess;
+  const ab=$('sa-acc');if(ab)ab.onclick=openAccessFresh;
 }
 
 /* ---- перенос копии (формат резервной копии склада) ---- */
@@ -158,16 +228,19 @@ const grpOf=k=>(SEC().find(t=>t[0]===k)||[])[4]||'';
 const PRESET={view:k=>'view',edit:k=>'edit',orders:k=>k==='orders'?'edit':'view',ordersOnly:k=>k==='orders'?'edit':'none',
   office:k=>grpOf(k)==='Офис'?'edit':'none',p11:k=>grpOf(k)==='Производство 11'?'edit':'none',p9:k=>grpOf(k)==='Производство 9'?'edit':'none'};
 function summary(p){const v=SEC().map(([k])=>p[k]);if(SEC().every(([k,,,e])=>p[k]===(e?'edit':'view')))return 'всё редактирует';if(v.every(x=>x==='view'))return 'всё только смотрит';return 'по разделам';}
+const OPEN=new Set();let PEOPLE={};
+async function loadPeople(){try{const q=await fs.collection('people').get();PEOPLE={};q.forEach(d=>{const x=d.data();if(x.email)PEOPLE[lower(x.email)]=x.name||'';});}catch(e){}}
+async function openAccessFresh(){await loadPeople();openAccess();}
 function openAccess(){
   let d=$('sa-access');if(!d){d=document.createElement('div');d.id='sa-access';document.body.appendChild(d);}
   const a=access||{};const P=people(a);
   const rows=[...P.entries()];
   d.innerHTML='<div class="ag-card" style="max-width:560px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ к складу</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
-    '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(a.owner)+'</b>. Человек входит своим Google-аккаунтом. Для каждой вкладки выберите: <b>Редактирует</b>, <b>Просмотр</b> (только смотрит) или <b>Нет доступа</b> (вкладки не видно совсем). Отчёты можно только смотреть или скрыть. Изменения сохраняются сразу, проверку делает сама база.</p>'+
-    (rows.length?rows.map(([e,p])=>'<div class="sa-person"><div class="sa-ph"><b style="word-break:break-all">'+esc(e)+'</b> <span class="muted" style="font-size:12px">'+summary(p)+'</span><button type="button" class="ghost del sa-b" data-sa-rm="'+esc(e)+'" style="margin-left:auto">Убрать</button></div>'+
-      SEC().map(([k,l,t,ed,g],i,A)=>(i===0||A[i-1][4]!==g?'<div class="sa-grp">'+esc(g)+'</div>':'')+'<label class="sa-row"><span>'+esc(l)+(t?'<br><small class="muted">'+esc(t)+'</small>':'')+'</span><select data-sa-p="'+esc(e)+'" data-k="'+k+'">'+LV.filter(([v])=>ed||v!=='edit').map(([v,n])=>'<option value="'+v+'"'+(p[k]===v?' selected':'')+'>'+n+'</option>').join('')+'</select></label>').join('')+'</div>').join('')
+    '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(PEOPLE[lower(a.owner)]||a.owner)+'</b>. Добавьте почту человека. При первом входе он сам создаст имя пользователя и пароль. Нажмите на человека, чтобы открыть его права. Для каждой вкладки: <b>Редактирует</b>, <b>Просмотр</b> или <b>Нет доступа</b> (вкладки не видно совсем). Изменения сохраняются сразу.</p>'+
+    (rows.length?rows.map(([e,p])=>'<details class="sa-person" data-sa-d="'+esc(e)+'"'+(OPEN.has(e)?' open':'')+'><summary class="sa-ph"><span style="min-width:0"><b>'+esc(PEOPLE[e]||'ещё не входил')+'</b> <span class="muted" style="font-size:12px;word-break:break-all">'+esc(e)+' · '+summary(p)+'</span></span><button type="button" class="ghost del sa-b" data-sa-rm="'+esc(e)+'" style="margin-left:auto">Убрать</button></summary>'+
+      SEC().map(([k,l,t,ed,g],i,A)=>(i===0||A[i-1][4]!==g?'<div class="sa-grp">'+esc(g)+'</div>':'')+'<label class="sa-row"><span>'+esc(l)+(t?'<br><small class="muted">'+esc(t)+'</small>':'')+'</span><select data-sa-p="'+esc(e)+'" data-k="'+k+'">'+LV.filter(([v])=>ed||v!=='edit').map(([v,n])=>'<option value="'+v+'"'+(p[k]===v?' selected':'')+'>'+n+'</option>').join('')+'</select></label>').join('')+'</details>').join('')
       :'<p class="muted">Пока доступ есть только у вас.</p>')+
-    '<h3 style="margin:16px 0 6px">Добавить человека</h3><div class="filters" style="margin:0"><label class="fld wide"><span>Почта Google</span><input type="text" id="sa-email" inputmode="email" placeholder="name@gmail.com"></label>'+
+    '<h3 style="margin:16px 0 6px">Добавить человека</h3><div class="filters" style="margin:0"><label class="fld wide"><span>Почта</span><input type="text" id="sa-email" inputmode="email" placeholder="name@gmail.com"></label>'+
     '<label class="fld"><span>Начать с</span><select id="sa-role"><option value="view">всё только смотрит</option><option value="edit">всё редактирует</option><option value="orders">заказы редактирует, остальное смотрит</option><option value="ordersOnly">только заказы, остального не видит</option><option value="office">только Офис (заказы и возвраты)</option><option value="p11">только Производство 11</option><option value="p9">только Производство 9</option></select></label>'+
     '<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="sa-add" style="padding:8px 16px">Добавить</button></label></div><p class="muted" style="font-size:12px;margin:6px 0 0">После добавления права по каждому разделу можно поменять выше.</p><p class="err" id="sa-err" hidden></p>'+
     '<h3 style="margin:18px 0 6px">Перенос данных</h3><p class="muted" style="margin:0 0 8px;font-size:13px">Загрузите файл копии склада (.json): заказы, возвраты, журнал, справочники и план запишутся в эту базу. Записи с теми же номерами заменятся, остальное не трогается.</p>'+
@@ -188,7 +261,8 @@ function openAccess(){
     if(e===lower(a.owner)){err('Это ваш адрес, у вас и так все права.');return;}
     const pr=PRESET[$('sa-role').value];const p={};SEC().forEach(([k,,,ed])=>{const l=pr(k);p[k]=l==='edit'&&!ed?'view':l;});
     const P2=people(access);P2.set(e,p);save(P2);};
-  d.querySelectorAll('[data-sa-rm]').forEach(b=>b.onclick=()=>{if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Точно?';return;}const P2=people(access);P2.delete(b.dataset.saRm);save(P2);});
+  d.querySelectorAll('[data-sa-d]').forEach(x=>x.addEventListener('toggle',()=>{if(x.open)OPEN.add(x.dataset.saD);else OPEN.delete(x.dataset.saD);}));
+  d.querySelectorAll('[data-sa-rm]').forEach(b=>b.onclick=ev=>{ev.preventDefault();ev.stopPropagation();if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Точно?';return;}const P2=people(access);P2.delete(b.dataset.saRm);save(P2);});
   d.querySelectorAll('[data-sa-p]').forEach(c=>c.onchange=()=>{const P2=people(access);const p={...(P2.get(c.dataset.saP)||{})};p[c.dataset.k]=c.value;P2.set(c.dataset.saP,p);save(P2);});
 }
 })();
