@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='27.11 17:32';</script>
-<script src="firebase-config.js?v=459bdcaa"></script>
-<script src="shim.js?v=459bdcaa"></script>
+<script>window.SKLAD_VERSION='27.11 17:38';</script>
+<script src="firebase-config.js?v=6333940e"></script>
+<script src="shim.js?v=6333940e"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -150,11 +150,24 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 .cbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--danger,#c62828);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:700}
 .cpane{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;height:calc(100vh - var(--toph,120px) - 40px);height:calc(var(--vvh,100dvh) - var(--toph,120px) - 40px);min-height:380px}
 .cback{display:none}
+.cinput{align-items:flex-end;gap:8px}
+.cround{flex:none;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:19px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.cround.on{background:var(--sunk)}
+.cgo.send{background:var(--accent);border-color:var(--accent);color:#fff}
+.cgo.rec{width:auto;padding:0 12px;border-radius:21px;font-size:14px;background:var(--danger,#c62828);border-color:transparent;color:#fff}
+.cfield{flex:1;min-width:0;display:flex;align-items:flex-end;border:1px solid var(--line);border-radius:21px;background:var(--bg,var(--surface));padding:2px 4px 2px 14px}
+.cinput .cfield textarea{flex:1;border:0 !important;outline:0;background:transparent;box-shadow:none !important;resize:none;min-height:36px;max-height:140px;padding:8px 0;font-size:16px;line-height:1.3}
+.cemob{flex:none;background:none;border:0;font-size:21px;padding:6px 6px;cursor:pointer;opacity:.8}
+.cclip{display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;border-top:1px solid var(--line)}
+.cclipi{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;cursor:pointer}
 @media (max-width:800px){
   .chat .clist{display:none}
   .chat.showlist .clist{display:grid}
   .chat.showlist .cpane{display:none}
-  .cpane{height:calc(var(--vvh,100dvh) - var(--toph,120px) - 26px);min-height:300px;border-radius:10px}
+  /* открытый чат на телефоне — на весь видимый экран, поле ввода прямо над клавиатурой */
+  .chat:not(.showlist) .cpane{position:fixed;left:0;right:0;top:var(--vvt,0px);height:var(--vvh,100dvh);min-height:0;border-radius:0;border:0;z-index:30}
+  .chat:not(.showlist) .chead{padding-top:calc(8px + env(safe-area-inset-top,0px))}
+  html.kb .cinput{padding-bottom:6px !important}
   .cback{display:inline-flex;gap:4px;align-items:center;font-size:15px;padding:2px 6px 2px 0}
   .chead{padding:8px 10px}
   .cinput{padding:6px 8px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
@@ -2033,6 +2046,9 @@ function fsize(n){n=Number(n)||0;return n>=1048576?(n/1048576).toFixed(1).replac
 function msgPreview(m){if(m.kind==='del')return 'Сообщение удалено';if(m.kind==='file')return ('📄 '+(m.name||'файл')+' '+(m.t||'')).trim();const k=m.kind==='img'?'📷 Фото':m.kind==='voice'?'🎤 Голосовое':m.kind==='video'?'🎬 Видео':'';return ((k?k+' ':'')+(m.ord?'📦 №'+m.ord.no+' ':'')+(m.t||'')).trim().slice(0,140);}
 function quoteHtml(r,jump){return '<div class="cquote"'+(jump&&r.id?' data-cjump="'+esc(r.id)+'"':'')+'><b>'+esc(S.names[r.uid]||r.name||'…')+(r.ch?' <span class="muted">· '+esc(r.ch)+'</span>':'')+'</b>'+esc(r.t||'')+'</div>';}
 function visMsgs(){const h=(CH.reads&&CH.reads.hide)||{};return CH.msgs.filter(m=>!h[m.id]);}
+/* правая кнопка: микрофон, а когда есть что отправить — самолётик */
+function hasToSend(){const i=$('ch-in');return !!((i&&i.value.trim())||(CH.sel==='orders'&&CH.attach)||CH.edit);}
+function syncGo(){const b=$('ch-go');if(!b||CH.rec)return;const s=hasToSend();b.classList.toggle('send',s);b.innerHTML=s?'<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10.2 15 12 3.4 13.8z"/></svg>':'🎤';b.title=s?'Отправить':'Голосовое (нажмите, чтобы начать и закончить запись)';}
 function canWrite(id){return chatLv(id)==='edit';}
 function menuHtml(m){const mine=m.uid===S.me;
   if(m.kind==='del'){const B0=(a,l)=>'<button type="button" class="del" data-cact="'+a+'" data-mid="'+esc(m.id)+'">'+l+'</button>';return '<div class="cmenu">'+B0('hide','🗑 Убрать у себя')+(S.chatMod?B0('wipe','🗑 Удалить без следа'):'')+'</div>';}const c=CH.list.find(x=>x.id===CH.sel)||{id:CH.sel};const w=canWrite(CH.sel);const pinned=c.pin&&c.pin.id===m.id;
@@ -2085,8 +2101,11 @@ VIEWS.chat={controls(){if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('
     (CH.edit?'<div class="cbar">✏️ <span style="flex:1">Изменение сообщения</span>'+(S.chatMod?'<label class="cedopt"><input type="checkbox" id="ch-nomark"'+(CH.edit.nomark?' checked':'')+'> без пометки «изменено»</label>':'')+'<button type="button" class="link" data-cbar-x>Отмена</button></div>':'')+
     (CH.pickOrd?'<div class="cattach"><select id="ch-ord"><option value="">— выберите заказ —</option>'+[...S.orders].filter(o=>!o.cancel).sort((a,b)=>String(b.no).localeCompare(String(a.no),'ru',{numeric:true})).map(o=>'<option value="'+esc(o.id)+'">№'+esc(o.no)+' · '+esc(o.obj||'')+' · '+esc(orderStatus(o)[0])+'</option>').join('')+'</select> <button type="button" class="link" data-cpick-x>Отмена</button></div>':'')+
     (chatLv(c.id)==='view'?'<p class="muted" style="padding:10px 14px;margin:0;border-top:1px solid var(--line)">В этом чате вы можете только читать.</p>':
-    '<form class="cinput" id="ch-f" autocomplete="off">'+(c.id==='orders'?'<button type="button" class="ghost cico" data-cpick title="Прикрепить заказ">📦</button>':'')+'<button type="button" class="ghost cico" data-cemo title="Смайлики">😊</button><label class="ghost cico" title="Фото, видео или документ">📎<input type="file" id="ch-file" hidden></label>'+
-    '<button type="button" class="ghost cico'+(CH.rec?' rec':'')+'" data-cvoice title="Голосовое">'+(CH.rec?'⏹ '+CH.recSec+'с':'🎤')+'</button><textarea id="ch-in" rows="1" placeholder="'+(c.id==='orders'?'Вопрос по заказу':'Сообщение')+'">'+esc(draft)+'</textarea><button type="submit" class="primary" style="padding:8px 16px">➤</button></form>');
+    (CH.clip?'<div class="cclip"><label class="cclipi">📷 Фото или видео<input type="file" id="ch-file" accept="image/*,video/*" hidden></label><label class="cclipi">📄 Документ<input type="file" id="ch-doc" hidden></label>'+(c.id==='orders'?'<button type="button" class="cclipi" data-cpick>📦 Заказ</button>':'')+'</div>':'')+
+    '<form class="cinput" id="ch-f" autocomplete="off"><button type="button" class="cround'+(CH.clip?' on':'')+'" data-cclip title="Прикрепить: фото, документ'+(c.id==='orders'?', заказ':'')+'">📎</button>'+
+    '<div class="cfield"><textarea id="ch-in" rows="1" placeholder="'+(c.id==='orders'?'Вопрос по заказу':'Сообщение')+'">'+esc(draft)+'</textarea><button type="button" class="cemob" data-cemo title="Смайлики">😊</button></div>'+
+    '<button type="button" id="ch-go" class="cround cgo'+(CH.rec?' rec':'')+'">'+(CH.rec?'⏹ '+CH.recSec+'с':'🎤')+'</button></form>');
+  syncGo();
   const nb=$('ch-msgs');if(nb&&(atBottom||onlyMsgs===true))nb.scrollTop=nb.scrollHeight;
   if(focused){const i=$('ch-in');i.focus();i.setSelectionRange(i.value.length,i.value.length);}
   markRead();
@@ -2151,7 +2170,7 @@ async function startVoice(){
   r.onstop=async()=>{st.getTracks().forEach(t=>t.stop());clearInterval(CH.recT);const sent=CH.rec&&CH.rec.send;CH.rec=null;VIEWS.chat.update();if(!sent||!parts.length)return;
     const blob=new Blob(parts,{type:r.mimeType||mt||'audio/webm'});const d=await fileToData(blob);if(d.length>950000){toast('Голосовое слишком длинное. Запишите покороче.');return;}
     try{await chatSend({kind:'voice',data:d});}catch(e){toast(dbErr(e));}};
-  CH.rec={r,send:true};CH.recSec=0;CH.recT=setInterval(()=>{CH.recSec++;const b=document.querySelector('[data-cvoice]');if(b)b.textContent='⏹ '+CH.recSec+'с';if(CH.recSec>=120)stopVoice(true);},1000);
+  CH.rec={r,send:true};CH.recSec=0;CH.recT=setInterval(()=>{CH.recSec++;const b=document.querySelector('#ch-go');if(b)b.textContent='⏹ '+CH.recSec+'с';if(CH.recSec>=120)stopVoice(true);},1000);
   r.start();VIEWS.chat.update();
 }
 function stopVoice(send){if(!CH.rec)return;CH.rec.send=send;try{CH.rec.r.stop();}catch(e){}}
@@ -2174,11 +2193,13 @@ document.addEventListener('click',async e=>{
       if(m.kind==='file'){toast('Пересылаем файл…');const parts=await getParts(CH.sel,m);const all=new Uint8Array(parts.reduce((s,p)=>s+p.length,0));let o=0;for(const p of parts){all.set(p,o);o+=p.length;}const r=await putParts(to,all);x.file={name:m.name,size:m.size,mime:m.mime,fid:r.fid,n:r.n};}
       await chatSend(x,to);CH.fwd=null;CH.form=null;if(CH.sel!==to){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}openChat(to);}VIEWS.chat.update();toast('Сообщение переслано');}catch(x){toast(dbErr(x));}return;}
   if(CH.menu&&!t.closest('.cmenu')){CH.menu=null;VIEWS.chat.update();}
-  if(t.closest('[data-cpick]')){CH.draft=($('ch-in')||{}).value||'';CH.pickOrd=!CH.pickOrd;VIEWS.chat.update();return;}
+  if(t.closest('[data-cpick]')){CH.draft=($('ch-in')||{}).value||'';CH.clip=false;CH.pickOrd=!CH.pickOrd;VIEWS.chat.update();return;}
   if(t.closest('[data-cpick-x]')){CH.pickOrd=false;VIEWS.chat.update();return;}
-  if(t.closest('[data-cemo]')){CH.draft=($('ch-in')||{}).value||'';CH.emo=!CH.emo;VIEWS.chat.update();return;}
-  if((b=t.closest('[data-emo]'))){const i=$('ch-in');i.value+=b.dataset.emo;CH.draft=i.value;i.focus();return;}
+  if(t.closest('[data-cemo]')){CH.draft=($('ch-in')||{}).value||'';CH.clip=false;CH.emo=!CH.emo;VIEWS.chat.update();return;}
+  if((b=t.closest('[data-emo]'))){const i=$('ch-in');i.value+=b.dataset.emo;CH.draft=i.value;syncGo();return;}
   if(t.closest('[data-cvoice]')){if(CH.rec)stopVoice(true);else startVoice();return;}
+  if(t.closest('#ch-go')){if(CH.rec)stopVoice(true);else if(hasToSend())$('ch-f').requestSubmit();else startVoice();return;}
+  if(t.closest('[data-cclip]')){CH.draft=($('ch-in')||{}).value||'';CH.clip=!CH.clip;CH.emo=false;VIEWS.chat.update();return;}
   if(t.closest('[data-cnotif]')){await enableNotifications();VIEWS.chat.update();return;}
   if(t.closest('[data-cmore]')){CH.more=true;const id=CH.sel;CH.sel=null;if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}openChat(id);return;}
   if((b=t.closest('[data-cimg]'))){const w=window.open();if(w){w.document.write('<img src="'+b.src+'" style="max-width:100%">');}return;}
@@ -2202,7 +2223,7 @@ document.addEventListener('submit',async e=>{if(e.target.id!=='ch-f')return;e.pr
     try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+mid).update(nm?{t}:{t,ed:new Date().toISOString()});}catch(x){i.value=t;CH.edit={id:mid};toast(dbErr(x));}VIEWS.chat.update();return;}
   i.value='';CH.draft='';CH.emo=false;try{await chatSend({t});}catch(x){i.value=t;toast(dbErr(x));}});
 document.addEventListener('keydown',e=>{if(e.target.id==='ch-in'&&e.key==='Enter'&&!e.shiftKey&&window.innerWidth>800){e.preventDefault();$('ch-f').requestSubmit();}});
-document.addEventListener('input',e=>{if(e.target.id==='ch-in'){CH.draft=e.target.value;e.target.style.height='auto';e.target.style.height=Math.min(140,e.target.scrollHeight)+'px';}});
+document.addEventListener('input',e=>{if(e.target.id==='ch-in'){CH.draft=e.target.value;syncGo();e.target.style.height='auto';e.target.style.height=Math.min(140,e.target.scrollHeight)+'px';}});
 document.addEventListener('change',e=>{if(e.target.id!=='ch-ord')return;const o=S.orders.find(z=>z.id===e.target.value);if(!o)return;CH.attach={id:o.id,no:o.no,obj:o.obj||''};CH.pickOrd=false;CH.draft=($('ch-in')||{}).value||'';VIEWS.chat.update();const i=$('ch-in');if(i)i.focus();});
 /* «Спросить по заказу»: открывает чат «Заказы» с прикреплённым заказом */
 function askOrder(id){const o=S.orders.find(z=>z.id===id);if(!o)return;if(chatLv('orders')==='none'){toast('У вас нет доступа к чату «Заказы»');return;}
@@ -2210,7 +2231,9 @@ function askOrder(id){const o=S.orders.find(z=>z.id===id);if(!o)return;if(chatLv
   if(CH.sel!=='orders'){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}CH.sel=null;openChat('orders');}
   go('chat');VIEWS.chat.update();window.scrollTo(0,0);setTimeout(()=>{const i=$('ch-in');if(i)i.focus();},150);}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-ask-o]');if(b)askOrder(b.dataset.askO);});
-document.addEventListener('change',async e=>{if(e.target.id!=='ch-file')return;const f=e.target.files[0];e.target.value='';if(!f)return;
+document.addEventListener('change',async e=>{if(e.target.id!=='ch-file'&&e.target.id!=='ch-doc')return;const f=e.target.files[0];e.target.value='';if(!f)return;
+  CH.clip=false;VIEWS.chat.update();
+  if(e.target.id==='ch-doc'){try{await sendFile(f);}catch(x){toast(dbErr(x));}return;}
   try{if(/^image\//.test(f.type)){toast('Отправляем фото…');await chatSend({kind:'img',data:await imgToData(f)});}
     else if(/^video\//.test(f.type)&&f.size<=650000){await chatSend({kind:'video',data:await fileToData(f)});}
     else await sendFile(f);}catch(x){toast(dbErr(x));}});
@@ -2492,7 +2515,10 @@ async function exportCsv(name,rows){
 
 /* ---------- широкие таблицы: вид и размер закреплены слева, полоса прокрутки всегда внизу экрана ---------- */
 const PIN_COLS=/^(Наименование|Вид|Товар|Размер|Фасовка)$/;
-(function(){const vv=window.visualViewport;if(!vv)return;const f=()=>document.documentElement.style.setProperty('--vvh',vv.height+'px');vv.addEventListener('resize',f);f();})();
+(function(){const vv=window.visualViewport;if(!vv)return;const de=document.documentElement;
+  const f=()=>{de.style.setProperty('--vvh',vv.height+'px');de.style.setProperty('--vvt',vv.offsetTop+'px');de.classList.toggle('kb',window.innerHeight-vv.height>120);
+    const nb=document.getElementById('ch-msgs');if(nb&&document.activeElement&&document.activeElement.id==='ch-in')nb.scrollTop=nb.scrollHeight;};
+  vv.addEventListener('resize',f);vv.addEventListener('scroll',f);f();})();
 function enhanceTables(root){
   const top=document.querySelector('.top');document.documentElement.style.setProperty('--toph',(top?top.getBoundingClientRect().height:0)+'px');
   (root||document).querySelectorAll('.tbl-wrap').forEach(w=>{
