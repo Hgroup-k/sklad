@@ -57,7 +57,44 @@ function val(v){if(!v)return null;if('stringValue' in v)return v.stringValue;if(
 function obj(f){const o={};for(const k in f)o[k]=val(f[k]);return o;}
 async function getDoc(tok,path){const r=await fetch(FS+'/'+path,{headers:{Authorization:'Bearer '+tok}});if(!r.ok)return null;const j=await r.json();return obj(j.fields||{});}
 async function listCol(tok,path){const out=[];let pt='';do{const r=await fetch(FS+'/'+path+'?pageSize=300'+(pt?'&pageToken='+pt:''),{headers:{Authorization:'Bearer '+tok}});if(!r.ok)break;const j=await r.json();for(const d of j.documents||[])out.push({id:d.name.split('/').pop(),...obj(d.fields||{})});pt=j.nextPageToken||'';}while(pt);return out;}
-function claims(tok){try{const p=JSON.parse(new TextDecoder().decode(b64u.dec(tok.split('.')[1])));if(p.aud!==PROJECT||p.exp*1000<Date.now())return null;return p;}catch(e){return null;}}
+/* проверка входа: подпись токена Firebase ключами Google */
+let JWKS=null,JWKS_AT=0;
+async function claims(tok){
+  try{const [h,p,sg]=tok.split('.');const H=JSON.parse(new TextDecoder().decode(b64u.dec(h)));const P=JSON.parse(new TextDecoder().decode(b64u.dec(p)));
+    if(P.aud!==PROJECT||P.iss!=='https://securetoken.google.com/'+PROJECT||P.exp*1000<Date.now()||!P.sub)return null;
+    if(!JWKS||Date.now()-JWKS_AT>3600e3){const r=await fetch('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com');JWKS=(await r.json()).keys||[];JWKS_AT=Date.now();}
+    const jwk=JWKS.find(k=>k.kid===H.kid);if(!jwk)return null;
+    const key=await crypto.subtle.importKey('jwk',{kty:jwk.kty,n:jwk.n,e:jwk.e,alg:'RS256',ext:true},{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);
+    const ok=await crypto.subtle.verify('RSASSA-PKCS1-v1_5',key,b64u.dec(sg),enc.encode(h+'.'+p));return ok?{...P,user_id:P.user_id||P.sub}:null;}catch(e){return null;}}
+/* 6-значный код на почту: без хранения, код = подпись (uid, почта, 10-минутное окно) */
+async function codeFor(env,uid,email,win){const m=await hmac(enc.encode(env.CODE_SECRET),enc.encode(uid+'|'+lower(email)+'|'+win));const n=((m[0]<<24)|(m[1]<<16)|(m[2]<<8)|m[3])>>>0;return String(n%1000000).padStart(6,'0');}
+async function sendCode(env,me){
+  if(!env.BREVO_KEY||!env.SENDER_EMAIL||!env.CODE_SECRET)return {error:'not_configured'};
+  const code=await codeFor(env,me.user_id,me.email,Math.floor(Date.now()/600000));
+  const html='<div style="font-family:Arial,sans-serif;font-size:16px">Ваш код для программы «Склад»:<div style="font-size:32px;font-weight:bold;letter-spacing:6px;margin:14px 0">'+code+'</div>Код действует 10 минут. Если вы не создавали аккаунт, просто удалите это письмо.</div>';
+  const r=await fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',headers:{'api-key':env.BREVO_KEY,'content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({sender:{email:env.SENDER_EMAIL,name:'Склад'},to:[{email:me.email}],subject:'Код подтверждения: '+code,htmlContent:html})});
+  return r.ok?{ok:true}:{error:'send_failed',detail:(await r.text()).slice(0,200)};
+}
+/* токен Google для служебного аккаунта Firebase (чтобы отметить почту подтверждённой) */
+function pem2der(pem){return b64u.dec(pem.replace(/-----[^-]+-----/g,'').replace(/\s+/g,'').replace(/\+/g,'-').replace(/\//g,'_'));}
+async function saToken(env){const sa=JSON.parse(env.SA_JSON);const now=Math.floor(Date.now()/1000);
+  const h=b64u.enc(enc.encode(JSON.stringify({alg:'RS256',typ:'JWT'})));const p=b64u.enc(enc.encode(JSON.stringify({iss:sa.client_email,scope:'https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/cloud-platform',aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+3600})));
+  const key=await crypto.subtle.importKey('pkcs8',pem2der(sa.private_key),{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
+  const sg=b64u.enc(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,enc.encode(h+'.'+p)));
+  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion='+h+'.'+p+'.'+sg});
+  const j=await r.json();if(!j.access_token)throw new Error('sa token');return j.access_token;}
+async function verifyCode(env,me,code){
+  if(!env.CODE_SECRET||!env.SA_JSON)return {error:'not_configured'};
+  /* не больше 5 попыток за 10 минут на один аккаунт */
+  try{const ck=new Request('https://limit.local/'+me.user_id+'/'+Math.floor(Date.now()/600000));const c=caches.default;const hit=await c.match(ck);const n=hit?Number(await hit.text())||0:0;
+    if(n>=5)return {error:'too_many'};await c.put(ck,new Response(String(n+1),{headers:{'cache-control':'max-age=700'}}));}catch(e){}
+  const w=Math.floor(Date.now()/600000);const ok=(await codeFor(env,me.user_id,me.email,w))===code||(await codeFor(env,me.user_id,me.email,w-1))===code;
+  if(!ok)return {error:'bad_code'};
+  const at=await saToken(env);
+  const r=await fetch('https://identitytoolkit.googleapis.com/v1/projects/'+PROJECT+'/accounts:update',{method:'POST',headers:{authorization:'Bearer '+at,'content-type':'application/json'},body:JSON.stringify({localId:me.user_id,emailVerified:true})});
+  return r.ok?{ok:true}:{error:'verify_failed',detail:(await r.text()).slice(0,200)};
+}
 const lower=s=>String(s||'').trim().toLowerCase();
 
 async function notify(tok,me,q){
@@ -81,16 +118,20 @@ async function notify(tok,me,q){
   return n;
 }
 
-export default {async fetch(req){
+export default {async fetch(req,env){env=env||{};
   const o=req.headers.get('Origin')||'';const allow=ORIGINS.includes(o)||/^http:\/\/localhost(:\d+)?$/.test(o)?o:ORIGINS[0];
   const cors={'Access-Control-Allow-Origin':allow,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'content-type, authorization','Vary':'Origin'};
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
   const u=new URL(req.url);
   if(req.method==='GET')return new Response('Сервер уведомлений склада работает.',{headers:{...cors,'content-type':'text/plain; charset=utf-8'}});
-  if(req.method!=='POST'||u.pathname!=='/notify')return new Response('not found',{status:404,headers:cors});
-  const tok=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/,'');const me=claims(tok);
-  if(!me)return new Response('no auth',{status:401,headers:cors});
+  if(req.method!=='POST'||!['/notify','/code','/verify'].includes(u.pathname))return new Response('not found',{status:404,headers:cors});
+  const tok=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/,'');const me=await claims(tok);
+  if(!me)return new Response(JSON.stringify({error:'no_auth'}),{status:401,headers:cors});
   let q={};try{q=await req.json();}catch(e){}
+  if(u.pathname==='/code'||u.pathname==='/verify'){
+    let res;try{res=u.pathname==='/code'?await sendCode(env,me):await verifyCode(env,me,String(q.code||''));}catch(e){res={error:'server',detail:String(e&&e.message||e)};}
+    return new Response(JSON.stringify(res),{status:res.ok?200:400,headers:{...cors,'content-type':'application/json'}});
+  }
   const n=await notify(tok,me,q);
   return new Response(JSON.stringify({sent:n}),{headers:{...cors,'content-type':'application/json'}});
 }};

@@ -38,6 +38,7 @@ head = f'''<!doctype html>
 .ag-pw input{{flex:1}}
 .ag-eye{{background:none;border:1px solid var(--line,#d9e0e1);border-radius:6px;padding:6px 9px;cursor:pointer}}
 .sa-new{{border-color:#d97706 !important;background:rgba(217,119,6,.07)}}
+.sa-ava{{background:none;border:0;padding:0;cursor:pointer;border-radius:50%}}
 .sa-ph{{display:flex;gap:8px;align-items:center;flex-wrap:wrap;cursor:pointer;list-style:none}}
 .sa-ph::-webkit-details-marker{{display:none}}
 .sa-ph::before{{content:'▸';color:var(--muted,#888)}}

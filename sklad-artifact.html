@@ -122,6 +122,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 .cord{border:1px solid var(--line);border-radius:8px;padding:5px 8px;margin:2px 0 4px;background:var(--surface);font-size:13px}
 .cattach{padding:6px 10px;border-top:1px solid var(--line)}
 .cattach select{max-width:100%}
+.cmsg{position:relative}
+.cmsg.hasava{margin-left:34px}
+.cmsg:not(.mine).same{margin-left:34px}
+.cava{position:absolute;left:-34px;top:0}
 .cemo{display:flex;flex-wrap:wrap;gap:2px;padding:6px 10px;border-top:1px solid var(--line)}
 .cemo button{background:none;border:0;font-size:22px;padding:2px 4px}
 .cinput{display:flex;gap:6px;align-items:flex-end;padding:8px 10px;border-top:1px solid var(--line)}
@@ -1909,6 +1913,7 @@ function subscribeChats(){
   for(const fid of Object.keys(FIXED)){if(chatLv(fid)==='none')continue;
     rawdb.doc('chats/'+fid).onSnapshot(s=>{all[fid]={id:fid,type:'all',...(s.exists?s.data():{})};if(first){first=false;CH.base=null;}upd();},()=>{});}
   rawdb.collection('chats').where('members','array-contains',S.me).onSnapshot(q=>{for(const k in all)if(!FIXED[k])delete all[k];q.forEach(d=>{all[d.id]={id:d.id,...d.data()};});upd();},()=>{});
+  loadPeople().then(()=>{if(S.view==='chat')VIEWS.chat.update();});
   rawdb.doc('reads/'+S.me).onSnapshot(s=>{CH.reads=s.exists?s.data():{};chatBadge();if(S.view==='chat')VIEWS.chat.update();},()=>{});
 }
 /* уведомление внутри программы + системное, если окно свёрнуто */
@@ -1918,7 +1923,7 @@ function showNote(title,body,go){
     const send=r=>r&&r.showNotification?r.showNotification(title,{body,icon:'icons/icon-192.png',tag:go||'sklad',data:{go}}):new Notification(title,{body});
     if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(send).catch(()=>{});else send(null);}}catch(e){}
 }
-async function loadPeople(){if(CH.people)return CH.people;try{const q=await rawdb.collection('people').get();CH.people=[];q.forEach(d=>{const x=d.data();if(x.name){CH.people.push({uid:d.id,name:x.name});S.names[d.id]=x.name;}});CH.people.sort((a,b)=>a.name.localeCompare(b.name,'ru'));}catch(e){CH.people=[];}return CH.people;}
+async function loadPeople(){if(CH.people)return CH.people;try{const q=await rawdb.collection('people').get();CH.people=[];CH.ava={};q.forEach(d=>{const x=d.data();if(x.ava)CH.ava[d.id]=x;if(x.name&&x.uname){CH.people.push({uid:d.id,name:x.name});S.names[d.id]=x.name;}});CH.people.sort((a,b)=>a.name.localeCompare(b.name,'ru'));}catch(e){CH.people=[];}return CH.people;}
 function openChat(id){
   if(CH.sel===id&&CH.msgUnsub)return;
   if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}
@@ -1942,7 +1947,8 @@ function msgHtml(m,prev){
   else if(m.kind==='video')body='<video controls preload="metadata" src="'+esc(m.data)+'" class="cimg"></video>';
   if(m.ord)body+=ordCard(m.ord);
   if(m.t)body+='<div class="ctext">'+esc(m.t).replace(/\n/g,'<br>')+'</div>';
-  return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'">'+(!mine&&!same&&CH.sel!==undefined?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+body+'<div class="ctime">'+hhmm(m.at)+(mine?' <button type="button" class="link cdel" data-cdel="'+esc(m.id)+'" title="Удалить">✕</button>':'')+'</div></div>';
+  const av=!mine&&!same&&window.SKLAD_AVA?'<span class="cava">'+window.SKLAD_AVA((CH.ava&&CH.ava[m.uid])||{name:S.names[m.uid]||'?'},28)+'</span>':'';
+  return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+(av?' hasava':'')+'">'+av+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+body+'<div class="ctime">'+hhmm(m.at)+(mine?' <button type="button" class="link cdel" data-cdel="'+esc(m.id)+'" title="Удалить">✕</button>':'')+'</div></div>';
 }
 VIEWS.chat={controls(){if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('orders')!=='none'?'orders':(CH.list[0]||{}).id||'all');},update(onlyMsgs){
   const el=$('chat-b');if(!el)return;
@@ -2054,6 +2060,7 @@ document.addEventListener('change',async e=>{if(e.target.id!=='ch-file')return;c
 
 /* ---- уведомления на телефон и компьютер (Web Push через свой сервер уведомлений) ---- */
 function pushCfg(){return window.SKLAD_PUSH||null;}
+window.SKLAD_ENABLE_NOTIF=()=>enableNotifications();
 function b64u(s){const p='='.repeat((4-s.length%4)%4);const b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0));}
 async function enableNotifications(){
   if(!('Notification' in window)){toast('Этот браузер не поддерживает уведомления. На iPhone сначала добавьте программу на экран «Домой».');return;}

@@ -85,7 +85,7 @@ function showRegister(){
     if(pw.length<6)return err('Пароль: не меньше 6 знаков.');if(pw!==pw2)return err('Пароли не совпадают.');
     try{const s=await UN.doc(unKey(name)).get();if(s.exists&&lower(s.data().email)!==em)return err('Такое имя пользователя уже занято, придумайте другое.');}catch(x){return err(aerr(x));}
     pendingName={name,email:em};
-    try{const c=await auth.createUserWithEmailAndPassword(em,pw);try{await claimName(c.user,name);}catch(x){}try{await c.user.sendEmailVerification();}catch(x){}}
+    try{const c=await auth.createUserWithEmailAndPassword(em,pw);try{await claimName(c.user,name);}catch(x){}}
     catch(x){pendingName=null;if(x.code==='auth/email-already-in-use')return err('Аккаунт с этой почтой уже есть. Войдите по имени и паролю. Если забыли пароль, нажмите «Назад ко входу» → «Забыли пароль?».');return err(aerr(x));}
   };
 }
@@ -100,12 +100,26 @@ async function claimName(u,name){
   await fs.runTransaction(async t=>{const s=await t.get(ref);if(s.exists&&s.data().uid!==u.uid)throw {code:'taken'};t.set(ref,{uid:u.uid,email:lower(u.email),name});});
   await fs.doc('people/'+u.uid).set({name,uname:k,email:lower(u.email),at:new Date().toISOString()},{merge:true});
 }
+/* подтверждение почты 6-значным кодом (код присылает сервер уведомлений); если сервер не настроен — ссылкой */
+const PUSHURL=()=>(window.SKLAD_PUSH&&window.SKLAD_PUSH.url)||'';
+async function wcall(path,body){const tok=await auth.currentUser.getIdToken();const r=await fetch(PUSHURL()+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify(body||{})});let j={};try{j=await r.json();}catch(e){}if(!r.ok)throw {code:j.error||('http '+r.status)};return j;}
+const CERR={bad_code:'Код неверный или устарел. Проверьте или нажмите «Отправить код ещё раз».',not_configured:'Отправка кодов ещё не настроена.',send_failed:'Не удалось отправить письмо. Попробуйте ещё раз через минуту.',too_many:'Слишком много попыток. Подождите 10 минут.'};
 function showVerify(u){
-  const g=gate('<h2>Подтвердите почту</h2><p>Мы отправили письмо на <b>'+esc(u.email)+'</b>. Откройте его и нажмите ссылку в письме (если письма нет, проверьте папку «Спам»). Потом вернитесь сюда и нажмите «Я подтвердил».</p>'+
-    '<p class="err" id="ag-err" hidden></p><div style="display:grid;gap:8px"><button type="button" class="primary" id="ag-ok">Я подтвердил</button><button type="button" class="ghost" id="ag-again">Отправить письмо ещё раз</button><button type="button" class="link" id="ag-out">Выйти</button></div>');
+  const g=gate('<h2>Подтвердите почту</h2><p>На почту <b>'+esc(u.email)+'</b> отправлен код из 6 цифр (если письма нет, проверьте «Спам»). Впишите его ниже.</p>'+
+    '<form id="ag-f" style="display:grid;gap:10px;margin:10px 0"><input id="ag-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="font-size:24px;letter-spacing:8px;text-align:center"><p class="err" id="ag-err" hidden></p><button type="submit" class="primary">Подтвердить</button></form>'+
+    '<div style="display:grid;gap:8px"><button type="button" class="ghost" id="ag-again">Отправить код ещё раз</button><button type="button" class="link" id="ag-link" hidden>Получить ссылку вместо кода</button><button type="button" class="link" id="ag-out">Выйти</button></div>');
   const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
-  g.querySelector('#ag-ok').onclick=async()=>{try{await u.reload();if(auth.currentUser.emailVerified){await auth.currentUser.getIdToken(true);location.reload();}else err('Почта ещё не подтверждена. Нажмите ссылку в письме.');}catch(x){err(aerr(x));}};
-  g.querySelector('#ag-again').onclick=async()=>{try{await u.sendEmailVerification();err('Письмо отправлено ещё раз.');}catch(x){err(aerr(x));}};
+  const linkMode=()=>{g.querySelector('#ag-link').hidden=false;};
+  const send=async force=>{const k='sa.codeAt.'+u.uid;let last=0;try{last=+localStorage.getItem(k)||0;}catch(e){}
+    if(!force&&Date.now()-last<60000)return;
+    if(!PUSHURL()){linkMode();err(CERR.not_configured);return;}
+    try{await wcall('/code');try{localStorage.setItem(k,String(Date.now()));}catch(e){}err('');if(force)err('Новый код отправлен.');}
+    catch(x){err(CERR[x.code]||('Не удалось отправить код ('+x.code+').'));linkMode();}};
+  send(false);
+  g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();const c=g.querySelector('#ag-code').value.replace(/\D/g,'');if(c.length!==6)return err('Впишите 6 цифр из письма.');
+    try{await wcall('/verify',{code:c});window.__justCreated=true;await auth.signOut();}catch(x){err(CERR[x.code]||('Не получилось ('+x.code+').'));}};
+  g.querySelector('#ag-again').onclick=()=>send(true);
+  g.querySelector('#ag-link').onclick=async()=>{try{await u.sendEmailVerification();err('Письмо со ссылкой отправлено. Нажмите ссылку, потом войдите заново.');}catch(x){err(aerr(x));}};
   g.querySelector('#ag-out').onclick=()=>auth.signOut();
 }
 function askName(u,isGoogle){
@@ -127,7 +141,7 @@ auth.getRedirectResult().catch(()=>{});
 const domReady=new Promise(r=>document.readyState==='loading'?document.addEventListener('DOMContentLoaded',r):r());
 auth.onAuthStateChanged(async u=>{
   await domReady;
-  if(!u){if(started){location.reload();return;}showLogin();return;}
+  if(!u){if(started){location.reload();return;}if(window.__justCreated){window.__justCreated=false;showLogin('');const e=$('ag-err');if(e){e.textContent='Аккаунт создан. Войдите по имени пользователя и паролю.';e.hidden=false;e.style.color='var(--accent,#2b6)';}return;}showLogin();return;}
   if(started&&me&&u.uid!==me.uid){location.reload();return;}
   me=u;const email=lower(u.email);
   const isGoogle=(u.providerData||[]).some(p=>p.providerId==='google.com');
@@ -194,16 +208,53 @@ function addBar(){
   const bar=document.createElement('span');bar.id='sa-bar';
   bar.innerHTML='<button type="button" class="ghost sa-b" id="sa-install"'+(installEvt?'':' hidden')+'>Установить</button>'+
     (role==='owner'?'<button type="button" class="ghost sa-b" id="sa-acc">Доступ</button>':'')+
-    '<button type="button" class="link sa-b" id="sa-pw">Сменить пароль</button><button type="button" class="link sa-b" id="sa-out" title="'+esc(me.email)+'">Выйти</button>';
-  fs.doc('people/'+me.uid).get().then(s=>{const n=s.exists&&s.data().name;const b=$('sa-out');if(n&&b)b.title=n;window.SKLAD_ME_NAME=n||'';}).catch(()=>{});
+    '<button type="button" class="sa-ava" id="sa-prof" title="Профиль"></button><button type="button" class="link sa-b" id="sa-out" title="'+esc(me.email)+'">Выйти</button>';
+  fs.doc('people/'+me.uid).onSnapshot(s=>{MYP=s.exists?s.data():{};const n=MYP.name||'';window.SKLAD_ME_NAME=n;const b=$('sa-prof');if(b)b.innerHTML=avaHtml(MYP,30);},()=>{});
   brand.appendChild(bar);
   $('sa-out').onclick=()=>{if(confirm('Выйти из программы?'))auth.signOut();};
-  $('sa-pw').onclick=async()=>{if(!confirm('Отправить на вашу почту ('+maskMail(me.email)+') ссылку для смены пароля?'))return;try{await auth.sendPasswordResetEmail(me.email);alert('Письмо отправлено. Откройте его и задайте новый пароль (если письма нет, проверьте «Спам»).');}catch(x){alert(aerr(x));}};
+  $('sa-prof').onclick=openProfile;
   if(role==='owner')loadPeople().then(()=>{const n=pendingList().length;const b=$('sa-acc');if(b&&n)b.innerHTML='Доступ <span class="cbadge">'+n+'</span>';});
   $('sa-install').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice;}catch(e){}installEvt=null;$('sa-install').hidden=true;};
   const ab=$('sa-acc');if(ab)ab.onclick=openAccessFresh;
 }
 
+/* ---- профиль: фото, имя пользователя, телефон, должность, пароль, уведомления ---- */
+let MYP={};
+function avaHtml(p,sz){const n=(p&&p.name)||'?';return p&&p.ava?'<img src="'+esc(p.ava)+'" alt="" style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;object-fit:cover;display:block">':'<span style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;display:grid;place-items:center;background:var(--accent,#2b6);color:var(--surface,#fff);font-weight:700;font-size:'+Math.round(sz*0.45)+'px">'+esc(n.slice(0,1).toUpperCase())+'</span>';}
+window.SKLAD_AVA=avaHtml;
+async function smallAva(file){const url=await new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=j;f.readAsDataURL(file);});
+  const img=new Image();await new Promise((r,j)=>{img.onload=r;img.onerror=j;img.src=url;});const z=160;const cv=document.createElement('canvas');cv.width=z;cv.height=z;
+  const k=Math.max(z/img.naturalWidth,z/img.naturalHeight);const w=img.naturalWidth*k,h=img.naturalHeight*k;cv.getContext('2d').drawImage(img,(z-w)/2,(z-h)/2,w,h);return cv.toDataURL('image/jpeg',0.8);}
+function openProfile(){
+  let d=$('sa-access');if(!d){d=document.createElement('div');d.id='sa-access';document.body.appendChild(d);}
+  const p=MYP||{};const notif=('Notification' in window)?Notification.permission:'unsupported';
+  d.innerHTML='<div class="ag-card" style="max-width:460px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Профиль</h2><button type="button" class="link" id="pf-x">Закрыть</button></div>'+
+    '<div style="display:flex;gap:14px;align-items:center;margin-bottom:12px"><span id="pf-ava">'+avaHtml(p,72)+'</span><div style="display:grid;gap:6px"><label class="ghost" style="cursor:pointer;padding:6px 10px;border-radius:6px">Сменить фото<input type="file" id="pf-file" accept="image/*" hidden></label>'+(p.ava?'<button type="button" class="link" id="pf-noava">Убрать фото</button>':'')+'</div></div>'+
+    '<div style="display:grid;gap:10px">'+fld2('pf-name','Имя пользователя (по нему входите и его видят все)')+fld2('pf-full','Полное имя (необязательно)','text','например Михаил Иванов')+fld2('pf-pos','Должность (необязательно)','text','например мастер Пр.11')+fld2('pf-phone','Телефон (необязательно)','tel')+
+    '<p class="muted" style="margin:0;font-size:13px">Почта: <b>'+esc(me.email)+'</b></p><button type="button" class="primary" id="pf-save">Сохранить</button><p class="err" id="pf-err" hidden></p></div>'+
+    '<h3 style="margin:18px 0 6px">Пароль</h3><div style="display:grid;gap:10px">'+fld2('pf-old','Текущий пароль','password')+fld2('pf-new','Новый пароль (не меньше 6 знаков)','password')+
+    '<button type="button" class="ghost" id="pf-pw">Сменить пароль</button><button type="button" class="link" id="pf-mail" style="justify-self:start">Не помню текущий: прислать ссылку на почту</button><p class="err" id="pf-perr" hidden></p></div>'+
+    '<h3 style="margin:18px 0 6px">Уведомления</h3><p class="muted" style="margin:0 0 8px;font-size:13px">'+(notif==='granted'?'Включены на этом устройстве.':notif==='denied'?'Запрещены в настройках браузера. Разрешите уведомления для этого сайта в настройках.':notif==='unsupported'?'Этот браузер не поддерживает уведомления. На iPhone добавьте программу на экран «Домой».':'Выключены на этом устройстве.')+'</p>'+
+    (notif==='default'?'<button type="button" class="ghost" id="pf-notif">Включить уведомления</button>':'')+'</div>';
+  d.hidden=false;
+  $('pf-name').value=p.name||'';$('pf-full').value=p.full||'';$('pf-pos').value=p.pos||'';$('pf-phone').value=p.phone||'';
+  const err=(id,m,ok)=>{const e=$(id);e.textContent=m||'';e.hidden=!m;e.style.color=ok?'var(--accent,#2b6)':'';};
+  $('pf-x').onclick=()=>{d.hidden=true;};
+  $('pf-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const a=await smallAva(f);await fs.doc('people/'+me.uid).set({ava:a},{merge:true});MYP.ava=a;openProfile();}catch(x){err('pf-err','Не удалось загрузить фото.');}};
+  const na=$('pf-noava');if(na)na.onclick=async()=>{await fs.doc('people/'+me.uid).set({ava:''},{merge:true});MYP.ava='';openProfile();};
+  $('pf-save').onclick=async()=>{const name=$('pf-name').value.trim().replace(/\s+/g,' ');
+    if(name.length<2||name.length>30)return err('pf-err','Имя пользователя: от 2 до 30 знаков.');
+    try{if(unKey(name)!==(p.uname||'')){await fs.runTransaction(async t=>{const nr=UN.doc(unKey(name));const s=await t.get(nr);if(s.exists&&s.data().uid!==me.uid)throw {code:'taken'};
+          t.set(nr,{uid:me.uid,email:lower(me.email),name});if(p.uname&&p.uname!==unKey(name))t.delete(UN.doc(p.uname));});}
+      await fs.doc('people/'+me.uid).set({name,uname:unKey(name),full:$('pf-full').value.trim(),pos:$('pf-pos').value.trim(),phone:$('pf-phone').value.trim()},{merge:true});
+      err('pf-err','Сохранено. Теперь входите с именем «'+name+'».',true);}
+    catch(x){err('pf-err',x&&x.code==='taken'?'Такое имя уже занято.':aerr(x));}};
+  $('pf-pw').onclick=async()=>{const o=$('pf-old').value,n=$('pf-new').value;if(n.length<6)return err('pf-perr','Новый пароль: не меньше 6 знаков.');
+    try{await me.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(me.email,o));await me.updatePassword(n);$('pf-old').value='';$('pf-new').value='';err('pf-perr','Пароль изменён.',true);}
+    catch(x){err('pf-perr',x&&/wrong-password|invalid-credential/.test(x.code||'')?'Текущий пароль неверный.':aerr(x));}};
+  $('pf-mail').onclick=async()=>{try{await auth.sendPasswordResetEmail(me.email);err('pf-perr','Ссылка отправлена на '+maskMail(me.email)+'.',true);}catch(x){err('pf-perr',aerr(x));}};
+  const nb=$('pf-notif');if(nb)nb.onclick=async()=>{if(window.SKLAD_ENABLE_NOTIF)await window.SKLAD_ENABLE_NOTIF();openProfile();};
+}
 /* ---- перенос копии (формат резервной копии склада) ---- */
 async function importSnap(snap,progress){
   if(!snap||!snap.catalog||!snap.ops)throw new Error('это не файл копии склада');
