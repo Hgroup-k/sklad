@@ -2015,7 +2015,7 @@ async function loadPeople(){if(CH.people)return CH.people;try{const q=await rawd
 function openChat(id){
   if(CH.sel===id&&CH.msgUnsub)return;
   if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}
-  CH.sel=id;CH.mobList=false;CH.err=null;CH.msgs=[];CH.form=null;CH.emo=false;CH.loaded=false;CH.menu=null;CH.edit=null;CH.reply=null;
+  CH.sel=id;CH.pinIdx=0;CH.mobList=false;CH.err=null;CH.msgs=[];CH.form=null;CH.emo=false;CH.loaded=false;CH.menu=null;CH.edit=null;CH.reply=null;
   CH.msgUnsub=rawdb.collection('chats/'+id+'/msgs').orderBy('at','desc').limit(CH.more?600:150).onSnapshot(q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));CH.msgs=l.reverse();CH.loaded=true;resolveNames(CH.msgs.map(m=>m.uid));if(S.view==='chat')VIEWS.chat.update(true);},e=>{CH.loaded=true;CH.err=e&&e.code;CH.msgUnsub=null;if(S.view==='chat')VIEWS.chat.update(true);});
   VIEWS.chat.update(true);
 }
@@ -2050,9 +2050,14 @@ function visMsgs(){const h=(CH.reads&&CH.reads.hide)||{};return CH.msgs.filter(m
 /* правая кнопка: микрофон, а когда есть что отправить — самолётик */
 function hasToSend(){const i=$('ch-in');return !!((i&&i.value.trim())||(CH.sel==='orders'&&CH.attach)||CH.edit);}
 function syncGo(){const b=$('ch-go');if(!b||CH.rec)return;const s=hasToSend();b.classList.toggle('send',s);b.innerHTML=s?'<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10.2 15 12 3.4 13.8z"/></svg>':'🎤';b.title=s?'Отправить':'Голосовое (нажмите, чтобы начать и закончить запись)';}
+/* закреплённые: несколько на чат, одна полоска; нажатие — к закреплённому, следующее нажатие — к предыдущему и т.д. */
+function pinsOf(c){return Array.isArray(c&&c.pins)?c.pins:(c&&c.pin&&c.pin.id?[c.pin]:[]);}
+function pinsNewest(c){return [...pinsOf(c)].sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));}
+function pinBar(c){const P=pinsNewest(c);if(!P.length)return '';const i=(CH.pinIdx||0)%P.length;const p=P[i];
+  return '<div class="cpin" data-cpinbar title="Нажмите, чтобы перейти; ещё раз — к следующему закреплённому"><span>📌 <b>'+(P.length>1?'Закреплено '+(i+1)+' из '+P.length:'Закреплено')+'</b> · '+esc(S.names[p.uid]?S.names[p.uid]+': ':'')+esc(p.t||'')+'</span>'+(canWrite(c.id)?'<button type="button" class="link" data-cunpin="'+esc(p.id)+'" title="Открепить это сообщение">✕</button>':'')+'</div>';}
 function canWrite(id){return chatLv(id)==='edit';}
 function menuHtml(m){const mine=m.uid===S.me;
-  if(m.kind==='del'){const B0=(a,l)=>'<button type="button" class="del" data-cact="'+a+'" data-mid="'+esc(m.id)+'">'+l+'</button>';return '<div class="cmenu">'+B0('hide','🗑 Убрать у себя')+(S.chatMod?B0('wipe','🗑 Удалить без следа'):'')+'</div>';}const c=CH.list.find(x=>x.id===CH.sel)||{id:CH.sel};const w=canWrite(CH.sel);const pinned=c.pin&&c.pin.id===m.id;
+  if(m.kind==='del'){const B0=(a,l)=>'<button type="button" class="del" data-cact="'+a+'" data-mid="'+esc(m.id)+'">'+l+'</button>';return '<div class="cmenu">'+B0('hide','🗑 Убрать у себя')+(S.chatMod?B0('wipe','🗑 Удалить без следа'):'')+'</div>';}const c=CH.list.find(x=>x.id===CH.sel)||{id:CH.sel};const w=canWrite(CH.sel);const pinned=pinsOf(c).some(x=>x.id===m.id);
   const B=(a,l,cl)=>'<button type="button" data-cact="'+a+'" data-mid="'+esc(m.id)+'"'+(cl?' class="'+cl+'"':'')+'>'+l+'</button>';
   return '<div class="cmenu">'+(w?B('reply','↩ Ответить'):'')+(!mine&&c.type!=='dm'?B('dm','💬 Ответить лично'):'')+(m.t?B('copy','📋 Копировать'):'')+B('fwd','↪ Переслать')+(m.t?B('tr','🌐 Перевести'):'')+
     (w?B('pin',pinned?'📌 Открепить':'📌 Закрепить'):'')+(mine&&m.t&&m.kind!=='del'?B('edit','✏️ Изменить'):'')+B('del','🗑 Удалить','del')+'</div>'+
@@ -2073,8 +2078,9 @@ async function msgAction(a,mid){const m=CH.msgs.find(x=>x.id===mid);CH.menu=null
   if(a==='copy'){try{await navigator.clipboard.writeText(m.t);toast('Текст скопирован');}catch(e){const ta=document.createElement('textarea');ta.value=m.t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Текст скопирован');}catch(_){toast('Не удалось скопировать');}ta.remove();}VIEWS.chat.update();return;}
   if(a==='tr'){window.open('https://translate.google.com/?sl=auto&tl=ru&op=translate&text='+encodeURIComponent(m.t),'_blank','noopener');VIEWS.chat.update();return;}
   if(a==='fwd'){CH.fwd=m;await loadPeople();CH.form={kind:'fwd'};VIEWS.chat.update();return;}
-  if(a==='pin'){const c=CH.list.find(x=>x.id===CH.sel);const un=c&&c.pin&&c.pin.id===m.id;
-    try{await rawdb.doc('chats/'+CH.sel).set({pin:un?null:{id:m.id,uid:m.uid,t:msgPreview(m),at:new Date().toISOString()}},{merge:true});toast(un?'Сообщение откреплено':'Сообщение закреплено');}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
+  if(a==='pin'){const c=CH.list.find(x=>x.id===CH.sel)||{};const P=pinsOf(c);const un=P.some(x=>x.id===m.id);
+    const pins=un?P.filter(x=>x.id!==m.id):[...P,{id:m.id,uid:m.uid,t:msgPreview(m),at:new Date().toISOString()}].slice(-30);CH.pinIdx=0;
+    try{await rawdb.doc('chats/'+CH.sel).set({pins,pin:null},{merge:true});toast(un?'Сообщение откреплено':'Сообщение закреплено');}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
   if(a==='edit'){CH.reply=null;CH.edit={id:m.id};CH.draft=m.t;const i=$('ch-in');if(i)i.value=m.t;VIEWS.chat.update();focusIn();return;}
   if(a==='del'){CH.delAsk=m.id;CH.menu=m.id;VIEWS.chat.update();return;}
   CH.delAsk=null;
@@ -2099,7 +2105,7 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
   const box=P.querySelector('#ch-msgs');const atBottom=!box||box.scrollHeight-box.scrollTop-box.clientHeight<60;
   const otherUnread=CH.list.filter(x=>x.id!==c.id&&chatUnread(x)).length;
   P.innerHTML='<div class="chead"><button type="button" class="link cback" data-cback>← Чаты'+(otherUnread?' <span class="cbadge">'+otherUnread+'</span>':'')+'</button><b>'+esc(chatName(c))+'</b>'+(c.type==='group'?' <span class="muted" style="font-size:12px">'+(c.members||[]).length+' участн.</span><button type="button" class="link" data-cmembers>Участники</button>':'')+'</div>'+
-    (c.pin&&c.pin.id?'<div class="cpin" data-cjump="'+esc(c.pin.id)+'"><span>📌 <b>'+esc(S.names[c.pin.uid]||'')+':</b> '+esc(c.pin.t||'')+'</span>'+(canWrite(c.id)?'<button type="button" class="link" data-cunpin title="Открепить">✕</button>':'')+'</div>':'')+
+    pinBar(c)+
     '<div class="cmsgs" id="ch-msgs">'+(!CH.loaded?'<p class="muted">Загрузка…</p>':CH.err?'<p class="muted">Нет доступа к этому чату.</p>':(CH.msgs.length>=150&&!CH.more?'<button type="button" class="link" data-cmore>Показать более ранние</button>':'')+(CH.msgs.length?visMsgs().map((m,i,L)=>msgHtml(m,L[i-1])).join(''):'<p class="muted">Сообщений пока нет. Напишите первым.</p>'))+'</div>'+
     (CH.emo?'<div class="cemo">'+EMOJI.map(e=>'<button type="button" data-emo="'+e+'">'+e+'</button>').join('')+'</div>':'')+
     (CH.attach&&CH.sel==='orders'?'<div class="cattach">'+ordCard(CH.attach,true)+'</div>':'')+
@@ -2204,7 +2210,8 @@ document.addEventListener('click',async e=>{
   if((b=t.closest('[data-cfile]'))){const m=CH.msgs.find(x=>x.id===b.dataset.cfile);if(m)await downloadFile(m);return;}
   if((b=t.closest('[data-cmenu]'))){CH.delAsk=null;CH.menu=CH.menu===b.dataset.cmenu?null:b.dataset.cmenu;VIEWS.chat.update();return;}
   if((b=t.closest('[data-cact]'))){await msgAction(b.dataset.cact,b.dataset.mid);return;}
-  if(t.closest('[data-cunpin]')){try{await rawdb.doc('chats/'+CH.sel).set({pin:null},{merge:true});}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-cunpin]'))){const c=CH.list.find(x=>x.id===CH.sel)||{};const pins=pinsOf(c).filter(x=>x.id!==b.dataset.cunpin);CH.pinIdx=0;try{await rawdb.doc('chats/'+CH.sel).set({pins,pin:null},{merge:true});}catch(x){toast(dbErr(x));}return;}
+  if(t.closest('[data-cpinbar]')){const c=CH.list.find(x=>x.id===CH.sel)||{};const P=pinsNewest(c);if(!P.length)return;const i=(CH.pinIdx||0)%P.length;jumpTo(P[i].id);CH.pinIdx=(i+1)%P.length;const bar=document.querySelector('.cpin');if(bar)bar.outerHTML=pinBar(c);return;}
   if((b=t.closest('[data-cjump]'))){jumpTo(b.dataset.cjump);return;}
   if(t.closest('[data-cbar-x]')){if(CH.edit){const i=$('ch-in');if(i)i.value='';CH.draft='';}CH.reply=null;CH.edit=null;VIEWS.chat.update();return;}
   if((b=t.closest('[data-cfwd],[data-cfwd-u]'))){const m=CH.fwd;if(!m)return;
