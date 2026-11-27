@@ -489,7 +489,12 @@ function go(v){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b){e.preventDefault();go(b.dataset.go);return;}
   const g=e.target.closest('[data-grp]');if(g){const t=TABS.find(t=>t[2]===g.dataset.grp&&tabOk(t[0]));if(t)go(t[0]);}});
-window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(h&&h!==S.view)go(h);});
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(h.indexOf('chat:')===0){openChatLink(h.slice(5));return;}if(h&&h!==S.view)go(h);});
+/* переход по уведомлению: сразу в нужный чат */
+function openChatLink(id){if(!id)return;if(!rawdb||!S.me){window.__openChat=id;return;}
+  go('chat');CH.mobList=false;CH.form=null;if(CH.sel!==id){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}CH.sel=null;openChat(id);}VIEWS.chat.update(true);
+  try{history.replaceState(null,'','#chat');}catch(e){}}
+if(navigator.serviceWorker)navigator.serviceWorker.addEventListener('message',e=>{const o=e.data&&e.data.open;if(!o)return;if(o.indexOf('chat:')===0)openChatLink(o.slice(5));else go(o);});
 
 /* ---------- toast ---------- */
 let toastT=0;
@@ -1965,7 +1970,7 @@ function subscribeChats(){
     CH.list=Object.values(all).sort((a,b)=>((FIXED[b.id]?1:0)-(FIXED[a.id]?1:0))||(a.id==='all'?-1:b.id==='all'?1:0)||((b.last&&b.last.at)||b.at||'').localeCompare((a.last&&a.last.at)||a.at||''));
     resolveNames(CH.list.flatMap(c=>[...(c.members||[]),c.last&&c.last.uid].filter(Boolean)));
     if(CH.base){for(const c of CH.list){const l=c.last;if(!l||l.uid===S.me)continue;const was=CH.base[c.id]||'';
-      if(l.at>was&&!(S.view==='chat'&&CH.sel===c.id&&!document.hidden))showNote(chatName(c),(S.names[l.uid]?S.names[l.uid]+': ':'')+l.t,'chat');}}
+      if(l.at>was&&!(S.view==='chat'&&CH.sel===c.id&&!document.hidden))showNote(chatName(c),(S.names[l.uid]?S.names[l.uid]+': ':'')+l.t,'chat-'+c.id);}}
     CH.base={};for(const c of CH.list)CH.base[c.id]=(c.last&&c.last.at)||'';
     chatBadge();if(S.view==='chat')VIEWS.chat.update();if(S.view==='home')VIEWS.home.update();
   };
@@ -2056,8 +2061,8 @@ async function msgAction(a,mid){const m=CH.msgs.find(x=>x.id===mid);CH.menu=null
   if(a==='delall'){try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+m.id).set({uid:m.uid,at:m.at,kind:'del',del:new Date().toISOString(),by:S.me});if(m.kind==='file')delParts(CH.sel,m);}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
   if(a==='wipe'){if(!confirm('Удалить сообщение полностью? Никто не увидит, что оно было.')){VIEWS.chat.update();return;}try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+m.id).delete();if(m.kind==='file')delParts(CH.sel,m);}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
 }
-VIEWS.chat={controls(){if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('orders')!=='none'?'orders':(CH.list[0]||{}).id||'all');},update(onlyMsgs){
-  const el=$('chat-b');if(!el)return;
+VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('orders')!=='none'?'orders':(CH.list[0]||{}).id||'all');},update(onlyMsgs){
+  const el=$('chat-b');if(!el||!rawdb||!S.me)return;
   const c=CH.list.find(x=>x.id===CH.sel)||(FIXED[CH.sel]?{id:CH.sel,type:'all'}:(CH.extra&&CH.extra[CH.sel])||null);
   if(!el.querySelector('.chat')){el.innerHTML='<div class="chat"><aside class="clist" id="ch-list"></aside><section class="cpane" id="ch-pane"></section></div>';}
   el.querySelector('.chat').classList.toggle('showlist',!!CH.mobList||(!c&&!CH.form));
@@ -2603,7 +2608,7 @@ function watchMonth(m,live){
   if(live)col.onSnapshot({includeMetadataChanges:true},apply,fail);else col.get().then(apply,fail);
 }
 function subscribe(){
-  try{subscribeChats();setTimeout(()=>pushSubscribe(false),3000);}catch(e){}
+  try{subscribeChats();setTimeout(()=>pushSubscribe(false),3000);if(window.__openChat){openChatLink(window.__openChat);window.__openChat=null;}else if(S.view==='chat'){VIEWS.chat.controls();VIEWS.chat.update();}}catch(e){}
   const ms=monthsRange();
   const liveFrom=Math.max(0,ms.length-36);
   if(opsReadable())ms.forEach((m,i)=>watchMonth(m,i>=liveFrom));
@@ -2645,7 +2650,7 @@ async function init(){
   buildTabs();wireForm();wirePrintBar();
   {const st=document.createElement('style');st.textContent='@media print{'+PRINT_CSS.replace('@page{size:A6 landscape;margin:4mm 5mm}','')+'}@page{size:A6 landscape;margin:4mm 5mm}';document.body.appendChild(st);}
   const h=location.hash.slice(1);
-  go(TABS.some(t=>t[0]===h)&&h!=='input'?h:'home');
+  if(h.indexOf('chat:')===0){window.__openChat=h.slice(5);go('chat');}else go(TABS.some(t=>t[0]===h)&&h!=='input'?h:'home');
   renderForm();
   let tries=0;
   while(!(window.claude&&window.claude.use)&&tries<30){await new Promise(r=>setTimeout(r,100));tries++;}
