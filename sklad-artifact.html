@@ -1078,7 +1078,8 @@ function chipsHtml(name,values,cur,dis){return '<div class="chips" data-chips="'
 function fld(label,inner,cls){return '<div class="fld'+(cls?' '+cls:'')+'"><span>'+label+'</span>'+inner+'</div>';}
 function inp(name,val,attrs){return '<input type="text" data-in="'+name+'" value="'+esc(val||'')+'"'+(attrs||'')+'>';}
 function selHtml(name,values,cur,blank,attrs){return '<select data-in="'+name+'"'+(attrs||'')+'>'+(blank!=null?opt('',blank,cur):'')+values.map(v=>opt(v,v,cur)).join('')+'</select>';}
-function dbErr(e){return e&&e.code==='quota_exceeded'?'База заполнена: место закончилось. Напишите Claude.':e&&(e.code==='invalid_argument'||e.code==='permission_denied')?'Нет прав на запись.':'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.';}
+function dbErr(e){try{console.error('db error',e);}catch(_){}const c=String(e&&e.code||'').replace(/_/g,'-');const k=c?' (код: '+c+')':(e&&e.message?' ('+String(e.message).slice(0,80)+')':'');
+  return c==='quota-exceeded'||c==='resource-exhausted'?'Бесплатный лимит базы на сегодня закончился, попробуйте позже или завтра'+k+'.':c==='permission-denied'?'Нет прав на запись'+k+'. Попросите владельца проверить «Доступ».':c==='invalid-argument'?'Ошибка в данных'+k+'. Сделайте снимок экрана и пришлите Claude.':'Не удалось сохранить'+k+'. Проверьте интернет и попробуйте ещё раз.';}
 function opRef(m,id){return m+'/'+id;}
 async function addOp(data){const m=data.d.slice(0,7);watchMonth(m,true);const ref=await db.collection('months/'+m+'/ops').add({...data,by:S.me||'',at:new Date().toISOString()});return opRef(m,ref.id);}
 async function delOpRef(ref){const [m,id]=String(ref).split('/');if(m&&id)await db.doc('months/'+m+'/ops/'+id).delete();}
@@ -1985,12 +1986,14 @@ function chatFormHtml(){const f=CH.form;const ppl=(CH.people||[]).filter(p=>p.ui
 async function chatSend(msg){
   const id=CH.sel;if(!id)return;const now=new Date().toISOString();
   const m={uid:S.me,at:now,kind:msg.kind||'text',t:msg.t||''};if(msg.data)m.data=msg.data;
-  if(id==='orders'&&CH.attach){m.ord={id:CH.attach.id,no:String(CH.attach.no||''),obj:CH.attach.obj||''};CH.attach=null;}
+  if(id==='orders'&&CH.attach){m.ord={id:String(CH.attach.id||''),no:String(CH.attach.no||''),obj:String(CH.attach.obj||'')};}
   await rawdb.collection('chats/'+id+'/msgs').add(m);
+  if(m.ord){CH.attach=null;try{VIEWS.chat.update();}catch(e){}}
   const prev=msg.kind==='img'?'📷 Фото':msg.kind==='voice'?'🎤 Голосовое':msg.kind==='video'?'🎬 Видео':'';
   const pre=prev+(m.ord?'№'+m.ord.no+': ':'');
   const last={t:(pre+(prev&&m.t?' ':'')+m.t).slice(0,120),uid:S.me,at:now};
-  if(FIXED[id])await rawdb.doc('chats/'+id).set({type:'all',last},{merge:true});else await rawdb.doc('chats/'+id).update({last});
+  /* сообщение уже ушло; «последнее сообщение» в списке чатов — не критично */
+  (FIXED[id]?rawdb.doc('chats/'+id).set({type:'all',last},{merge:true}):rawdb.doc('chats/'+id).update({last})).catch(e=>{try{console.error('chat last',e);}catch(_){}});
   CH.reads[id]=now;rawdb.doc('reads/'+S.me).set({[id]:now},{merge:true}).catch(()=>{});
   if(id==='orders')pushSend({kind:'order',order:'',title:'Чат «Заказы» · '+myName(),body:last.t});
   else pushSend({kind:'msg',chat:id,title:(FIXED[id]||chatName(CH.list.find(x=>x.id===id))),body:last.t});
