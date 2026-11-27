@@ -2,7 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function acc() { return get(/databases/$(database)/documents/access/main).data; }
-    function signedIn() { return request.auth != null && request.auth.token.email != null; }
+    function signedIn() { return request.auth != null && request.auth.token.email != null && request.auth.token.email_verified == true; }
+    function me() { return request.auth != null ? request.auth.uid : ''; }
     function email() { return request.auth.token.email.lower(); }
     function isOwner() { return signedIn() && email() == acc().owner; }
     function isFull() { return signedIn() && (isOwner() || email() in acc().editors); }
@@ -17,9 +18,9 @@ service cloud.firestore {
       || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan')
       || canView('porders') || canView('cast11') || canView('dry11') || canView('demold11') || canView('cut11')
       || canView('pack11') || canView('grout') || canView('cast9') || canView('dry9') || canView('demold9')
-      || canView('sand9') || canView('pack9'); }
+      || canView('sand9') || canView('pack9') || canView('grease11') || canView('porders9'); }
     function opsEdit() { return canEdit('input') || canEdit('journal') || canEdit('stock'); }
-    function prodEdit() { return canEdit('cast11') || canEdit('demold11') || canEdit('cut11') || canEdit('pack11')
+    function prodEdit() { return canEdit('grease11') || canEdit('cast11') || canEdit('demold11') || canEdit('cut11') || canEdit('pack11')
       || canEdit('grout') || canEdit('cast9') || canEdit('demold9') || canEdit('sand9') || canEdit('pack9'); }
 
     match /access/main {
@@ -29,13 +30,40 @@ service cloud.firestore {
     }
     match /people/{uid} {
       allow read: if anyAccess();
-      allow write: if signedIn() && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /unames/{n} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email.lower()
+        && (resource == null || resource.data.uid == request.auth.uid);
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+    match /chats/{id} {
+      allow read: if anyAccess() && (id == 'all' || me() in resource.data.members);
+      allow create: if anyAccess() && (id == 'all' || (me() in request.resource.data.members && request.resource.data.by == me()));
+      allow update: if anyAccess() && (id == 'all' || me() in resource.data.members);
+      allow delete: if anyAccess() && id != 'all' && resource.data.by == me();
+      match /msgs/{m} {
+        allow read: if anyAccess() && (id == 'all' || me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
+        allow create: if anyAccess() && request.resource.data.uid == me()
+          && (id == 'all' || me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
+        allow delete: if anyAccess() && resource.data.uid == me();
+      }
+    }
+    match /reads/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /push/{uid} {
+      allow read: if anyAccess();
+      allow write: if anyAccess() && request.auth.uid == uid;
     }
     match /orders/{id} {
-      allow read: if canView('orders') || canView('porders') || canView('grout');
+      allow read: if canView('orders') || canView('porders') || canView('porders9') || canView('grout');
       allow write: if canEdit('orders');
-      allow update: if canEdit('porders')
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'work', 'ready']);
+      allow update: if (canEdit('porders') || canEdit('porders9'))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'work', 'ready', 'prod']);
     }
     match /returns/{id} {
       allow read: if canView('returns');

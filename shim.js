@@ -145,6 +145,8 @@ auth.onAuthStateChanged(async u=>{
     gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
   }else fs.doc('people/'+u.uid).set({email,at:new Date().toISOString()},{merge:true}).catch(()=>{});
   ACC.onSnapshot(s=>{if(!s.exists)return;const nr=roleOf(s.data(),email);access=s.data();if(nr!==role)location.reload();},()=>{});
+  window.SKLAD_ME_EMAIL=email;
+  window.SKLAD_ID_TOKEN=()=>auth.currentUser?auth.currentUser.getIdToken():Promise.resolve('');
   ungate();started=true;
   addBar();
   resolveReady(api());
