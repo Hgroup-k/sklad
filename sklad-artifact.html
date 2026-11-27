@@ -1925,8 +1925,10 @@ function subscribeChats(){
     CH.base={};for(const c of CH.list)CH.base[c.id]=(c.last&&c.last.at)||'';
     chatBadge();if(S.view==='chat')VIEWS.chat.update();
   };
-  for(const fid of Object.keys(FIXED)){if(chatLv(fid)==='none')continue;
-    rawdb.doc('chats/'+fid).onSnapshot(s=>{all[fid]={id:fid,type:'all',...(s.exists?s.data():{})};if(first){first=false;CH.base=null;}upd();},()=>{});}
+  /* общие чаты видны в списке всегда (даже пока база не ответила); при ошибке пробуем снова */
+  const sub=fid=>rawdb.doc('chats/'+fid).onSnapshot(s=>{all[fid]={id:fid,type:'all',...(s.exists?s.data():{})};if(first){first=false;CH.base=null;}upd();},e=>{try{console.error('chat '+fid,e);}catch(_){}setTimeout(()=>sub(fid),30000);});
+  for(const fid of Object.keys(FIXED)){if(chatLv(fid)==='none')continue;all[fid]={id:fid,type:'all'};sub(fid);}
+  upd();
   rawdb.collection('chats').where('members','array-contains',S.me).onSnapshot(q=>{for(const k in all)if(!FIXED[k])delete all[k];q.forEach(d=>{all[d.id]={id:d.id,...d.data()};});upd();},()=>{});
   loadPeople().then(()=>{if(S.view==='chat')VIEWS.chat.update();});
   rawdb.doc('reads/'+S.me).onSnapshot(s=>{CH.reads=s.exists?s.data():{};chatBadge();if(S.view==='chat')VIEWS.chat.update();},()=>{});
@@ -1942,8 +1944,8 @@ async function loadPeople(){if(CH.people)return CH.people;try{const q=await rawd
 function openChat(id){
   if(CH.sel===id&&CH.msgUnsub)return;
   if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}
-  CH.sel=id;CH.msgs=[];CH.form=null;CH.emo=false;CH.loaded=false;CH.menu=null;CH.edit=null;CH.reply=null;
-  CH.msgUnsub=rawdb.collection('chats/'+id+'/msgs').orderBy('at','desc').limit(CH.more?600:150).onSnapshot(q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));CH.msgs=l.reverse();CH.loaded=true;resolveNames(CH.msgs.map(m=>m.uid));if(S.view==='chat')VIEWS.chat.update(true);},e=>{CH.loaded=true;CH.err=e&&e.code;if(S.view==='chat')VIEWS.chat.update(true);});
+  CH.sel=id;CH.err=null;CH.msgs=[];CH.form=null;CH.emo=false;CH.loaded=false;CH.menu=null;CH.edit=null;CH.reply=null;
+  CH.msgUnsub=rawdb.collection('chats/'+id+'/msgs').orderBy('at','desc').limit(CH.more?600:150).onSnapshot(q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));CH.msgs=l.reverse();CH.loaded=true;resolveNames(CH.msgs.map(m=>m.uid));if(S.view==='chat')VIEWS.chat.update(true);},e=>{CH.loaded=true;CH.err=e&&e.code;CH.msgUnsub=null;if(S.view==='chat')VIEWS.chat.update(true);});
   VIEWS.chat.update(true);
 }
 function markRead(){const c=CH.list.find(x=>x.id===CH.sel);if(!c||!c.last||document.hidden||S.view!=='chat')return;if(CH.reads[c.id]&&CH.reads[c.id]>=c.last.at)return;
