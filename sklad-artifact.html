@@ -419,9 +419,9 @@ const TABS=[['home','Главная','home'],['tasks','Задачи','tasks'],['
   ['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
 const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks','Задачи'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['ref','Справочник']];
 const REPORT_TABS=new Set(['dry11','dry9','stock','period','sizes','months']);
-window.SKLAD_TABS=TABS.filter(t=>t[0]!=='chat'&&t[0]!=='home').map(([k,l,g])=>({k,l,g:(TGROUPS.find(x=>x[0]===g)||[])[1]||'',ed:!REPORT_TABS.has(k)}));
+window.SKLAD_TABS=TABS.filter(t=>t[0]!=='chat'&&t[0]!=='home'&&t[0]!=='tasks').map(([k,l,g])=>({k,l,g:(TGROUPS.find(x=>x[0]===g)||[])[1]||'',ed:!REPORT_TABS.has(k)}));
 /* общие чаты: «Редактирует» = пишет, «Просмотр» = только читает, «Нет доступа» = не состоит */
-window.SKLAD_TABS.unshift({k:'chatmod',l:'Удалять и менять сообщения без следов',g:'Сообщения',ed:true},{k:'chatall',l:'Общий чат',g:'Сообщения',ed:true,chat:true},{k:'chatord',l:'Чат «Заказы»',g:'Сообщения',ed:true,chat:true});
+window.SKLAD_TABS.unshift({k:'tasks',l:'Ставить задачи сотрудникам',g:'Администратор (особые права)',ed:true},{k:'chatmod',l:'Удалять и менять сообщения без следов',g:'Администратор (особые права)',ed:true},{k:'chatall',l:'Общий чат',g:'Сообщения',ed:true,chat:true},{k:'chatord',l:'Чат «Заказы»',g:'Сообщения',ed:true,chat:true});
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -2257,28 +2257,35 @@ document.addEventListener('change',e=>{if(e.target.id!=='ch-ord')return;const o=
    Видят: исполнитель — свои; у кого «Задачи» в Доступе — все. Ставят и удаляют — у кого «Задачи: Редактирует». */
 const TK={list:[],f:'mine',form:null,open:new Set(),unsub:null};
 const TST=[['new','Новая'],['work','В работе'],['done','Готово']];
-function tkAll(){return S.see.tasks!==false&&!!rawdb;}
+function tkAll(){return tkEdit()&&!!rawdb;}
 function tkEdit(){return !S.readOnly&&(S.can.full||S.can.tasks);}
 function subscribeTasks(){
   if(!rawdb||!S.me||TK.unsub)return;
   const on=q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));TK.list=l;resolveNames(l.flatMap(x=>[x.to,x.by,...(x.cm||[]).map(c=>c.uid)]).filter(Boolean));tkBadge();if(S.view==='tasks')VIEWS.tasks.update();if(S.view==='home')VIEWS.home.update();};
   const err=e=>{try{console.error('tasks',e);}catch(_){}if(tkAll()&&!TK.fallback){TK.fallback=true;TK.unsub=null;TK.mine=true;subscribeTasks();}};
-  TK.unsub=(TK.mine||S.see.tasks===false?rawdb.collection('tasks').where('to','==',S.me):rawdb.collection('tasks')).onSnapshot(on,err);
+  TK.unsub=(TK.mine||!tkAll()?rawdb.collection('tasks').where('to','==',S.me):rawdb.collection('tasks')).onSnapshot(on,err);
 }
+function tkName(x){return S.names[x.to]||x.toName||'—';}
+function tkKey(x){return x.to||('n:'+(x.toName||''));}
+/* исполнители: пользователи программы + сотрудники из Справочника (без аккаунта) */
+function tkPeople(){const us=(CH.people||[]).map(p=>({v:p.uid,n:p.name+(p.uid===S.me?' (я)':'')}));const have=new Set((CH.people||[]).map(p=>p.name.toLowerCase()));
+  const names=[...staff(),...workersOf('w11'),...workersOf('w9')].map(x=>String(x||'').trim()).filter(Boolean);const seen=new Set();
+  const ext=names.filter(n=>{const k=n.toLowerCase();if(have.has(k)||seen.has(k))return false;seen.add(k);return true;}).sort((a,b)=>a.localeCompare(b,'ru')).map(n=>({v:'n:'+n,n:n+' (без аккаунта)'}));
+  return [...us,...ext];}
 function tkMineOpen(){return TK.list.filter(x=>x.to===S.me&&x.st!=='done');}
 function tkBadge(){const g=document.querySelector('[data-grp="tasks"]');if(!g)return;const n=tkMineOpen().filter(x=>x.st==='new').length;g.innerHTML='Задачи'+(n?' <span class="cbadge">'+n+'</span>':'');}
 function tkDue(x){if(!x.due||x.st==='done')return '';const t=todayStr();if(x.due<t)return '<span class="badge tk-late">просрочено</span>';if(x.due===t)return '<span class="badge tk-today">сегодня</span>';return '';}
 function tkCard(x){
   const mine=x.to===S.me;const can=tkEdit()||mine;const op=TK.open.has(x.id);
   return '<div class="panel tk tk-'+x.st+'" data-tk="'+esc(x.id)+'"><div class="tk-h" data-tk-open="'+esc(x.id)+'"><div style="min-width:0;flex:1"><b class="tk-t">'+esc(x.t||'')+'</b>'+
-    '<small class="muted">'+esc(S.names[x.to]||'…')+(x.due?' · до '+fmtDate(x.due):'')+(x.ord?' · 📦 №'+esc(x.ord.no):'')+((x.cm||[]).length?' · 💬 '+x.cm.length:'')+'</small></div>'+tkDue(x)+'<span class="badge tk-st">'+esc((TST.find(s=>s[0]===x.st)||TST[0])[1])+'</span></div>'+
+    '<small class="muted">'+esc(tkName(x))+(x.due?' · до '+fmtDate(x.due):'')+(x.ord?' · 📦 №'+esc(x.ord.no):'')+((x.cm||[]).length?' · 💬 '+x.cm.length:'')+'</small></div>'+tkDue(x)+'<span class="badge tk-st">'+esc((TST.find(s=>s[0]===x.st)||TST[0])[1])+'</span></div>'+
     (op?'<div class="tk-b">'+(x.d?'<p class="tk-d">'+esc(x.d).replace(/\n/g,'<br>')+'</p>':'')+
       '<p class="muted" style="font-size:12.5px;margin:6px 0">Поставил(а): '+esc(S.names[x.by]||'…')+' · '+fmtDate(String(x.at||'').slice(0,10))+'</p>'+
       (x.ord?'<p style="margin:6px 0"><button type="button" class="link" data-cord-t="'+esc(x.ord.id)+'">📦 Заказ №'+esc(x.ord.no)+' '+esc(x.ord.obj||'')+'</button></p>':'')+
       (can?'<div class="chips" style="margin:8px 0">'+TST.map(([k,l])=>'<button type="button" class="chip" data-tk-st="'+k+'" data-id="'+esc(x.id)+'" aria-pressed="'+(x.st===k)+'">'+l+'</button>').join('')+'</div>':'')+
       '<div class="tk-cm">'+(x.cm||[]).map(c=>'<div class="tk-c"><b>'+esc(S.names[c.uid]||'…')+'</b> <small class="muted">'+fmtDate(String(c.at).slice(0,10)).slice(0,5)+' '+hhmm(c.at)+'</small><div>'+esc(c.t).replace(/\n/g,'<br>')+'</div></div>').join('')+'</div>'+
       (can?'<form class="tk-cf" data-tk-cf="'+esc(x.id)+'"><input type="text" placeholder="Комментарий" maxlength="1000"><button type="submit" class="ghost">Добавить</button></form>':'')+
-      (tkEdit()?'<div class="actions" style="margin-top:8px"><button type="button" class="ghost" data-tk-ed="'+esc(x.id)+'">Изменить</button><button type="button" class="ghost del" data-tk-del="'+esc(x.id)+'">Удалить</button></div>':'')+
+      '<div class="actions" style="margin-top:8px"><button type="button" class="ghost" data-tk-pr="'+esc(x.id)+'">🖨 Печать</button>'+(tkEdit()?'<button type="button" class="ghost" data-tk-ed="'+esc(x.id)+'">Изменить</button><button type="button" class="ghost del" data-tk-del="'+esc(x.id)+'">Удалить</button>':'')+'</div>'+
     '</div>':'')+'</div>';
 }
 function tkFormHtml(){const f=TK.form;const ppl=CH.people||[];
@@ -2286,25 +2293,44 @@ function tkFormHtml(){const f=TK.form;const ppl=CH.people||[];
   return '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h2>'+(f.id?'Изменить задачу':'Новая задача')+'</h2><button type="button" class="link" data-tk-x>Отмена</button></div>'+
     '<div class="tk-form">'+textField('tk-t','Что сделать',f.t||'','wide')+
     '<label class="fld wide"><span>Подробно (необязательно)</span><textarea id="tk-d" rows="3">'+esc(f.d||'')+'</textarea></label>'+
-    '<label class="fld"><span>Кому</span><select id="tk-to"><option value="">— выберите —</option>'+ppl.map(p=>'<option value="'+esc(p.uid)+'"'+(f.to===p.uid?' selected':'')+'>'+esc(p.name)+(p.uid===S.me?' (я)':'')+'</option>').join('')+'</select></label>'+
+    (()=>{const cur=f.to||(f.toName?'n:'+f.toName:'');const L=tkPeople();if(cur&&!L.some(o=>o.v===cur))L.push({v:cur,n:f.toName||cur});return '<label class="fld"><span>Кому</span><select id="tk-to"><option value="">— выберите —</option>'+L.map(o=>'<option value="'+esc(o.v)+'"'+(cur===o.v?' selected':'')+'>'+esc(o.n)+'</option>').join('')+'</select></label>';})()+
     dateField('tk-due','Срок (необязательно)',f.due||'')+
     '<label class="fld"><span>Заказ (необязательно)</span><select id="tk-ord"><option value="">— без заказа —</option>'+ords.map(o=>'<option value="'+esc(o.id)+'"'+(f.ord&&f.ord.id===o.id?' selected':'')+'>№'+esc(o.no)+' · '+esc(o.obj||'')+'</option>').join('')+'</select></label>'+
     '</div><p class="err" id="tk-err" hidden></p><div class="actions"><button type="button" class="primary" data-tk-save>'+(f.id?'Сохранить':'Поставить задачу')+'</button></div></div>';}
 VIEWS.tasks={controls(){if(!rawdb||!S.me)return;subscribeTasks();loadPeople().then(()=>{if(S.view==='tasks'&&TK.form)VIEWS.tasks.update();});},update(){
   const el=$('tasks-b');if(!el||!rawdb||!S.me)return;
   const ae=document.activeElement;if(ae&&el.contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)){TK.dirty=true;return;}TK.dirty=false;
-  const all=tkAll();const F=[['mine','Мои'],['by','Поставил(а) я'],...(all?[['all','Все']]:[])];if(!F.some(x=>x[0]===TK.f))TK.f='mine';
+  const all=tkAll();const F=[['mine','Мои'],...(tkEdit()?[['by','Поставил(а) я']]:[]),...(all&&tkEdit()?[['all','Все']]:[])];if(!F.some(x=>x[0]===TK.f))TK.f='mine';
   let L=TK.list.filter(x=>TK.f==='mine'?x.to===S.me:TK.f==='by'?x.by===S.me:true);
+  const whoOpts=TK.f==='mine'?[]:[...new Map(L.map(x=>[tkKey(x),tkName(x)])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'ru'));
+  if(TK.who&&!whoOpts.some(o=>o[0]===TK.who))TK.who='';if(TK.who)L=L.filter(x=>tkKey(x)===TK.who);
+  TK.shown=L;
   const done=L.filter(x=>x.st==='done').sort((a,b)=>(b.upd||'').localeCompare(a.upd||''));
   L=L.filter(x=>x.st!=='done').sort((a,b)=>(a.st===b.st?0:a.st==='work'?-1:1)||(a.due||'9').localeCompare(b.due||'9'));
   const keepY=window.scrollY;
   el.innerHTML=(TK.form?tkFormHtml():'')+
-    '<div class="tk-top"><div class="chips">'+F.map(([k,l])=>'<button type="button" class="chip" data-tk-f="'+k+'" aria-pressed="'+(TK.f===k)+'">'+l+'</button>').join('')+'</div>'+
+    '<div class="tk-top"><div class="chips">'+(F.length<2?'<b>Мои задачи</b>':'')+(F.length<2?[]:F).map(([k,l])=>'<button type="button" class="chip" data-tk-f="'+k+'" aria-pressed="'+(TK.f===k)+'">'+l+'</button>').join('')+'</div>'+
+    (whoOpts.length>1?'<select id="tk-who" style="max-width:220px"><option value="">Все сотрудники</option>'+whoOpts.map(([k,n])=>'<option value="'+esc(k)+'"'+(TK.who===k?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>':'')+
+    '<span style="flex:1"></span><button type="button" class="ghost" data-tk-prl>🖨 Печать списка</button>'+
     (tkEdit()&&!TK.form?'<button type="button" class="primary" data-tk-new>+ Новая задача</button>':'')+'</div>'+
     (L.length?L.map(tkCard).join(''):'<div class="panel empty">'+(TK.f==='mine'?'У вас нет открытых задач.':'Открытых задач нет.')+'</div>')+
     (done.length?'<details class="tk-done"'+(TK.showDone?' open':'')+'><summary>Готовые ('+done.length+')</summary>'+done.slice(0,60).map(tkCard).join('')+'</details>':'');
   window.scrollTo(0,keepY);
 }};
+function tkStName(x){return (TST.find(s=>s[0]===x.st)||TST[0])[1];}
+function printTask(x){
+  const row=(k,v)=>v?'<tr><td class="l" style="width:24mm;color:#555">'+esc(k)+'</td><td class="l"><b>'+esc(v)+'</b></td></tr>':'';
+  const pg=wrapDoc('prod','<div class="dbar"></div><div class="dtop"><div><div class="dtitle">Задача</div><span class="dcopy">'+esc(tkStName(x))+'</span></div><div class="dno" style="font-size:12pt">'+(x.due?'до '+fmtDate(x.due):fmtDate(String(x.at||'').slice(0,10)))+'</div></div>'+
+    '<div style="font-size:12pt;font-weight:700;margin:2mm 0 1.5mm">'+esc(x.t||'')+'</div>'+(x.d?'<div style="margin-bottom:2mm;white-space:pre-wrap">'+esc(x.d)+'</div>':'')+
+    '<table class="dt">'+row('Кому',tkName(x))+row('Срок',x.due?fmtDate(x.due):'')+row('Заказ',x.ord?'№'+x.ord.no+' '+(x.ord.obj||''):'')+row('Поставил(а)',S.names[x.by]||'')+'</table>'+
+    '<div style="margin-top:2mm">'+BOX+' выполнено</div>'+dSign('Выдал(а)','Принял(а)')+dFoot());
+  doPrint([pg],'Задача — '+tkName(x));}
+function printTaskList(L){if(!L.length){toast('Нет задач для печати');return;}
+  const who=TK.who?(L[0]?tkName(L[0]):''):'';
+  const rows=L.map((x,i)=>'<tr><td class="n">'+(i+1)+'</td><td class="l"><b>'+esc(x.t||'')+'</b>'+(x.d?'<br><small>'+esc(x.d).slice(0,160)+'</small>':'')+'</td><td class="l">'+esc(tkName(x))+'</td><td class="p">'+(x.due?fmtDate(x.due):'')+'</td><td class="l">'+(x.ord?'№'+esc(x.ord.no):'')+'</td><td class="p">'+esc(tkStName(x))+'</td><td class="b">'+BOX+'</td></tr>').join('');
+  const pg=wrapDoc('prod','<div class="dbar"></div><div class="dtop"><div><div class="dtitle">Задачи'+(who?' — '+esc(who):'')+'</div><span class="dcopy">задач: '+L.length+'</span></div><div class="dno" style="font-size:13pt">'+fmtDate(todayStr())+'</div></div>'+
+    '<table class="dt"><thead><tr><th>№</th><th>Что сделать</th><th>Кому</th><th>Срок</th><th>Заказ</th><th>Статус</th><th>Готово</th></tr></thead><tbody>'+rows+'</tbody></table>'+dSign('Выдал(а)','Принял(а)')+dFoot()).replace('<div class="doc"','<div class="doc" data-a4');
+  doPrint([pg],'Задачи'+(who?' — '+who:''));}
 async function tkNotify(x,id,isNew){
   if(!x.to||x.to===S.me)return;
   try{const cid='dm_'+[S.me,x.to].sort().join('_');const s=await rawdb.doc('chats/'+cid).get().catch(()=>null);
@@ -2313,17 +2339,20 @@ async function tkNotify(x,id,isNew){
 }
 document.addEventListener('click',async e=>{
   if(!e.target.closest('#tasks-b'))return;const t=e.target;let b;
-  if((b=t.closest('[data-tk-f]'))){TK.f=b.dataset.tkF;VIEWS.tasks.update();return;}
+  if((b=t.closest('[data-tk-f]'))){TK.f=b.dataset.tkF;TK.who='';VIEWS.tasks.update();return;}
+  if((b=t.closest('[data-tk-pr]'))){const x=TK.list.find(z=>z.id===b.dataset.tkPr);if(x)printTask(x);return;}
+  if(t.closest('[data-tk-prl]')){printTaskList((TK.shown||[]).filter(x=>x.st!=='done'));return;}
   if(t.closest('[data-tk-new]')){await loadPeople();TK.form={to:'',due:''};VIEWS.tasks.update();window.scrollTo(0,0);const i=$('tk-t');if(i)i.focus();return;}
   if(t.closest('[data-tk-x]')){TK.form=null;VIEWS.tasks.update();return;}
   if((b=t.closest('[data-tk-ed]'))){await loadPeople();const x=TK.list.find(z=>z.id===b.dataset.tkEd);if(x){TK.form={...x};VIEWS.tasks.update();window.scrollTo(0,0);}return;}
   if(t.closest('[data-tk-save]')){const f=TK.form;const er=$('tk-err');const tt=$('tk-t').value.trim();const to=$('tk-to').value;
     if(!tt){er.textContent='Впишите, что нужно сделать.';er.hidden=false;return;}if(!to){er.textContent='Выберите, кому задача.';er.hidden=false;return;}
     const oid=$('tk-ord').value;const o=oid?S.orders.find(z=>z.id===oid):null;const now=new Date().toISOString();
-    const x={t:tt,d:$('tk-d').value.trim(),to,due:$('tk-due').value||'',ord:o?{id:o.id,no:String(o.no||''),obj:o.obj||''}:null,upd:now};
-    try{if(f.id){await rawdb.doc('tasks/'+f.id).update(x);if(f.to!==to)tkNotify(x,f.id,true);}
+    const isN=to.indexOf('n:')===0;const toName=isN?to.slice(2):((CH.people||[]).find(p=>p.uid===to)||{}).name||'';
+    const x={t:tt,d:$('tk-d').value.trim(),to:isN?'':to,toName,due:$('tk-due').value||'',ord:o?{id:o.id,no:String(o.no||''),obj:o.obj||''}:null,upd:now};
+    try{if(f.id){await rawdb.doc('tasks/'+f.id).update(x);if(f.to!==x.to)tkNotify(x,f.id,true);}
       else{const r=await rawdb.collection('tasks').add({...x,st:'new',by:S.me,at:now,cm:[]});tkNotify(x,r.id,true);}
-      TK.form=null;toast(f.id?'Задача сохранена':'Задача поставлена'+(to!==S.me?', исполнитель получит уведомление':''));VIEWS.tasks.update();}catch(x2){er.textContent=dbErr(x2);er.hidden=false;}return;}
+      TK.form=null;toast(f.id?'Задача сохранена':'Задача поставлена'+(x.to&&x.to!==S.me?', исполнитель получит уведомление':isN?'. У сотрудника нет аккаунта: распечатайте задачу':''));VIEWS.tasks.update();}catch(x2){er.textContent=dbErr(x2);er.hidden=false;}return;}
   if((b=t.closest('[data-tk-del]'))){const x=TK.list.find(z=>z.id===b.dataset.tkDel);if(!x||!confirm('Удалить задачу «'+x.t+'»?'))return;try{await rawdb.doc('tasks/'+x.id).delete();}catch(x2){toast(dbErr(x2));}return;}
   if((b=t.closest('[data-tk-st]'))){const id=b.dataset.id;const x=TK.list.find(z=>z.id===id);if(!x||x.st===b.dataset.tkSt)return;
     try{await rawdb.doc('tasks/'+id).update({st:b.dataset.tkSt,upd:new Date().toISOString()});
@@ -2335,6 +2364,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('input',e=>{const f=TK.form;if(!f||!e.target.closest('.tk-form'))return;const m={'tk-t':'t','tk-d':'d','tk-to':'to','tk-due':'due'};const k=m[e.target.id];if(k)f[k]=e.target.value;if(e.target.id==='tk-ord'){const o=S.orders.find(z=>z.id===e.target.value);f.ord=o?{id:o.id,no:o.no,obj:o.obj}:null;}});
 document.addEventListener('change',e=>{if(e.target.closest&&e.target.closest('.tk-form'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
 document.addEventListener('focusout',e=>{if(TK.dirty&&e.target.closest&&e.target.closest('#tasks-b'))setTimeout(()=>{if(TK.dirty&&S.view==='tasks')VIEWS.tasks.update();},200);});
+document.addEventListener('change',e=>{if(e.target.id==='tk-who'){TK.who=e.target.value;e.target.blur();VIEWS.tasks.update();}});
 document.addEventListener('toggle',e=>{if(e.target.classList&&e.target.classList.contains('tk-done'))TK.showDone=e.target.open;},true);
 document.addEventListener('submit',async e=>{const f=e.target.closest('[data-tk-cf]');if(!f)return;e.preventDefault();const i=f.querySelector('input');const v=i.value.trim();if(!v)return;
   const x=TK.list.find(z=>z.id===f.dataset.tkCf);if(!x)return;i.value='';
