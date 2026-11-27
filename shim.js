@@ -101,10 +101,22 @@ async function claimName(u,name){
   await fs.doc('people/'+u.uid).set({name,uname:k,email:lower(u.email),at:new Date().toISOString()},{merge:true});
 }
 /* подтверждение почты 6-значным кодом (код присылает сервер уведомлений); если сервер не настроен — ссылкой */
+/* подтверждение ссылкой из письма (Firebase) */
+function showVerifyLink(u){
+  const k='sa.linkAt.'+u.uid;let last=0;try{last=+localStorage.getItem(k)||0;}catch(e){}
+  if(Date.now()-last>60000){u.sendEmailVerification().then(()=>{try{localStorage.setItem(k,String(Date.now()));}catch(e){}}).catch(()=>{});}
+  const g=gate('<h2>Подтвердите почту</h2><p>На почту <b>'+esc(u.email)+'</b> отправлено письмо. Откройте его и нажмите ссылку (если письма нет, проверьте папку «Спам»). Потом вернитесь сюда и нажмите «Я подтвердил».</p>'+
+    '<p class="err" id="ag-err" hidden></p><div style="display:grid;gap:8px"><button type="button" class="primary" id="ag-ok">Я подтвердил</button><button type="button" class="ghost" id="ag-again">Отправить письмо ещё раз</button><button type="button" class="link" id="ag-out">Выйти</button></div>');
+  const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
+  g.querySelector('#ag-ok').onclick=async()=>{try{await u.reload();if(auth.currentUser.emailVerified){window.__justCreated=true;await auth.signOut();}else err('Почта ещё не подтверждена. Нажмите ссылку в письме.');}catch(x){err(aerr(x));}};
+  g.querySelector('#ag-again').onclick=async()=>{try{await u.sendEmailVerification();try{localStorage.setItem(k,String(Date.now()));}catch(e){}err('Письмо отправлено ещё раз.');}catch(x){err(aerr(x));}};
+  g.querySelector('#ag-out').onclick=()=>auth.signOut();
+}
 const PUSHURL=()=>(window.SKLAD_PUSH&&window.SKLAD_PUSH.url)||'';
 async function wcall(path,body){const tok=await auth.currentUser.getIdToken();const r=await fetch(PUSHURL()+path,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify(body||{})});let j={};try{j=await r.json();}catch(e){}if(!r.ok)throw {code:j.error||('http '+r.status)};return j;}
 const CERR={bad_code:'Код неверный или устарел. Проверьте или нажмите «Отправить код ещё раз».',not_configured:'Отправка кодов ещё не настроена.',send_failed:'Не удалось отправить письмо. Попробуйте ещё раз через минуту.',too_many:'Слишком много попыток. Подождите 10 минут.'};
 function showVerify(u){
+  if(!(window.SKLAD_PUSH&&window.SKLAD_PUSH.codes))return showVerifyLink(u);
   const g=gate('<h2>Подтвердите почту</h2><p>На почту <b>'+esc(u.email)+'</b> отправлен код из 6 цифр (если письма нет, проверьте «Спам»). Впишите его ниже.</p>'+
     '<form id="ag-f" style="display:grid;gap:10px;margin:10px 0"><input id="ag-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="font-size:24px;letter-spacing:8px;text-align:center"><p class="err" id="ag-err" hidden></p><button type="submit" class="primary">Подтвердить</button></form>'+
     '<div style="display:grid;gap:8px"><button type="button" class="ghost" id="ag-again">Отправить код ещё раз</button><button type="button" class="link" id="ag-link" hidden>Получить ссылку вместо кода</button><button type="button" class="link" id="ag-out">Выйти</button></div>');
