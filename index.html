@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='27.11 17:26';</script>
-<script src="firebase-config.js?v=5e47478a"></script>
-<script src="shim.js?v=5e47478a"></script>
+<script>window.SKLAD_VERSION='27.11 17:32';</script>
+<script src="firebase-config.js?v=459bdcaa"></script>
+<script src="shim.js?v=459bdcaa"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -148,7 +148,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 .citem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
 .citem .cbadge{position:absolute;right:10px;top:8px}
 .cbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--danger,#c62828);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:700}
-.cpane{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;height:calc(100vh - var(--toph,120px) - 40px);height:calc(100dvh - var(--toph,120px) - 40px);min-height:380px}
+.cpane{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;height:calc(100vh - var(--toph,120px) - 40px);height:calc(var(--vvh,100dvh) - var(--toph,120px) - 40px);min-height:380px}
+.cback{display:none}
+@media (max-width:800px){
+  .chat .clist{display:none}
+  .chat.showlist .clist{display:grid}
+  .chat.showlist .cpane{display:none}
+  .cpane{height:calc(var(--vvh,100dvh) - var(--toph,120px) - 26px);min-height:300px;border-radius:10px}
+  .cback{display:inline-flex;gap:4px;align-items:center;font-size:15px;padding:2px 6px 2px 0}
+  .chead{padding:8px 10px}
+  .cinput{padding:6px 8px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+  .cinput .cico{padding:6px 8px}
+}
 .chead{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center}
 .cmsgs{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:3px}
 .cday{align-self:center;font-size:12px;color:var(--muted);margin:10px 0 4px}
@@ -1990,7 +2001,7 @@ async function loadPeople(){if(CH.people)return CH.people;try{const q=await rawd
 function openChat(id){
   if(CH.sel===id&&CH.msgUnsub)return;
   if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}
-  CH.sel=id;CH.err=null;CH.msgs=[];CH.form=null;CH.emo=false;CH.loaded=false;CH.menu=null;CH.edit=null;CH.reply=null;
+  CH.sel=id;CH.mobList=false;CH.err=null;CH.msgs=[];CH.form=null;CH.emo=false;CH.loaded=false;CH.menu=null;CH.edit=null;CH.reply=null;
   CH.msgUnsub=rawdb.collection('chats/'+id+'/msgs').orderBy('at','desc').limit(CH.more?600:150).onSnapshot(q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));CH.msgs=l.reverse();CH.loaded=true;resolveNames(CH.msgs.map(m=>m.uid));if(S.view==='chat')VIEWS.chat.update(true);},e=>{CH.loaded=true;CH.err=e&&e.code;CH.msgUnsub=null;if(S.view==='chat')VIEWS.chat.update(true);});
   VIEWS.chat.update(true);
 }
@@ -2053,6 +2064,7 @@ VIEWS.chat={controls(){if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('
   const el=$('chat-b');if(!el)return;
   const c=CH.list.find(x=>x.id===CH.sel)||(FIXED[CH.sel]?{id:CH.sel,type:'all'}:null);
   if(!el.querySelector('.chat')){el.innerHTML='<div class="chat"><aside class="clist" id="ch-list"></aside><section class="cpane" id="ch-pane"></section></div>';}
+  el.querySelector('.chat').classList.toggle('showlist',!!CH.mobList||(!c&&!CH.form));
   const L=$('ch-list');
   L.innerHTML='<div class="cbtns"><button type="button" class="ghost" data-cnew="group">+ Группа</button><button type="button" class="ghost" data-cnew="dm">+ Личный чат</button></div>'+
     (('Notification' in window)&&Notification.permission!=='granted'?'<button type="button" class="link" data-cnotif style="margin:0 0 8px">Включить уведомления</button>':'')+
@@ -2063,7 +2075,8 @@ VIEWS.chat={controls(){if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('
   if(!c){P.innerHTML='<div class="panel empty">Выберите чат слева.</div>';return;}
   const keep=P.querySelector('#ch-in');const draft=keep?keep.value:(CH.draft||'');const focused=document.activeElement===keep;
   const box=P.querySelector('#ch-msgs');const atBottom=!box||box.scrollHeight-box.scrollTop-box.clientHeight<60;
-  P.innerHTML='<div class="chead"><b>'+esc(chatName(c))+'</b>'+(c.type==='group'?' <span class="muted" style="font-size:12px">'+(c.members||[]).length+' участн.</span><button type="button" class="link" data-cmembers>Участники</button>':'')+'</div>'+
+  const otherUnread=CH.list.filter(x=>x.id!==c.id&&chatUnread(x)).length;
+  P.innerHTML='<div class="chead"><button type="button" class="link cback" data-cback>← Чаты'+(otherUnread?' <span class="cbadge">'+otherUnread+'</span>':'')+'</button><b>'+esc(chatName(c))+'</b>'+(c.type==='group'?' <span class="muted" style="font-size:12px">'+(c.members||[]).length+' участн.</span><button type="button" class="link" data-cmembers>Участники</button>':'')+'</div>'+
     (c.pin&&c.pin.id?'<div class="cpin" data-cjump="'+esc(c.pin.id)+'"><span>📌 <b>'+esc(S.names[c.pin.uid]||'')+':</b> '+esc(c.pin.t||'')+'</span>'+(canWrite(c.id)?'<button type="button" class="link" data-cunpin title="Открепить">✕</button>':'')+'</div>':'')+
     '<div class="cmsgs" id="ch-msgs">'+(!CH.loaded?'<p class="muted">Загрузка…</p>':CH.err?'<p class="muted">Нет доступа к этому чату.</p>':(CH.msgs.length>=150&&!CH.more?'<button type="button" class="link" data-cmore>Показать более ранние</button>':'')+(CH.msgs.length?visMsgs().map((m,i,L)=>msgHtml(m,L[i-1])).join(''):'<p class="muted">Сообщений пока нет. Напишите первым.</p>'))+'</div>'+
     (CH.emo?'<div class="cemo">'+EMOJI.map(e=>'<button type="button" data-emo="'+e+'">'+e+'</button>').join('')+'</div>':'')+
@@ -2145,7 +2158,8 @@ function stopVoice(send){if(!CH.rec)return;CH.rec.send=send;try{CH.rec.r.stop();
 document.addEventListener('click',async e=>{
   if(!e.target.closest('#chat-b'))return;
   const t=e.target;let b;
-  if((b=t.closest('[data-chat]'))){CH.form=null;openChat(b.dataset.chat);if(window.innerWidth<800){const p=$('ch-pane');if(p)p.scrollIntoView({block:'start'});}return;}
+  if((b=t.closest('[data-chat]'))){CH.form=null;CH.mobList=false;openChat(b.dataset.chat);VIEWS.chat.update(true);if(window.innerWidth<=800)window.scrollTo(0,0);return;}
+  if(t.closest('[data-cback]')){CH.mobList=true;VIEWS.chat.update();window.scrollTo(0,0);return;}
   if((b=t.closest('[data-cord]'))){const id=b.dataset.cord;if(tabOk('orders')&&S.see.orders!==false&&S.orders.some(o=>o.id===id)){go('orders');openOrder(id);}else{const o=S.orders.find(z=>z.id===id);if(o&&tabOk('porders'))go('porders');else toast('Этот заказ вам не виден');}return;}
   if(t.closest('[data-cattach-x]')){CH.attach=null;VIEWS.chat.update();return;}
   if((b=t.closest('[data-cfile]'))){const m=CH.msgs.find(x=>x.id===b.dataset.cfile);if(m)await downloadFile(m);return;}
@@ -2169,7 +2183,7 @@ document.addEventListener('click',async e=>{
   if(t.closest('[data-cmore]')){CH.more=true;const id=CH.sel;CH.sel=null;if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}openChat(id);return;}
   if((b=t.closest('[data-cimg]'))){const w=window.open();if(w){w.document.write('<img src="'+b.src+'" style="max-width:100%">');}return;}
   if((b=t.closest('[data-cdel]'))){if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='удалить?';return;}try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+b.dataset.cdel).delete();}catch(x){toast(dbErr(x));}return;}
-  if((b=t.closest('[data-cnew]'))){await loadPeople();CH.form=b.dataset.cnew==='dm'?{kind:'dm'}:{kind:'group',name:'',members:[]};VIEWS.chat.update();return;}
+  if((b=t.closest('[data-cnew]'))){await loadPeople();CH.mobList=false;CH.form=b.dataset.cnew==='dm'?{kind:'dm'}:{kind:'group',name:'',members:[]};VIEWS.chat.update();return;}
   if(t.closest('[data-cmembers]')){await loadPeople();const c=CH.list.find(x=>x.id===CH.sel);if(!c)return;CH.form={kind:'group',id:c.id,name:c.name,members:(c.members||[]).filter(u=>u!==S.me),ro:c.by!==S.me};VIEWS.chat.update();return;}
   if(t.closest('[data-cform-x]')){CH.form=null;VIEWS.chat.update();return;}
   if((b=t.closest('#cg-m .chip'))){const f=CH.form;const u=b.dataset.v;f.name=$('cg-name').value;f.members=f.members.includes(u)?f.members.filter(x=>x!==u):[...f.members,u];VIEWS.chat.update();return;}
@@ -2478,6 +2492,7 @@ async function exportCsv(name,rows){
 
 /* ---------- широкие таблицы: вид и размер закреплены слева, полоса прокрутки всегда внизу экрана ---------- */
 const PIN_COLS=/^(Наименование|Вид|Товар|Размер|Фасовка)$/;
+(function(){const vv=window.visualViewport;if(!vv)return;const f=()=>document.documentElement.style.setProperty('--vvh',vv.height+'px');vv.addEventListener('resize',f);f();})();
 function enhanceTables(root){
   const top=document.querySelector('.top');document.documentElement.style.setProperty('--toph',(top?top.getBoundingClientRect().height:0)+'px');
   (root||document).querySelectorAll('.tbl-wrap').forEach(w=>{
