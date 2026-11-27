@@ -14,8 +14,13 @@ service cloud.firestore {
     function canView(s) { return canEdit(s) || isViewer() || (custom() && lv(s) == 'view'); }
     function anyAccess() { return isFull() || isViewer() || custom(); }
     function opsView() { return canView('input') || canView('journal') || canView('stock') || canView('period')
-      || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan'); }
+      || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan')
+      || canView('porders') || canView('cast11') || canView('dry11') || canView('demold11') || canView('cut11')
+      || canView('pack11') || canView('grout') || canView('cast9') || canView('dry9') || canView('demold9')
+      || canView('sand9') || canView('pack9'); }
     function opsEdit() { return canEdit('input') || canEdit('journal') || canEdit('stock'); }
+    function prodEdit() { return canEdit('cast11') || canEdit('demold11') || canEdit('cut11') || canEdit('pack11')
+      || canEdit('grout') || canEdit('cast9') || canEdit('demold9') || canEdit('sand9') || canEdit('pack9'); }
 
     match /access/main {
       allow read: if signedIn();
@@ -27,8 +32,10 @@ service cloud.firestore {
       allow write: if signedIn() && request.auth.uid == uid;
     }
     match /orders/{id} {
-      allow read: if canView('orders');
+      allow read: if canView('orders') || canView('porders') || canView('grout');
       allow write: if canEdit('orders');
+      allow update: if canEdit('porders')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'work', 'ready']);
     }
     match /returns/{id} {
       allow read: if canView('returns');
@@ -36,7 +43,11 @@ service cloud.firestore {
     }
     match /months/{m}/ops/{id} {
       allow read: if opsView();
-      allow create, update: if opsEdit()
+      allow create: if opsEdit()
+        || (prodEdit() && request.resource.data.get('step', '') != '')
+        || (canEdit('orders') && request.resource.data.get('order', '') != '')
+        || (canEdit('returns') && request.resource.data.get('ret', '') != '');
+      allow update: if opsEdit()
         || (canEdit('orders') && request.resource.data.get('order', '') != '')
         || (canEdit('returns') && request.resource.data.get('ret', '') != '');
       allow delete: if opsEdit()

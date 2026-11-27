@@ -33,6 +33,7 @@ head = f'''<!doctype html>
 .ag-card p{{margin:0}}
 #sa-bar{{display:inline-flex;gap:6px;align-items:center;margin-left:8px}}
 .sa-person{{border:1px solid var(--line,#d9e0e1);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:grid;gap:8px}}
+.sa-grp{{font-weight:700;font-size:13px;margin-top:6px;color:var(--accent,#2e6a6c)}}
 .sa-ph{{display:flex;gap:8px;align-items:center;flex-wrap:wrap}}
 .sa-row{{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:10px;align-items:center;font-size:14px}}
 .sa-row select{{width:100%}}
