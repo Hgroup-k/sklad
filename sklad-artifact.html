@@ -284,7 +284,7 @@ const ALL=['','все'];
 /* ---------- state ---------- */
 const S={
   catalog:null, plan:null, orders:[], returns:[], lists:null, ordersLoaded:false, returnsLoaded:false, monthOps:{}, watched:new Set(), pending:new Set(), firstLoad:true,
-  me:null, readOnly:false, can:{stock:true,orders:true,returns:true,plan:true,catalog:true,full:true}, see:{stock:true,orders:true,returns:true,plan:true,catalog:true}, names:{}, view:'input', edit:null, err:null,
+  me:null, readOnly:false, can:{input:true,journal:true,orders:true,returns:true,plan:true,catalog:true,full:true}, see:{}, names:{}, view:'input', edit:null, err:null,
   f:{
     journal:{from:monthStart(),to:todayStr(),op:'',c:'',wh:'',q:''},
     stock:{date:todayStr(),c:'',wh:'',sort:'',st:'',sb:'',by:'wh',zero:false,q:''},
@@ -297,11 +297,13 @@ const S={
 const form={op:ls.get('op','prod'),c:ls.get('c',''),n:'',s:'',q:'',wh:ls.get('wh','Склад 1'),to:'',sort:'',st:'',tost:'',sb:ls.get('sb',''),amo:'',note:'',d:todayStr()};
 let db=null,user=null,dl=null;
 
-const SECS={stock:'Склад (ввод и журнал)',orders:'Заказы',returns:'Возвраты',plan:'План',catalog:'Справочники'};
+const SECS={input:'Ввод',orders:'Заказы',returns:'Возвраты',journal:'Журнал',plan:'План',catalog:'Справочники'};
+const TABKEYS=['input','orders','returns','journal','stock','period','sizes','months','plan','catalog'];
 function RO(sec){return S.readOnly||!S.can[sec];}
-const TAB_SEC={input:'stock',journal:'stock',stock:'stock',period:'stock',sizes:'stock',months:'stock',orders:'orders',returns:'returns',plan:'plan',catalog:'catalog'};
-function tabOk(k){return S.see[TAB_SEC[k]]!==false;}
-function opsReadable(){return S.see.stock||S.see.orders||S.see.returns||S.see.plan;}
+/* старые права по разделам (stock = все складские вкладки) переводятся в права по вкладкам */
+const OLD_SEC={input:'stock',journal:'stock',stock:'stock',period:'stock',sizes:'stock',months:'stock',orders:'orders',returns:'returns',plan:'plan',catalog:'catalog'};
+function tabOk(k){return S.see[k]!==false;}
+function opsReadable(){return TABKEYS.some(k=>k!=='catalog'&&S.see[k]!==false);}
 /* ---------- catalog accessors ---------- */
 function cats(){return S.catalog?(S.catalog.order||Object.keys(S.catalog.cats||{})):[];}
 function cat(c){return (S.catalog&&S.catalog.cats&&S.catalog.cats[c])||{unit:'шт.',names:[],sizes:[]};}
@@ -351,7 +353,7 @@ function chipRow(el,values,cur,labels,disabled){
   el.innerHTML=values.map((v,i)=>'<button type="button" class="chip" data-v="'+esc(v)+'" aria-pressed="'+(v===cur)+'"'+(disabled?' disabled':'')+'>'+esc(labels?labels[i]:(v||'—'))+'</button>').join('');
 }
 function renderForm(){
-  const ro=RO('stock');
+  const ro=RO('input');
   $('f-op').innerHTML=OPS.map((o,i)=>'<button type="button" class="chip'+(i>2?' minor':'')+'" data-v="'+o.k+'" aria-pressed="'+(o.k===form.op)+'"'+(ro?' disabled':'')+'>'+o.btn+'</button>').join('');
   const cs=cats();
   if(form.c&&!cs.includes(form.c))form.c='';
@@ -435,7 +437,7 @@ function validate(){
 let saving=false;
 async function saveForm(ev){
   ev.preventDefault();
-  if(RO('stock')||saving)return;
+  if((RO('input')&&RO('journal'))||saving)return;
   readForm();
   const err=validate();formErr(err);if(err)return;
   if(!db){formErr('Нет связи с базой. Обновите страницу.');return;}
@@ -466,7 +468,7 @@ async function saveForm(ev){
     $('f-q').focus();
   }catch(e){
     formErr(e&&e.code==='quota_exceeded'?'База заполнена: место закончилось. Напишите Claude, чтобы освободить место.':e&&e.code==='invalid_argument'?'Не удалось сохранить: похоже, у вас нет прав на запись.':'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.');
-  }finally{saving=false;$('f-save').disabled=RO('stock');}
+  }finally{saving=false;$('f-save').disabled=RO('input')&&!S.edit;}
 }
 function startEdit(o){
   S.edit={id:o.id,m:o.m,by:o.by,at:o.at};
@@ -531,7 +533,7 @@ function renderRecent(){
 function findOp(key){const [m,id]=key.split('/');return (S.monthOps[m]||[]).find(o=>o.id===id);}
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-edit]');
-  if(b){const o=findOp(b.dataset.edit);if(o&&!RO('stock'))startEdit(o);else if(o&&RO('stock'))toast('Только просмотр');}
+  if(b){const o=findOp(b.dataset.edit);if(o&&!RO('input'))startEdit(o);else if(o)toast('Только просмотр');}
 });
 
 /* ---------- views ---------- */
@@ -585,7 +587,7 @@ VIEWS.journal={
     resolveNames(rows.map(o=>o.by));
     if(!rows.length){$('journal-b').innerHTML='<div class="panel empty">'+(S.pending.size?'Загружаем…':'За выбранный период записей нет.')+'</div>';return;}
     const shown=rows.slice(0,600);
-    let h='<div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Операция</th><th>Наименование</th><th>Размер</th><th class="num">Кол-во</th><th>Склад</th><th>Сорт</th><th>Состояние</th><th>С/Б</th><th>№ АМО / клиент</th><th>Примечание</th><th>Внёс</th>'+(RO('stock')?'':'<th></th>')+'</tr></thead><tbody>';
+    let h='<div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Операция</th><th>Наименование</th><th>Размер</th><th class="num">Кол-во</th><th>Склад</th><th>Сорт</th><th>Состояние</th><th>С/Б</th><th>№ АМО / клиент</th><th>Примечание</th><th>Внёс</th>'+(RO('journal')?'':'<th></th>')+'</tr></thead><tbody>';
     for(const o of shown){
       const d=OPM[o.op]||{label:o.op,sign:1};
       const sign=o.op==='move'?'':d.sign<0?'−':'';
@@ -593,7 +595,7 @@ VIEWS.journal={
         '<td class="num">'+sign+fmt(o.q)+' <span class="muted">'+esc(unit(o.c))+'</span></td>'+
         '<td>'+esc(o.wh)+(o.op==='move'?' → '+esc(o.to):'')+'</td><td>'+esc(o.sort)+'</td><td>'+esc(o.st)+(o.tost?' → '+esc(o.tost):'')+'</td><td>'+esc(o.sb)+'</td>'+
         '<td>'+esc(o.amo)+'</td><td class="wrap">'+esc(o.note)+'</td><td class="muted">'+esc(S.names[o.by]||'')+'</td>'+
-        (RO('stock')?'':'<td class="act"><button type="button" class="ghost" data-edit="'+esc(o.m+'/'+o.id)+'">Изменить</button> <button type="button" class="ghost del" data-del="'+esc(o.m+'/'+o.id)+'">Удалить</button></td>')+'</tr>';
+        (RO('journal')?'':'<td class="act">'+(RO('input')?'':'<button type="button" class="ghost" data-edit="'+esc(o.m+'/'+o.id)+'">Изменить</button> ')+'<button type="button" class="ghost del" data-del="'+esc(o.m+'/'+o.id)+'">Удалить</button></td>')+'</tr>';
     }
     h+='</tbody></table></div><p class="note">Записей: '+rows.length+(rows.length>shown.length?', показаны первые '+shown.length+'. Сузьте период или фильтр.':'')+'</p>';
     $('journal-b').innerHTML=h;
@@ -1710,7 +1712,7 @@ function render(){
     rq=0;
     {const part=!S.readOnly&&!S.can.full;const ok=Object.keys(SECS).filter(k=>S.can[k]).map(k=>SECS[k]);
      $('ro').hidden=!S.readOnly&&!part;
-     $('ro').textContent=S.readOnly?'Режим просмотра: вносить записи и изменения могут только те, кому владелец дал права. Остатки и отчёты обновляются сами.':'Вам можно вносить изменения в разделах: '+ok.join(', ')+'. Остальные открытые вам разделы только для просмотра.';}
+     $('ro').textContent=S.readOnly?'Режим просмотра: вносить записи и изменения могут только те, кому владелец дал права. Остатки и отчёты обновляются сами.':'Вам можно вносить изменения во вкладках: '+ok.join(', ')+'. Остальные открытые вам вкладки только для просмотра.';}
     renderRecent();updateHint();
     const v=VIEWS[S.view];if(v)v.update();
     setSync();
@@ -1794,9 +1796,10 @@ async function init(){
     try{const own=await user.isOwner();const ed=await user.canEdit();
       if(own!==true&&ed!==true){
         let secs=null;try{if(user.sections)secs=await user.sections();}catch(e){}
-        S.can={stock:false,orders:false,returns:false,plan:false,catalog:false,full:false};
+        S.can={full:false};
         /* уровни по разделам: 'edit' | 'view' | 'none' (true = edit, для старых записей) */
-        if(secs)for(const k in SECS){const l=secs[k];S.can[k]=l===true||l==='edit';S.see[k]=S.can[k]||l==='view';}
+        for(const k of TABKEYS){let l=secs?(k in secs?secs[k]:secs[OLD_SEC[k]]):'view';if(l===true)l='edit';
+          S.can[k]=l==='edit'&&k in SECS;S.see[k]=l==='edit'||l==='view';}
         S.readOnly=!Object.keys(SECS).some(k=>S.can[k]);
         buildTabs();go(S.view);renderForm();
       }}catch(e){S.readOnly=true;renderForm();}

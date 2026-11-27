@@ -31,12 +31,15 @@ service cloud.firestore {
       allow read: if canView('returns');
       allow write: if canEdit('returns');
     }
+    function opsView() { return canView('input') || canView('journal') || canView('stock') || canView('period')
+      || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan'); }
+    function opsEdit() { return canEdit('input') || canEdit('journal') || canEdit('stock'); }
     match /months/{m}/ops/{id} {
-      allow read: if canView('stock') || canView('orders') || canView('returns') || canView('plan');
-      allow create, update: if canEdit('stock')
+      allow read: if opsView();
+      allow create, update: if opsEdit()
         || (canEdit('orders') && request.resource.data.get('order', '') != '')
         || (canEdit('returns') && request.resource.data.get('ret', '') != '');
-      allow delete: if canEdit('stock')
+      allow delete: if opsEdit()
         || (canEdit('orders') && resource.data.get('order', '') != '')
         || (canEdit('returns') && resource.data.get('ret', '') != '');
     }

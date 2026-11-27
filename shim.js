@@ -91,7 +91,7 @@ function api(){
       isOwner:async()=>role==='owner',
       canEdit:async()=>canWrite,
       can:async n=>n==='data.write'?canWrite:false,
-      sections:async()=>{const all=l=>({stock:l,orders:l,returns:l,plan:l,catalog:l});if(canWrite)return all('edit');if(role.startsWith('custom:'))return JSON.parse(role.slice(7));return all('view');},
+      sections:async()=>{const all=l=>Object.fromEntries(SEC.map(([k])=>[k,l]));if(canWrite)return all('edit');if(role.startsWith('custom:'))return JSON.parse(role.slice(7));return all('view');},
       me:async()=>({id:me.uid,name:me.displayName||'',email:me.email,isOwner:role==='owner',canEdit:canWrite}),
       profiles:async ids=>{
         const out={};
@@ -142,26 +142,28 @@ async function importSnap(snap,progress){
   return k;
 }
 /* ---- раздел «Доступ» (только владелец) ---- */
-const SEC=[['stock','Склад','ввод, журнал, остатки и отчёты'],['orders','Заказы','заказы и выдача со склада'],['returns','Возвраты','возвраты и приёмка'],['plan','План','план производства'],['catalog','Справочники','товары, размеры, оформители']];
+const SEC=[['input','Ввод','запись прихода, отгрузки, переучёта',1],['orders','Заказы','заказы и выдача со склада',1],['returns','Возвраты','возвраты и приёмка',1],['journal','Журнал','все записи, правка и удаление',1],
+  ['stock','Остатки','',0],['period','За период','',0],['sizes','По размерам','',0],['months','По месяцам','',0],['plan','План','план производства',1],['catalog','Справочники','товары, размеры, оформители',1]];
 const LV=[['edit','Редактирует'],['view','Просмотр'],['none','Нет доступа']];
-const norm=v=>v===true||v==='edit'?'edit':v==='view'?'view':'none';
+const OLD={input:'stock',journal:'stock',stock:'stock',period:'stock',sizes:'stock',months:'stock'};
+const norm=(v,canEdit)=>v===true||v==='edit'?(canEdit?'edit':'view'):v==='view'?'view':'none';
 function people(a){
-  const out=new Map();const all=l=>{const p={};SEC.forEach(([k])=>p[k]=l);return p;};
+  const out=new Map();const all=l=>{const p={};SEC.forEach(([k,,,e])=>p[k]=l==='edit'&&!e?'view':l);return p;};
   for(const e of a.viewers||[])out.set(lower(e),all('view'));
-  for(const [e,p] of Object.entries(a.perms||{})){const q={};SEC.forEach(([k])=>q[k]=norm(p[k]));out.set(lower(e),q);}
+  for(const [e,p] of Object.entries(a.perms||{})){const q={};SEC.forEach(([k,,,ed])=>q[k]=norm(k in p?p[k]:p[OLD[k]],ed));out.set(lower(e),q);}
   for(const e of a.editors||[])out.set(lower(e),all('edit'));
   return out;
 }
-const PRESET={view:['view','view','view','view','view'],edit:['edit','edit','edit','edit','edit'],orders:['view','edit','view','view','view'],ordersOnly:['none','edit','none','none','none']};
-function summary(p){const v=SEC.map(([k])=>p[k]);if(v.every(x=>x==='edit'))return 'всё редактирует';if(v.every(x=>x==='view'))return 'всё только смотрит';return 'по разделам';}
+const PRESET={view:k=>'view',edit:k=>'edit',orders:k=>k==='orders'?'edit':'view',ordersOnly:k=>k==='orders'?'edit':'none'};
+function summary(p){const v=SEC.map(([k])=>p[k]);if(SEC.every(([k,,,e])=>p[k]===(e?'edit':'view')))return 'всё редактирует';if(v.every(x=>x==='view'))return 'всё только смотрит';return 'по разделам';}
 function openAccess(){
   let d=$('sa-access');if(!d){d=document.createElement('div');d.id='sa-access';document.body.appendChild(d);}
   const a=access||{};const P=people(a);
   const rows=[...P.entries()];
   d.innerHTML='<div class="ag-card" style="max-width:560px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ к складу</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
-    '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(a.owner)+'</b>. Человек входит своим Google-аккаунтом. Для каждого раздела выберите: <b>Редактирует</b>, <b>Просмотр</b> (только смотрит) или <b>Нет доступа</b> (раздела не видно совсем). Изменения сохраняются сразу, проверку делает сама база.</p>'+
+    '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(a.owner)+'</b>. Человек входит своим Google-аккаунтом. Для каждой вкладки выберите: <b>Редактирует</b>, <b>Просмотр</b> (только смотрит) или <b>Нет доступа</b> (вкладки не видно совсем). Отчёты можно только смотреть или скрыть. Изменения сохраняются сразу, проверку делает сама база.</p>'+
     (rows.length?rows.map(([e,p])=>'<div class="sa-person"><div class="sa-ph"><b style="word-break:break-all">'+esc(e)+'</b> <span class="muted" style="font-size:12px">'+summary(p)+'</span><button type="button" class="ghost del sa-b" data-sa-rm="'+esc(e)+'" style="margin-left:auto">Убрать</button></div>'+
-      SEC.map(([k,l,t])=>'<label class="sa-row"><span>'+esc(l)+'<br><small class="muted">'+esc(t)+'</small></span><select data-sa-p="'+esc(e)+'" data-k="'+k+'">'+LV.map(([v,n])=>'<option value="'+v+'"'+(p[k]===v?' selected':'')+'>'+n+'</option>').join('')+'</select></label>').join('')+'</div>').join('')
+      SEC.map(([k,l,t,ed])=>'<label class="sa-row"><span>'+esc(l)+(t?'<br><small class="muted">'+esc(t)+'</small>':'')+'</span><select data-sa-p="'+esc(e)+'" data-k="'+k+'">'+LV.filter(([v])=>ed||v!=='edit').map(([v,n])=>'<option value="'+v+'"'+(p[k]===v?' selected':'')+'>'+n+'</option>').join('')+'</select></label>').join('')+'</div>').join('')
       :'<p class="muted">Пока доступ есть только у вас.</p>')+
     '<h3 style="margin:16px 0 6px">Добавить человека</h3><div class="filters" style="margin:0"><label class="fld wide"><span>Почта Google</span><input type="text" id="sa-email" inputmode="email" placeholder="name@gmail.com"></label>'+
     '<label class="fld"><span>Начать с</span><select id="sa-role"><option value="view">всё только смотрит</option><option value="edit">всё редактирует</option><option value="orders">заказы редактирует, остальное смотрит</option><option value="ordersOnly">только заказы, остального не видит</option></select></label>'+
@@ -173,7 +175,7 @@ function openAccess(){
   const save=async P2=>{
     const editors=[],viewers=[],perms={};
     for(const [e,p] of P2){const v=SEC.map(([k])=>p[k]);
-      if(v.every(x=>x==='edit'))editors.push(e);else if(v.every(x=>x==='view'))viewers.push(e);else{perms[e]={};SEC.forEach(([k])=>perms[e][k]=p[k]);}}
+      if(SEC.every(([k,,,ed])=>p[k]===(ed?'edit':'view')))editors.push(e);else if(v.every(x=>x==='view'))viewers.push(e);else{perms[e]={};SEC.forEach(([k])=>perms[e][k]=p[k]);}}
     try{await ACC.update({editors,viewers,perms});access={...access,editors,viewers,perms};openAccess();}catch(x){err('Не удалось сохранить: '+(x.code||x.message));}
   };
   $('sa-x').onclick=()=>{d.hidden=true;};
@@ -182,7 +184,7 @@ function openAccess(){
     catch(x){h.textContent='Не получилось: '+(x.message||x.code||x);}};
   $('sa-add').onclick=()=>{const e=lower($('sa-email').value);if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){err('Впишите почту полностью, например name@gmail.com');return;}
     if(e===lower(a.owner)){err('Это ваш адрес, у вас и так все права.');return;}
-    const pr=PRESET[$('sa-role').value];const p={};SEC.forEach(([k],i)=>p[k]=pr[i]);
+    const pr=PRESET[$('sa-role').value];const p={};SEC.forEach(([k,,,ed])=>{const l=pr(k);p[k]=l==='edit'&&!ed?'view':l;});
     const P2=people(access);P2.set(e,p);save(P2);};
   d.querySelectorAll('[data-sa-rm]').forEach(b=>b.onclick=()=>{if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Точно?';return;}const P2=people(access);P2.delete(b.dataset.saRm);save(P2);});
   d.querySelectorAll('[data-sa-p]').forEach(c=>c.onchange=()=>{const P2=people(access);const p={...(P2.get(c.dataset.saP)||{})};p[c.dataset.k]=c.value;P2.set(c.dataset.saP,p);save(P2);});
