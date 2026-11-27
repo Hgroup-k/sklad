@@ -13,6 +13,9 @@ service cloud.firestore {
     function canEdit(s) { return isFull() || (custom() && (lv(s) == 'edit' || lv(s) == true)); }
     function canView(s) { return canEdit(s) || isViewer() || (custom() && lv(s) == 'view'); }
     function anyAccess() { return isFull() || isViewer() || custom(); }
+    function opsView() { return canView('input') || canView('journal') || canView('stock') || canView('period')
+      || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan'); }
+    function opsEdit() { return canEdit('input') || canEdit('journal') || canEdit('stock'); }
 
     match /access/main {
       allow read: if signedIn();
@@ -31,9 +34,6 @@ service cloud.firestore {
       allow read: if canView('returns');
       allow write: if canEdit('returns');
     }
-    function opsView() { return canView('input') || canView('journal') || canView('stock') || canView('period')
-      || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan'); }
-    function opsEdit() { return canEdit('input') || canEdit('journal') || canEdit('stock'); }
     match /months/{m}/ops/{id} {
       allow read: if opsView();
       allow create, update: if opsEdit()
