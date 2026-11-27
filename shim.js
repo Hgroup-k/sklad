@@ -160,7 +160,8 @@ auth.onAuthStateChanged(async u=>{
   if(started&&me&&u.uid!==me.uid){location.reload();return;}
   me=u;const email=lower(u.email);
   const isGoogle=(u.providerData||[]).some(p=>p.providerId==='google.com');
-  if(!u.emailVerified&&!isGoogle){showVerify(u);return;}
+  try{await u.reload();u=auth.currentUser||u;}catch(e){}
+  if(!u.emailVerified){showVerify(u);return;}
   gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
   /* сначала аккаунт: без имени пользователя в программу не пускаем */
   let prof=null;try{const ps=await fs.doc('people/'+u.uid).get();prof=ps.exists?ps.data():null;}catch(e){}
@@ -172,7 +173,7 @@ auth.onAuthStateChanged(async u=>{
   }else fs.doc('people/'+u.uid).set({email,at:new Date().toISOString()},{merge:true}).catch(()=>{});
   /* потом доступ: новый аккаунт ничего не видит, пока владелец не даст права */
   let snap;
-  try{snap=await ACC.get();}catch(e){if(e&&/permission/.test(e.code||'')){showPending(u,prof.name);return;}gate('<h2>Нет связи с базой</h2><p>Проверьте интернет и обновите страницу.</p>');return;}
+  try{await u.getIdToken(true);snap=await ACC.get({source:'server'});}catch(e){if(e&&/permission/.test(e.code||'')){showPending(u,prof.name);return;}gate('<h2>Нет связи с базой</h2><p>Проверьте интернет и обновите страницу.</p>');return;}
   if(!snap.exists){showPending(u,prof.name);return;}
   access=snap.data();role=roleOf(access,email);
   if(role==='none'){showPending(u,prof.name);return;}
