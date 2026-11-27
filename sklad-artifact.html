@@ -1847,8 +1847,8 @@ function wirePrintBar(){
 
 /* ---- подписки на заказы и возвраты ---- */
 function subscribeOrders(){
-  if(!S.see.orders)S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
-  if(!S.see.returns)S.returnsLoaded=true;else db.collection('returns').onSnapshot(s=>{S.returns=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.returnsLoaded=true;render();},e=>{S.returnsLoaded=true;S.err=e&&e.code;render();});
+  if(!(tabOk('orders')||tabOk('porders')||tabOk('grout')))S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
+  if(!tabOk('returns'))S.returnsLoaded=true;else db.collection('returns').onSnapshot(s=>{S.returns=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.returnsLoaded=true;render();},e=>{S.returnsLoaded=true;S.err=e&&e.code;render();});
   db.doc('config/lists').onSnapshot(s=>{S.lists=s.exists?s.data():null;},()=>{});
 }
 
@@ -2009,7 +2009,7 @@ function subscribe(){
     render();
   },e=>{S.err=e.code;render();});
   subscribeOrders();
-  if(S.see.plan)db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
+  if(tabOk('plan'))db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
   setTimeout(()=>{if(S.pending.size||!S.catalog)setSync(S.pending.size?'данные загружаются дольше обычного, проверьте интернет':'');setTimeout(()=>setSync(''),8000);},10000);
   // midnight rollover: start watching the new month
   setInterval(()=>{const m=todayStr().slice(0,7);if(opsReadable()&&!S.watched.has(m))watchMonth(m,true);},60000);
