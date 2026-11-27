@@ -175,7 +175,7 @@ auth.onAuthStateChanged(async u=>{
   let snap;
   try{await u.getIdToken(true);snap=await ACC.get({source:'server'});}catch(e){if(e&&/permission/.test(e.code||'')){showPending(u,prof.name);return;}gate('<h2>Нет связи с базой</h2><p>Проверьте интернет и обновите страницу.</p>');return;}
   if(!snap.exists){showPending(u,prof.name);return;}
-  access=snap.data();role=roleOf(access,email);
+  access=snap.data();role=roleOf(access,email);window.SKLAD_ROLE=role;
   if(role==='none'){showPending(u,prof.name);return;}
   ACC.onSnapshot(s=>{if(!s.exists)return;const nr=roleOf(s.data(),email);access=s.data();if(nr!==role)location.reload();},()=>{});
   window.SKLAD_ME_EMAIL=email;

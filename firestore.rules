@@ -51,7 +51,9 @@ service cloud.firestore {
         allow read: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
         allow create: if anyAccess() && request.resource.data.uid == me()
           && (fx(id) ? clv(fk(id)) == 'edit' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
-        allow delete: if anyAccess() && resource.data.uid == me();
+        allow update: if anyAccess() && resource.data.uid == me() && request.resource.data.uid == me()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['t', 'ed']);
+        allow delete: if anyAccess() && (resource.data.uid == me() || isOwner());
       }
     }
     match /reads/{uid} {
