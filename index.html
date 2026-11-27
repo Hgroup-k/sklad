@@ -33,9 +33,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='27.11 15:49';</script>
-<script src="firebase-config.js?v=142a7c71"></script>
-<script src="shim.js?v=142a7c71"></script>
+<script>window.SKLAD_VERSION='27.11 15:58';</script>
+<script src="firebase-config.js?v=3275c97b"></script>
+<script src="shim.js?v=3275c97b"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,6 +156,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 .cdel{font-size:11px;padding:0 2px}
 .cimg{max-width:100%;max-height:320px;border-radius:8px;display:block;cursor:pointer}
 .cmsg audio{max-width:240px}
+.cord{border:1px solid var(--line);border-radius:8px;padding:5px 8px;margin:2px 0 4px;background:var(--surface);font-size:13px}
+.cattach{padding:6px 10px;border-top:1px solid var(--line)}
+.cattach select{max-width:100%}
 .cemo{display:flex;flex-wrap:wrap;gap:2px;padding:6px 10px;border-top:1px solid var(--line)}
 .cemo button{background:none;border:0;font-size:22px;padding:2px 4px}
 .cinput{display:flex;gap:6px;align-items:flex-end;padding:8px 10px;border-top:1px solid var(--line)}
@@ -368,9 +371,11 @@ const TABS=[['orders','Заказы','office'],['returns','Возвраты','of
   ['porders','Заказы в работе','p11'],['grease11','Смазка форм','p11'],['cast11','Заливка','p11'],['dry11','Сушка','p11'],['demold11','Распалубка','p11'],['cut11','Резка','p11'],['pack11','Упаковка','p11'],['grout','Затирки и колер','p11'],
   ['porders9','Заказы в работе','p9'],['cast9','Заливка','p9'],['dry9','Сушка','p9'],['demold9','Распалубка','p9'],['sand9','Шкурение','p9'],['pack9','Упаковка','p9'],
   ['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
-const TGROUPS=[['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['ref','Справочник'],['chat','Сообщения']];
+const TGROUPS=[['chat','Сообщения'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['ref','Справочник']];
 const REPORT_TABS=new Set(['dry11','dry9','stock','period','sizes','months']);
 window.SKLAD_TABS=TABS.filter(t=>t[0]!=='chat').map(([k,l,g])=>({k,l,g:(TGROUPS.find(x=>x[0]===g)||[])[1]||'',ed:!REPORT_TABS.has(k)}));
+/* общие чаты: «Редактирует» = пишет, «Просмотр» = только читает, «Нет доступа» = не состоит */
+window.SKLAD_TABS.unshift({k:'chatall',l:'Общий чат',g:'Сообщения',ed:true,chat:true},{k:'chatord',l:'Чат «Заказы»',g:'Сообщения',ed:true,chat:true});
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -1377,6 +1382,7 @@ function renderOrderDetail(){
       (!ro&&!o.cancel&&left&&o.stage!=='work'&&!o.ready?'<button type="button" class="primary" id="o-work">Дать в работу</button>':'')+
       (!ro&&!o.cancel&&left?'<button type="button" class="'+(o.ready||o.stage!=='work'?'ghost':'primary')+'" id="o-ready">'+(o.ready?'Снять «готов»':'Отметить: готов')+'</button>':'')+
       (!ro&&!o.cancel&&left&&o.stage==='work'&&!o.ready?'<button type="button" class="ghost" id="o-unwork">Вернуть в новые</button>':'')+
+      (chatLv('orders')!=='none'?'<button type="button" class="ghost" data-ask-o="'+esc(o.id)+'">💬 Спросить по заказу</button>':'')+
       (!ro&&!o.cancel&&left?'<button type="button" class="ghost" id="o-urg">'+(o.urgent?'Снять «срочно»':'Пометить срочным')+'</button>':'')+
       (!RO('returns')&&(o.iss||[]).length?'<button type="button" class="ghost" id="o-ret">Оформить возврат</button>':'')+
       (!ro&&!(o.iss||[]).length?'<button type="button" class="ghost del" id="o-del">'+(o.cancel?'Удалить':'Отменить заказ')+'</button>':'')+
@@ -1889,7 +1895,7 @@ function pordersView(p){return {controls(){},update(){
     for(const l of prodLines(o,p)){const it=l.it,rest=l.rest;if(rest<=1e-9)continue;const av=r2(availFinished(it));
       const act=av>=rest-1e-9?'<b>Собрать со склада</b>':av>0?'Собрать '+fmt(av)+', <b>произвести '+fmt(r2(rest-av))+'</b>':'<b>Произвести '+fmt(rest)+'</b>';
       h+='<tr><td>'+esc(it.n)+(it.ex?EXB:'')+' <span class="muted">'+esc(it.c)+'</span></td><td>'+esc(it.s||'')+'</td><td class="num">'+fmt(rest)+' '+esc(unit(it.c))+'</td><td class="num">'+fmt(av)+'</td><td>'+act+'</td></tr>';}
-    h+='</tbody></table></div>'+(ro?'':'<div class="actions" style="margin-top:10px">'+(!inWork?'<button type="button" class="primary" data-pwork="'+esc(o.id)+'" data-p="'+p+'">Взять в работу</button>':'<button type="button" class="primary" data-pready="'+esc(o.id)+'" data-p="'+p+'">Готов</button><button type="button" class="ghost" data-punwork="'+esc(o.id)+'" data-p="'+p+'">Вернуть в новые</button>')+'<button type="button" class="ghost" data-print-o="'+esc(o.id)+'" data-p="'+p+'">Печать наряда</button></div>')+'</div>';}
+    h+='</tbody></table></div>'+(ro?'':'<div class="actions" style="margin-top:10px">'+(!inWork?'<button type="button" class="primary" data-pwork="'+esc(o.id)+'" data-p="'+p+'">Взять в работу</button>':'<button type="button" class="primary" data-pready="'+esc(o.id)+'" data-p="'+p+'">Готов</button><button type="button" class="ghost" data-punwork="'+esc(o.id)+'" data-p="'+p+'">Вернуть в новые</button>')+'<button type="button" class="ghost" data-print-o="'+esc(o.id)+'" data-p="'+p+'">Печать наряда</button>'+(chatLv('orders')!=='none'?'<button type="button" class="ghost" data-ask-o="'+esc(o.id)+'">💬 Спросить по заказу</button>':'')+'</div>')+'</div>';}
   h+='<p class="note">Здесь только строки заказов, которые делает '+(p==='p9'?'производство 9 (карнизы)':'производство 11 (плитка, клинкер, затирки, колер)')+'. «Есть готового» = готовая продукция на всех складах и складах производств. Всё, чего не хватает, само попадает в «План». Когда заказ готов, офис увидит это в разделе «Готовы, ждут клиента».</p>';
   $(k+'-b').innerHTML=h;
 }};}
@@ -1919,24 +1925,27 @@ document.addEventListener('click',async e=>{
 /* ================= Сообщения ================= */
 /* Общий чат (все, у кого есть доступ), группы (видят только участники) и личные чаты (видят только двое).
    Хранится в базе: chats/{id} и chats/{id}/msgs/{id}; прочитанное — reads/{uid}. Фото и голосовые — внутри сообщения (до ~900 КБ). */
-const CH={list:[],sel:null,msgs:[],msgUnsub:null,reads:{},people:null,base:null,form:null,rec:null,emo:false,more:false};
+const FIXED={all:'Общий чат',orders:'Заказы'};
+function chatLv(id){return id in FIXED?((S.chatLv||{})[id]||'edit'):'edit';}
+const CH={attach:null,pickOrd:false,list:[],sel:null,msgs:[],msgUnsub:null,reads:{},people:null,base:null,form:null,rec:null,emo:false,more:false};
 const EMOJI='😀 😁 😂 🤣 😊 😍 😘 😎 🤔 😐 😴 😢 😭 😡 👍 👎 👌 🙏 👏 💪 🤝 ✌️ 👋 ❤️ 🔥 ⭐ ✅ ❌ ⚠️ ❓ 📦 🚚 🏭 🧱 🪨 🎨 📅 ⏰ 💰 📞 🎉 🍀'.split(' ');
-function chatName(c){if(!c)return '';if(c.id==='all')return 'Общий чат';if(c.type==='dm'){const o=(c.members||[]).find(u=>u!==S.me);return S.names[o]||'Личный чат';}return c.name||'Группа';}
+function chatName(c){if(!c)return '';if(FIXED[c.id])return FIXED[c.id];if(c.type==='dm'){const o=(c.members||[]).find(u=>u!==S.me);return S.names[o]||'Личный чат';}return c.name||'Группа';}
 function chatUnread(c){return !!(c.last&&c.last.uid!==S.me&&(!CH.reads[c.id]||CH.reads[c.id]<c.last.at));}
 function chatBadge(){const n=CH.list.filter(chatUnread).length;const g=document.querySelector('[data-grp="chat"]');if(g)g.innerHTML='Сообщения'+(n?' <span class="cbadge">'+n+'</span>':'');}
 function subscribeChats(){
   if(!rawdb||!S.me)return;
   const all={};let first=true;
   const upd=()=>{
-    CH.list=Object.values(all).sort((a,b)=>((b.last&&b.last.at)||b.at||'').localeCompare((a.last&&a.last.at)||a.at||''));
+    CH.list=Object.values(all).sort((a,b)=>((FIXED[b.id]?1:0)-(FIXED[a.id]?1:0))||(a.id==='all'?-1:b.id==='all'?1:0)||((b.last&&b.last.at)||b.at||'').localeCompare((a.last&&a.last.at)||a.at||''));
     resolveNames(CH.list.flatMap(c=>[...(c.members||[]),c.last&&c.last.uid].filter(Boolean)));
     if(CH.base){for(const c of CH.list){const l=c.last;if(!l||l.uid===S.me)continue;const was=CH.base[c.id]||'';
       if(l.at>was&&!(S.view==='chat'&&CH.sel===c.id&&!document.hidden))showNote(chatName(c),(S.names[l.uid]?S.names[l.uid]+': ':'')+l.t,'chat');}}
     CH.base={};for(const c of CH.list)CH.base[c.id]=(c.last&&c.last.at)||'';
     chatBadge();if(S.view==='chat')VIEWS.chat.update();
   };
-  rawdb.doc('chats/all').onSnapshot(s=>{all.all={id:'all',type:'all',...(s.exists?s.data():{})};if(first){first=false;CH.base=null;}upd();},()=>{});
-  rawdb.collection('chats').where('members','array-contains',S.me).onSnapshot(q=>{for(const k in all)if(k!=='all')delete all[k];q.forEach(d=>{all[d.id]={id:d.id,...d.data()};});upd();},()=>{});
+  for(const fid of Object.keys(FIXED)){if(chatLv(fid)==='none')continue;
+    rawdb.doc('chats/'+fid).onSnapshot(s=>{all[fid]={id:fid,type:'all',...(s.exists?s.data():{})};if(first){first=false;CH.base=null;}upd();},()=>{});}
+  rawdb.collection('chats').where('members','array-contains',S.me).onSnapshot(q=>{for(const k in all)if(!FIXED[k])delete all[k];q.forEach(d=>{all[d.id]={id:d.id,...d.data()};});upd();},()=>{});
   rawdb.doc('reads/'+S.me).onSnapshot(s=>{CH.reads=s.exists?s.data():{};chatBadge();if(S.view==='chat')VIEWS.chat.update();},()=>{});
 }
 /* уведомление внутри программы + системное, если окно свёрнуто */
@@ -1958,6 +1967,8 @@ function markRead(){const c=CH.list.find(x=>x.id===CH.sel);if(!c||!c.last||docum
   CH.reads[c.id]=c.last.at;rawdb.doc('reads/'+S.me).set({[c.id]:c.last.at},{merge:true}).catch(()=>{});chatBadge();}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.view==='chat')markRead();});
 function hhmm(iso){const d=new Date(iso);return pad(d.getHours())+':'+pad(d.getMinutes());}
+function ordCard(o,x){const cur=S.orders.find(z=>z.id===o.id);const st=cur?(cur.cancel?'отменён':orderStatus(cur)[0]):'';
+  return '<div class="cord"><button type="button" class="link" data-cord="'+esc(o.id)+'">📦 Заказ №'+esc(o.no)+'</button> '+esc(o.obj||'')+(st?' <span class="muted">· '+esc(st)+'</span>':'')+(x?' <button type="button" class="link" data-cattach-x>✕</button>':'')+'</div>';}
 function msgHtml(m,prev){
   const mine=m.uid===S.me;const day=String(m.at||'').slice(0,10);const pday=prev?String(prev.at||'').slice(0,10):'';
   let h=day!==pday?'<div class="cday">'+fmtDate(day)+'</div>':'';
@@ -1966,10 +1977,11 @@ function msgHtml(m,prev){
   if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg>';
   else if(m.kind==='voice')body='<audio controls preload="none" src="'+esc(m.data)+'"></audio>';
   else if(m.kind==='video')body='<video controls preload="metadata" src="'+esc(m.data)+'" class="cimg"></video>';
+  if(m.ord)body+=ordCard(m.ord);
   if(m.t)body+='<div class="ctext">'+esc(m.t).replace(/\n/g,'<br>')+'</div>';
   return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'">'+(!mine&&!same&&CH.sel!==undefined?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+body+'<div class="ctime">'+hhmm(m.at)+(mine?' <button type="button" class="link cdel" data-cdel="'+esc(m.id)+'" title="Удалить">✕</button>':'')+'</div></div>';
 }
-VIEWS.chat={controls(){if(!CH.sel)openChat('all');},update(onlyMsgs){
+VIEWS.chat={controls(){if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('orders')!=='none'?'orders':(CH.list[0]||{}).id||'all');},update(onlyMsgs){
   const el=$('chat-b');if(!el)return;
   const c=CH.list.find(x=>x.id===CH.sel)||(CH.sel==='all'?{id:'all',type:'all'}:null);
   if(!el.querySelector('.chat')){el.innerHTML='<div class="chat"><aside class="clist" id="ch-list"></aside><section class="cpane" id="ch-pane"></section></div>';}
@@ -1977,7 +1989,7 @@ VIEWS.chat={controls(){if(!CH.sel)openChat('all');},update(onlyMsgs){
   L.innerHTML='<div class="cbtns"><button type="button" class="ghost" data-cnew="group">+ Группа</button><button type="button" class="ghost" data-cnew="dm">+ Личный чат</button></div>'+
     (('Notification' in window)&&Notification.permission!=='granted'?'<button type="button" class="link" data-cnotif style="margin:0 0 8px">Включить уведомления</button>':'')+
     CH.list.map(x=>'<button type="button" class="citem'+(x.id===CH.sel?' on':'')+'" data-chat="'+esc(x.id)+'"><b>'+esc(chatName(x))+'</b>'+(chatUnread(x)?'<span class="cbadge">•</span>':'')+
-      '<small class="muted">'+(x.type==='group'?'группа · ':x.type==='dm'?'личный · ':'все · ')+(x.last?esc((x.last.uid===S.me?'вы: ':'')+x.last.t).slice(0,40):'нет сообщений')+'</small></button>').join('');
+      '<small class="muted">'+(x.type==='group'?'группа · ':x.type==='dm'?'личный · ':x.id==='orders'?'вопросы по заказам · ':'все · ')+(x.last?esc((x.last.uid===S.me?'вы: ':'')+x.last.t).slice(0,40):'нет сообщений')+'</small></button>').join('');
   const P=$('ch-pane');
   if(CH.form){P.innerHTML=chatFormHtml();return;}
   if(!c){P.innerHTML='<div class="panel empty">Выберите чат слева.</div>';return;}
@@ -1986,8 +1998,11 @@ VIEWS.chat={controls(){if(!CH.sel)openChat('all');},update(onlyMsgs){
   P.innerHTML='<div class="chead"><b>'+esc(chatName(c))+'</b>'+(c.type==='group'?' <span class="muted" style="font-size:12px">'+(c.members||[]).length+' участн.</span><button type="button" class="link" data-cmembers>Участники</button>':'')+'</div>'+
     '<div class="cmsgs" id="ch-msgs">'+(!CH.loaded?'<p class="muted">Загрузка…</p>':CH.err?'<p class="muted">Нет доступа к этому чату.</p>':(CH.msgs.length>=150&&!CH.more?'<button type="button" class="link" data-cmore>Показать более ранние</button>':'')+(CH.msgs.length?CH.msgs.map((m,i)=>msgHtml(m,CH.msgs[i-1])).join(''):'<p class="muted">Сообщений пока нет. Напишите первым.</p>'))+'</div>'+
     (CH.emo?'<div class="cemo">'+EMOJI.map(e=>'<button type="button" data-emo="'+e+'">'+e+'</button>').join('')+'</div>':'')+
-    '<form class="cinput" id="ch-f" autocomplete="off"><button type="button" class="ghost cico" data-cemo title="Смайлики">😊</button><label class="ghost cico" title="Фото или видео">📎<input type="file" id="ch-file" accept="image/*,video/*" hidden></label>'+
-    '<button type="button" class="ghost cico'+(CH.rec?' rec':'')+'" data-cvoice title="Голосовое">'+(CH.rec?'⏹ '+CH.recSec+'с':'🎤')+'</button><textarea id="ch-in" rows="1" placeholder="Сообщение">'+esc(draft)+'</textarea><button type="submit" class="primary" style="padding:8px 16px">➤</button></form>';
+    (CH.attach&&CH.sel==='orders'?'<div class="cattach">'+ordCard(CH.attach,true)+'</div>':'')+
+    (CH.pickOrd?'<div class="cattach"><select id="ch-ord"><option value="">— выберите заказ —</option>'+[...S.orders].filter(o=>!o.cancel).sort((a,b)=>String(b.no).localeCompare(String(a.no),'ru',{numeric:true})).map(o=>'<option value="'+esc(o.id)+'">№'+esc(o.no)+' · '+esc(o.obj||'')+' · '+esc(orderStatus(o)[0])+'</option>').join('')+'</select> <button type="button" class="link" data-cpick-x>Отмена</button></div>':'')+
+    (chatLv(c.id)==='view'?'<p class="muted" style="padding:10px 14px;margin:0;border-top:1px solid var(--line)">В этом чате вы можете только читать.</p>':
+    '<form class="cinput" id="ch-f" autocomplete="off">'+(c.id==='orders'?'<button type="button" class="ghost cico" data-cpick title="Прикрепить заказ">📦</button>':'')+'<button type="button" class="ghost cico" data-cemo title="Смайлики">😊</button><label class="ghost cico" title="Фото или видео">📎<input type="file" id="ch-file" accept="image/*,video/*" hidden></label>'+
+    '<button type="button" class="ghost cico'+(CH.rec?' rec':'')+'" data-cvoice title="Голосовое">'+(CH.rec?'⏹ '+CH.recSec+'с':'🎤')+'</button><textarea id="ch-in" rows="1" placeholder="'+(c.id==='orders'?'Вопрос по заказу':'Сообщение')+'">'+esc(draft)+'</textarea><button type="submit" class="primary" style="padding:8px 16px">➤</button></form>');
   const nb=$('ch-msgs');if(nb&&(atBottom||onlyMsgs===true))nb.scrollTop=nb.scrollHeight;
   if(focused){const i=$('ch-in');i.focus();i.setSelectionRange(i.value.length,i.value.length);}
   markRead();
@@ -2001,12 +2016,15 @@ function chatFormHtml(){const f=CH.form;const ppl=(CH.people||[]).filter(p=>p.ui
 async function chatSend(msg){
   const id=CH.sel;if(!id)return;const now=new Date().toISOString();
   const m={uid:S.me,at:now,kind:msg.kind||'text',t:msg.t||''};if(msg.data)m.data=msg.data;
+  if(id==='orders'&&CH.attach){m.ord={id:CH.attach.id,no:String(CH.attach.no||''),obj:CH.attach.obj||''};CH.attach=null;}
   await rawdb.collection('chats/'+id+'/msgs').add(m);
   const prev=msg.kind==='img'?'📷 Фото':msg.kind==='voice'?'🎤 Голосовое':msg.kind==='video'?'🎬 Видео':'';
-  const last={t:(prev+(prev&&m.t?' ':'')+m.t).slice(0,120),uid:S.me,at:now};
-  if(id==='all')await rawdb.doc('chats/all').set({type:'all',last},{merge:true});else await rawdb.doc('chats/'+id).update({last});
+  const pre=prev+(m.ord?'№'+m.ord.no+': ':'');
+  const last={t:(pre+(prev&&m.t?' ':'')+m.t).slice(0,120),uid:S.me,at:now};
+  if(FIXED[id])await rawdb.doc('chats/'+id).set({type:'all',last},{merge:true});else await rawdb.doc('chats/'+id).update({last});
   CH.reads[id]=now;rawdb.doc('reads/'+S.me).set({[id]:now},{merge:true}).catch(()=>{});
-  pushSend({kind:'msg',chat:id,title:(id==='all'?'Общий чат':chatName(CH.list.find(x=>x.id===id))),body:last.t});
+  if(id==='orders')pushSend({kind:'order',order:'',title:'Чат «Заказы» · '+myName(),body:last.t});
+  else pushSend({kind:'msg',chat:id,title:(FIXED[id]||chatName(CH.list.find(x=>x.id===id))),body:last.t});
 }
 function fileToData(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});}
 async function imgToData(file){
@@ -2033,6 +2051,10 @@ document.addEventListener('click',async e=>{
   if(!e.target.closest('#chat-b'))return;
   const t=e.target;let b;
   if((b=t.closest('[data-chat]'))){CH.form=null;openChat(b.dataset.chat);if(window.innerWidth<800){const p=$('ch-pane');if(p)p.scrollIntoView({block:'start'});}return;}
+  if((b=t.closest('[data-cord]'))){const id=b.dataset.cord;if(tabOk('orders')&&S.see.orders!==false&&S.orders.some(o=>o.id===id)){go('orders');openOrder(id);}else{const o=S.orders.find(z=>z.id===id);if(o&&tabOk('porders'))go('porders');else toast('Этот заказ вам не виден');}return;}
+  if(t.closest('[data-cattach-x]')){CH.attach=null;VIEWS.chat.update();return;}
+  if(t.closest('[data-cpick]')){CH.draft=($('ch-in')||{}).value||'';CH.pickOrd=!CH.pickOrd;VIEWS.chat.update();return;}
+  if(t.closest('[data-cpick-x]')){CH.pickOrd=false;VIEWS.chat.update();return;}
   if(t.closest('[data-cemo]')){CH.draft=($('ch-in')||{}).value||'';CH.emo=!CH.emo;VIEWS.chat.update();return;}
   if((b=t.closest('[data-emo]'))){const i=$('ch-in');i.value+=b.dataset.emo;CH.draft=i.value;i.focus();return;}
   if(t.closest('[data-cvoice]')){if(CH.rec)stopVoice(true);else startVoice();return;}
@@ -2053,10 +2075,15 @@ document.addEventListener('click',async e=>{
   if(t.closest('[data-cg-leave]')){const f=CH.form;const c=CH.list.find(x=>x.id===f.id);if(!c||!confirm('Выйти из группы «'+(c.name||'')+'»?'))return;
     try{await rawdb.doc('chats/'+c.id).update({members:(c.members||[]).filter(u=>u!==S.me)});CH.form=null;if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}CH.sel=null;openChat('all');}catch(x){toast(dbErr(x));}return;}
 });
-document.addEventListener('submit',async e=>{if(e.target.id!=='ch-f')return;e.preventDefault();const i=$('ch-in');const t=i.value.trim();if(!t)return;
+document.addEventListener('submit',async e=>{if(e.target.id!=='ch-f')return;e.preventDefault();const i=$('ch-in');const t=i.value.trim();if(!t&&!(CH.sel==='orders'&&CH.attach))return;
   i.value='';CH.draft='';CH.emo=false;try{await chatSend({t});}catch(x){i.value=t;toast(dbErr(x));}});
 document.addEventListener('keydown',e=>{if(e.target.id==='ch-in'&&e.key==='Enter'&&!e.shiftKey&&window.innerWidth>800){e.preventDefault();$('ch-f').requestSubmit();}});
 document.addEventListener('input',e=>{if(e.target.id==='ch-in'){CH.draft=e.target.value;e.target.style.height='auto';e.target.style.height=Math.min(140,e.target.scrollHeight)+'px';}});
+document.addEventListener('change',e=>{if(e.target.id!=='ch-ord')return;const o=S.orders.find(z=>z.id===e.target.value);if(!o)return;CH.attach={id:o.id,no:o.no,obj:o.obj||''};CH.pickOrd=false;CH.draft=($('ch-in')||{}).value||'';VIEWS.chat.update();const i=$('ch-in');if(i)i.focus();});
+/* «Спросить по заказу»: открывает чат «Заказы» с прикреплённым заказом */
+function askOrder(id){const o=S.orders.find(z=>z.id===id);if(!o)return;if(chatLv('orders')==='none'){toast('У вас нет доступа к чату «Заказы»');return;}
+  CH.attach={id:o.id,no:o.no,obj:o.obj||''};CH.form=null;go('chat');if(CH.sel!=='orders'){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}CH.sel=null;openChat('orders');}else VIEWS.chat.update();setTimeout(()=>{const i=$('ch-in');if(i)i.focus();},100);}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ask-o]');if(b)askOrder(b.dataset.askO);});
 document.addEventListener('change',async e=>{if(e.target.id!=='ch-file')return;const f=e.target.files[0];e.target.value='';if(!f)return;
   try{if(/^image\//.test(f.type)){toast('Отправляем фото…');await chatSend({kind:'img',data:await imgToData(f)});}
     else if(/^video\//.test(f.type)){if(f.size>900000){toast('Видео больше 1 МБ, его пока нельзя отправить. Снимите покороче (несколько секунд).');return;}await chatSend({kind:'video',data:await fileToData(f)});}
@@ -2468,6 +2495,7 @@ async function init(){
     try{const own=await user.isOwner();const ed=await user.canEdit();
       if(own!==true&&ed!==true){
         let secs=null;try{if(user.sections)secs=await user.sections();}catch(e){}
+        S.chatLv={all:(secs&&secs.chatall)||'edit',orders:(secs&&secs.chatord)||'edit'};
         S.can={full:false};
         /* уровни по разделам: 'edit' | 'view' | 'none' (true = edit, для старых записей) */
         for(const k of TABKEYS){let l=secs?(k in secs?secs[k]:secs[OLD_SEC[k]]):'view';if(l===true)l='edit';

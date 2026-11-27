@@ -40,15 +40,18 @@ service cloud.firestore {
         && (resource == null || resource.data.uid == request.auth.uid);
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
+    function fx(i) { return i == 'all' || i == 'orders'; }
+    function fk(i) { return i == 'all' ? 'chatall' : 'chatord'; }
+    function clv(s) { return isFull() ? 'edit' : isViewer() ? 'view' : custom() ? perms()[email()].get(s, 'edit') : 'none'; }
     match /chats/{id} {
-      allow read: if anyAccess() && (id == 'all' || me() in resource.data.members);
-      allow create: if anyAccess() && (id == 'all' || (me() in request.resource.data.members && request.resource.data.by == me()));
-      allow update: if anyAccess() && (id == 'all' || me() in resource.data.members);
-      allow delete: if anyAccess() && id != 'all' && resource.data.by == me();
+      allow read: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in resource.data.members);
+      allow create: if anyAccess() && (fx(id) ? clv(fk(id)) == 'edit' : (me() in request.resource.data.members && request.resource.data.by == me()));
+      allow update: if anyAccess() && (fx(id) ? clv(fk(id)) == 'edit' : me() in resource.data.members);
+      allow delete: if anyAccess() && !fx(id) && resource.data.by == me();
       match /msgs/{m} {
-        allow read: if anyAccess() && (id == 'all' || me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
+        allow read: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
         allow create: if anyAccess() && request.resource.data.uid == me()
-          && (id == 'all' || me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
+          && (fx(id) ? clv(fk(id)) == 'edit' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
         allow delete: if anyAccess() && resource.data.uid == me();
       }
     }
