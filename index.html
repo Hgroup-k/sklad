@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='27.11 18:14';</script>
-<script src="firebase-config.js?v=f7401e51"></script>
-<script src="shim.js?v=f7401e51"></script>
+<script>window.SKLAD_VERSION='27.11 18:16';</script>
+<script src="firebase-config.js?v=4c32d939"></script>
+<script src="shim.js?v=4c32d939"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -463,7 +463,7 @@ const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks',
 const REPORT_TABS=new Set(['dry11','dry9','stock','period','sizes','months']);
 window.SKLAD_TABS=TABS.filter(t=>t[0]!=='chat'&&t[0]!=='home'&&t[0]!=='tasks').map(([k,l,g])=>({k,l,g:(TGROUPS.find(x=>x[0]===g)||[])[1]||'',ed:!REPORT_TABS.has(k)}));
 /* общие чаты: «Редактирует» = пишет, «Просмотр» = только читает, «Нет доступа» = не состоит */
-window.SKLAD_TABS.unshift({k:'tasks',l:'Ставить задачи сотрудникам',g:'Администратор (особые права)',ed:true},{k:'chatmod',l:'Удалять и менять сообщения без следов',g:'Администратор (особые права)',ed:true},{k:'chatall',l:'Общий чат',g:'Сообщения',ed:true,chat:true},{k:'chatord',l:'Чат «Заказы»',g:'Сообщения',ed:true,chat:true});
+window.SKLAD_TABS.unshift({k:'tasks',l:'Задачи всех сотрудников',g:'Администратор (особые права)',ed:true},{k:'chatmod',l:'Удалять и менять сообщения без следов',g:'Администратор (особые права)',ed:true},{k:'chatall',l:'Общий чат',g:'Сообщения',ed:true,chat:true},{k:'chatord',l:'Чат «Заказы»',g:'Сообщения',ed:true,chat:true});
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -2299,7 +2299,7 @@ document.addEventListener('change',e=>{if(e.target.id!=='ch-ord')return;const o=
    Видят: исполнитель — свои; у кого «Задачи» в Доступе — все. Ставят и удаляют — у кого «Задачи: Редактирует». */
 const TK={list:[],f:'mine',form:null,open:new Set(),unsub:null};
 const TST=[['new','Новая'],['work','В работе'],['done','Готово']];
-function tkAll(){return tkEdit()&&!!rawdb;}
+function tkAll(){return !!rawdb&&(S.can.full||S.see.tasks===true||tkEdit());}
 function tkEdit(){return !S.readOnly&&(S.can.full||S.can.tasks);}
 function subscribeTasks(){
   if(!rawdb||!S.me||TK.unsub)return;
@@ -2342,7 +2342,7 @@ function tkFormHtml(){const f=TK.form;const ppl=CH.people||[];
 VIEWS.tasks={controls(){if(!rawdb||!S.me)return;subscribeTasks();loadPeople().then(()=>{if(S.view==='tasks'&&TK.form)VIEWS.tasks.update();});},update(){
   const el=$('tasks-b');if(!el||!rawdb||!S.me)return;
   const ae=document.activeElement;if(ae&&el.contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)){TK.dirty=true;return;}TK.dirty=false;
-  const all=tkAll();const F=[['mine','Мои'],...(tkEdit()?[['by','Поставил(а) я']]:[]),...(all&&tkEdit()?[['all','Все']]:[])];if(!F.some(x=>x[0]===TK.f))TK.f='mine';
+  const all=tkAll();const F=[['mine','Мои'],...(tkEdit()?[['by','Поставил(а) я']]:[]),...(all?[['all','Все']]:[])];if(!F.some(x=>x[0]===TK.f))TK.f='mine';
   let L=TK.list.filter(x=>TK.f==='mine'?x.to===S.me:TK.f==='by'?x.by===S.me:true);
   const whoOpts=TK.f==='mine'?[]:[...new Map(L.map(x=>[tkKey(x),tkName(x)])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'ru'));
   if(TK.who&&!whoOpts.some(o=>o[0]===TK.who))TK.who='';if(TK.who)L=L.filter(x=>tkKey(x)===TK.who);

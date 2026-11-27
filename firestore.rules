@@ -70,7 +70,7 @@ service cloud.firestore {
       }
     }
     match /tasks/{id} {
-      allow read: if signedIn() && (canEdit('tasks') || resource.data.to == me() || resource.data.by == me());
+      allow read: if signedIn() && (canView('tasks') || resource.data.to == me() || resource.data.by == me());
       allow create: if canEdit('tasks') && request.resource.data.by == me();
       allow update: if canEdit('tasks') || (signedIn() && resource.data.to == me()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'cm', 'upd']));
