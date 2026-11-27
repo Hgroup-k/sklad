@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='27.11 16:31';</script>
-<script src="firebase-config.js?v=1ee47f58"></script>
-<script src="shim.js?v=1ee47f58"></script>
+<script>window.SKLAD_VERSION='27.11 16:40';</script>
+<script src="firebase-config.js?v=8bda89a4"></script>
+<script src="shim.js?v=8bda89a4"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1994,7 +1994,7 @@ function msgHtml(m,prev){
 }
 VIEWS.chat={controls(){if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('orders')!=='none'?'orders':(CH.list[0]||{}).id||'all');},update(onlyMsgs){
   const el=$('chat-b');if(!el)return;
-  const c=CH.list.find(x=>x.id===CH.sel)||(CH.sel==='all'?{id:'all',type:'all'}:null);
+  const c=CH.list.find(x=>x.id===CH.sel)||(FIXED[CH.sel]?{id:CH.sel,type:'all'}:null);
   if(!el.querySelector('.chat')){el.innerHTML='<div class="chat"><aside class="clist" id="ch-list"></aside><section class="cpane" id="ch-pane"></section></div>';}
   const L=$('ch-list');
   L.innerHTML='<div class="cbtns"><button type="button" class="ghost" data-cnew="group">+ Группа</button><button type="button" class="ghost" data-cnew="dm">+ Личный чат</button></div>'+
@@ -2093,7 +2093,9 @@ document.addEventListener('input',e=>{if(e.target.id==='ch-in'){CH.draft=e.targe
 document.addEventListener('change',e=>{if(e.target.id!=='ch-ord')return;const o=S.orders.find(z=>z.id===e.target.value);if(!o)return;CH.attach={id:o.id,no:o.no,obj:o.obj||''};CH.pickOrd=false;CH.draft=($('ch-in')||{}).value||'';VIEWS.chat.update();const i=$('ch-in');if(i)i.focus();});
 /* «Спросить по заказу»: открывает чат «Заказы» с прикреплённым заказом */
 function askOrder(id){const o=S.orders.find(z=>z.id===id);if(!o)return;if(chatLv('orders')==='none'){toast('У вас нет доступа к чату «Заказы»');return;}
-  CH.attach={id:o.id,no:o.no,obj:o.obj||''};CH.form=null;go('chat');if(CH.sel!=='orders'){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}CH.sel=null;openChat('orders');}else VIEWS.chat.update();setTimeout(()=>{const i=$('ch-in');if(i)i.focus();},100);}
+  CH.attach={id:o.id,no:o.no,obj:o.obj||''};CH.form=null;CH.pickOrd=false;
+  if(CH.sel!=='orders'){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}CH.sel=null;openChat('orders');}
+  go('chat');VIEWS.chat.update();window.scrollTo(0,0);setTimeout(()=>{const i=$('ch-in');if(i)i.focus();},150);}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-ask-o]');if(b)askOrder(b.dataset.askO);});
 document.addEventListener('change',async e=>{if(e.target.id!=='ch-file')return;const f=e.target.files[0];e.target.value='';if(!f)return;
   try{if(/^image\//.test(f.type)){toast('Отправляем фото…');await chatSend({kind:'img',data:await imgToData(f)});}
