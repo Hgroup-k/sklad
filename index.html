@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='27.11 18:16';</script>
-<script src="firebase-config.js?v=4c32d939"></script>
-<script src="shim.js?v=4c32d939"></script>
+<script>window.SKLAD_VERSION='27.11 18:21';</script>
+<script src="firebase-config.js?v=806fc473"></script>
+<script src="shim.js?v=806fc473"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2032,14 +2032,16 @@ function subscribeChats(){
   const upd=()=>{
     CH.list=Object.values(all).sort((a,b)=>((FIXED[b.id]?1:0)-(FIXED[a.id]?1:0))||(a.id==='all'?-1:b.id==='all'?1:0)||((b.last&&b.last.at)||b.at||'').localeCompare((a.last&&a.last.at)||a.at||''));
     resolveNames(CH.list.flatMap(c=>[...(c.members||[]),c.last&&c.last.uid].filter(Boolean)));
-    if(CH.base){for(const c of CH.list){const l=c.last;if(!l||l.uid===S.me)continue;const was=CH.base[c.id]||'';
-      if(l.at>was&&!(S.view==='chat'&&CH.sel===c.id&&!document.hidden))showNote(chatName(c),(S.names[l.uid]?S.names[l.uid]+': ':'')+l.t,'chat-'+c.id);}}
-    CH.base={};for(const c of CH.list)CH.base[c.id]=(c.last&&c.last.at)||'';
+    /* всплывашка — только для сообщения, пришедшего уже после загрузки чата, и только если оно не прочитано */
+    CH.base=CH.base||{};
+    for(const c of CH.list){if(c._snap===undefined&&!FIXED[c.id])c._snap=true;if(!c._snap)continue;const l=c.last;const at=(l&&l.at)||'';
+      if(!(c.id in CH.base)){CH.base[c.id]=at;continue;}
+      if(at>CH.base[c.id]){CH.base[c.id]=at;if(l.uid!==S.me&&!(CH.reads[c.id]&&CH.reads[c.id]>=at)&&!(S.view==='chat'&&CH.sel===c.id&&!document.hidden))showNote(chatName(c),(S.names[l.uid]?S.names[l.uid]+': ':'')+l.t,'chat-'+c.id);}}
     chatBadge();if(S.view==='chat')VIEWS.chat.update();if(S.view==='home')VIEWS.home.update();
   };
   /* общие чаты видны в списке всегда (даже пока база не ответила); при ошибке пробуем снова */
-  const sub=fid=>rawdb.doc('chats/'+fid).onSnapshot(s=>{all[fid]={id:fid,type:'all',...(s.exists?s.data():{})};if(first){first=false;CH.base=null;}upd();},e=>{try{console.error('chat '+fid,e);}catch(_){}setTimeout(()=>sub(fid),30000);});
-  for(const fid of Object.keys(FIXED)){if(chatLv(fid)==='none')continue;all[fid]={id:fid,type:'all'};sub(fid);}
+  const sub=fid=>rawdb.doc('chats/'+fid).onSnapshot(s=>{all[fid]={id:fid,type:'all',...(s.exists?s.data():{}),_snap:true};upd();},e=>{try{console.error('chat '+fid,e);}catch(_){}setTimeout(()=>sub(fid),30000);});
+  for(const fid of Object.keys(FIXED)){if(chatLv(fid)==='none')continue;all[fid]={id:fid,type:'all',_snap:false};sub(fid);}
   upd();
   const subList=()=>rawdb.collection('chats').where('members','array-contains',S.me).onSnapshot(q=>{for(const k in all)if(!FIXED[k])delete all[k];q.forEach(d=>{all[d.id]={id:d.id,...d.data()};});for(const k in (CH.extra||{}))if(!all[k])all[k]=CH.extra[k];upd();},e=>{try{console.error('chats list',e);}catch(_){}setTimeout(subList,30000);});
   subList();
