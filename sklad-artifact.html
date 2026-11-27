@@ -284,7 +284,7 @@ const ALL=['','все'];
 /* ---------- state ---------- */
 const S={
   catalog:null, plan:null, orders:[], returns:[], lists:null, ordersLoaded:false, returnsLoaded:false, monthOps:{}, watched:new Set(), pending:new Set(), firstLoad:true,
-  me:null, readOnly:false, can:{stock:true,orders:true,returns:true,plan:true,catalog:true,full:true}, names:{}, view:'input', edit:null, err:null,
+  me:null, readOnly:false, can:{stock:true,orders:true,returns:true,plan:true,catalog:true,full:true}, see:{stock:true,orders:true,returns:true,plan:true,catalog:true}, names:{}, view:'input', edit:null, err:null,
   f:{
     journal:{from:monthStart(),to:todayStr(),op:'',c:'',wh:'',q:''},
     stock:{date:todayStr(),c:'',wh:'',sort:'',st:'',sb:'',by:'wh',zero:false,q:''},
@@ -299,6 +299,9 @@ let db=null,user=null,dl=null;
 
 const SECS={stock:'Склад (ввод и журнал)',orders:'Заказы',returns:'Возвраты',plan:'План',catalog:'Справочники'};
 function RO(sec){return S.readOnly||!S.can[sec];}
+const TAB_SEC={input:'stock',journal:'stock',stock:'stock',period:'stock',sizes:'stock',months:'stock',orders:'orders',returns:'returns',plan:'plan',catalog:'catalog'};
+function tabOk(k){return S.see[TAB_SEC[k]]!==false;}
+function opsReadable(){return S.see.stock||S.see.orders||S.see.returns||S.see.plan;}
 /* ---------- catalog accessors ---------- */
 function cats(){return S.catalog?(S.catalog.order||Object.keys(S.catalog.cats||{})):[];}
 function cat(c){return (S.catalog&&S.catalog.cats&&S.catalog.cats[c])||{unit:'шт.',names:[],sizes:[]};}
@@ -325,10 +328,10 @@ function passing(o,f,keyFn){
 
 /* ---------- tabs & routing ---------- */
 function buildTabs(){
-  $('tabs').innerHTML=TABS.map(([k,l])=>'<button type="button" class="tab" data-go="'+k+'">'+l+'</button>').join('');
+  $('tabs').innerHTML=TABS.filter(([k])=>tabOk(k)).map(([k,l])=>'<button type="button" class="tab" data-go="'+k+'">'+l+'</button>').join('');
 }
 function go(v){
-  if(!TABS.some(t=>t[0]===v))v='input';
+  if(!TABS.some(t=>t[0]===v&&tabOk(t[0]))){const f=TABS.find(t=>tabOk(t[0]));v=f?f[0]:'input';}
   S.view=v;
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-current',b.dataset.go===v?'page':'false'));
   document.querySelectorAll('.view').forEach(s=>s.hidden=s.id!=='v-'+v);
@@ -1587,8 +1590,8 @@ function wirePrintBar(){
 
 /* ---- подписки на заказы и возвраты ---- */
 function subscribeOrders(){
-  db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
-  db.collection('returns').onSnapshot(s=>{S.returns=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.returnsLoaded=true;render();},e=>{S.returnsLoaded=true;S.err=e&&e.code;render();});
+  if(!S.see.orders)S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
+  if(!S.see.returns)S.returnsLoaded=true;else db.collection('returns').onSnapshot(s=>{S.returns=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.returnsLoaded=true;render();},e=>{S.returnsLoaded=true;S.err=e&&e.code;render();});
   db.doc('config/lists').onSnapshot(s=>{S.lists=s.exists?s.data():null;},()=>{});
 }
 
@@ -1603,10 +1606,10 @@ function wrapRef(ref,path){
     return v.bind(t);}});
 }
 function wrapDb(d){rawdb=d;return {collection:p=>wrapRef(d.collection(p),p),doc:p=>wrapRef(d.doc(p),p)};}
-function bkMark(path){if(/^(backups|config\/backups)/.test(path)||S.readOnly)return;clearTimeout(bkT);bkT=setTimeout(()=>backupNow(false),6000);}
+function bkMark(path){if(/^(backups|config\/backups)/.test(path)||!S.can.full)return;clearTimeout(bkT);bkT=setTimeout(()=>backupNow(false),6000);}
 function bkReady(){return S.ordersLoaded&&S.returnsLoaded&&!S.pending.size&&S.catalog;}
 async function backupNow(manual){
-  if(!rawdb||S.readOnly)return false;
+  if(!rawdb||!S.can.full)return false;
   if(!bkReady()){bkT=setTimeout(()=>backupNow(manual),3000);return false;}
   if(bkBusy){bkAgain=true;return false;}
   bkBusy=true;
@@ -1630,6 +1633,7 @@ async function backupNow(manual){
 }
 function fmtStamp(iso){const d=new Date(iso);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());}
 function backupPanel(){
+  if(!S.can.full)return '';
   const list=(S.bk&&S.bk.list)||[];
   let h='<div class="panel" style="margin-top:14px"><div class="panel-head" style="margin-bottom:8px"><h3>Резервные копии</h3>'+(!S.can.full?'':'<button type="button" class="ghost" id="bk-now">Сделать копию сейчас</button>')+'</div>'+
     '<p class="note" style="margin:0 0 10px">Копия всех данных (заказы, возвраты, журнал, справочники, план) делается сама через несколько секунд после каждого изменения. Хранятся 5 последних: новая заменяет самую старую. Любую копию можно скачать файлом на компьютер или восстановить.</p>';
@@ -1706,7 +1710,7 @@ function render(){
     rq=0;
     {const part=!S.readOnly&&!S.can.full;const ok=Object.keys(SECS).filter(k=>S.can[k]).map(k=>SECS[k]);
      $('ro').hidden=!S.readOnly&&!part;
-     $('ro').textContent=S.readOnly?'Режим просмотра: вносить записи и изменения могут только те, кому владелец дал права. Остатки и отчёты обновляются сами.':'Вам можно вносить изменения в разделах: '+ok.join(', ')+'. Остальное только для просмотра.';}
+     $('ro').textContent=S.readOnly?'Режим просмотра: вносить записи и изменения могут только те, кому владелец дал права. Остатки и отчёты обновляются сами.':'Вам можно вносить изменения в разделах: '+ok.join(', ')+'. Остальные открытые вам разделы только для просмотра.';}
     renderRecent();updateHint();
     const v=VIEWS[S.view];if(v)v.update();
     setSync();
@@ -1737,8 +1741,8 @@ function watchMonth(m,live){
 function subscribe(){
   const ms=monthsRange();
   const liveFrom=Math.max(0,ms.length-36);
-  ms.forEach((m,i)=>watchMonth(m,i>=liveFrom));
-  db.doc('config/backups').onSnapshot(s=>{S.bk=s.exists?s.data():null;if(S.view==='catalog'&&!document.activeElement.closest('#catalog-b'))VIEWS.catalog.controls();},()=>{});
+  if(opsReadable())ms.forEach((m,i)=>watchMonth(m,i>=liveFrom));
+  if(S.can.full)db.doc('config/backups').onSnapshot(s=>{S.bk=s.exists?s.data():null;if(S.view==='catalog'&&!document.activeElement.closest('#catalog-b'))VIEWS.catalog.controls();},()=>{});
   db.doc('config/catalog').onSnapshot(s=>{
     const prev=JSON.stringify(S.catalog);S.catalog=s.exists?s.data():null;
     if(JSON.stringify(S.catalog)!==prev){
@@ -1748,10 +1752,10 @@ function subscribe(){
     render();
   },e=>{S.err=e.code;render();});
   subscribeOrders();
-  db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
+  if(S.see.plan)db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
   setTimeout(()=>{if(S.pending.size||!S.catalog)setSync(S.pending.size?'данные загружаются дольше обычного, проверьте интернет':'');setTimeout(()=>setSync(''),8000);},10000);
   // midnight rollover: start watching the new month
-  setInterval(()=>{const m=todayStr().slice(0,7);if(!S.watched.has(m))watchMonth(m,true);},60000);
+  setInterval(()=>{const m=todayStr().slice(0,7);if(opsReadable()&&!S.watched.has(m))watchMonth(m,true);},60000);
 }
 /* ---------- установка как отдельной программы (Claude для Windows/Mac) ---------- */
 function appIcon(){
@@ -1791,9 +1795,10 @@ async function init(){
       if(own!==true&&ed!==true){
         let secs=null;try{if(user.sections)secs=await user.sections();}catch(e){}
         S.can={stock:false,orders:false,returns:false,plan:false,catalog:false,full:false};
-        if(secs)for(const k in SECS)S.can[k]=!!secs[k];
+        /* уровни по разделам: 'edit' | 'view' | 'none' (true = edit, для старых записей) */
+        if(secs)for(const k in SECS){const l=secs[k];S.can[k]=l===true||l==='edit';S.see[k]=S.can[k]||l==='view';}
         S.readOnly=!Object.keys(SECS).some(k=>S.can[k]);
-        renderForm();const v=VIEWS[S.view];if(v&&v.controls)v.controls();
+        buildTabs();go(S.view);renderForm();
       }}catch(e){S.readOnly=true;renderForm();}
   }else{S.readOnly=true;renderForm();}
   setupDesktop();

@@ -30,7 +30,11 @@ head = f'''<!doctype html>
 .ag-card{{background:var(--surface,#fff);border:1px solid var(--line,#d9e0e1);border-radius:10px;padding:24px;max-width:420px;width:100%;text-align:center;display:grid;gap:12px;font-family:Inter,system-ui,sans-serif}}
 .ag-card p{{margin:0}}
 #sa-bar{{display:inline-flex;gap:6px;align-items:center;margin-left:8px}}
-.sa-t th,.sa-t td{{padding:6px 5px!important}}
+.sa-person{{border:1px solid var(--line,#d9e0e1);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:grid;gap:8px}}
+.sa-ph{{display:flex;gap:8px;align-items:center;flex-wrap:wrap}}
+.sa-row{{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:10px;align-items:center;font-size:14px}}
+.sa-row select{{width:100%}}
+@media (max-width:480px){{.sa-row{{grid-template-columns:minmax(0,1fr) 160px}}}}
 .sa-b{{font-size:12px!important;padding:4px 10px!important}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/{V}/firebase-app-compat.js"></script>

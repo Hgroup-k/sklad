@@ -6,10 +6,13 @@ service cloud.firestore {
     function email() { return request.auth.token.email.lower(); }
     function isOwner() { return signedIn() && email() == acc().owner; }
     function isFull() { return signedIn() && (isOwner() || email() in acc().editors); }
+    function isViewer() { return signedIn() && email() in acc().viewers; }
     function perms() { return acc().get('perms', {}); }
-    function sec(s) { return isFull() || (signedIn() && email() in perms() && perms()[email()].get(s, false) == true); }
-    function anyWrite() { return isFull() || (signedIn() && email() in perms()); }
-    function canRead() { return anyWrite() || (signedIn() && email() in acc().viewers); }
+    function custom() { return signedIn() && email() in perms(); }
+    function lv(s) { return custom() ? perms()[email()].get(s, 'none') : 'none'; }
+    function canEdit(s) { return isFull() || (custom() && (lv(s) == 'edit' || lv(s) == true)); }
+    function canView(s) { return canEdit(s) || isViewer() || (custom() && lv(s) == 'view'); }
+    function anyAccess() { return isFull() || isViewer() || custom(); }
 
     match /access/main {
       allow read: if signedIn();
@@ -17,41 +20,43 @@ service cloud.firestore {
       allow update, delete: if isOwner();
     }
     match /people/{uid} {
-      allow read: if canRead();
+      allow read: if anyAccess();
       allow write: if signedIn() && request.auth.uid == uid;
     }
     match /orders/{id} {
-      allow read: if canRead();
-      allow write: if sec('orders');
+      allow read: if canView('orders');
+      allow write: if canEdit('orders');
     }
     match /returns/{id} {
-      allow read: if canRead();
-      allow write: if sec('returns');
+      allow read: if canView('returns');
+      allow write: if canEdit('returns');
     }
     match /months/{m}/ops/{id} {
-      allow read: if canRead();
-      allow create, update: if sec('stock')
-        || (sec('orders') && request.resource.data.get('order', '') != '')
-        || (sec('returns') && request.resource.data.get('ret', '') != '');
-      allow delete: if sec('stock')
-        || (sec('orders') && resource.data.get('order', '') != '')
-        || (sec('returns') && resource.data.get('ret', '') != '');
+      allow read: if canView('stock') || canView('orders') || canView('returns') || canView('plan');
+      allow create, update: if canEdit('stock')
+        || (canEdit('orders') && request.resource.data.get('order', '') != '')
+        || (canEdit('returns') && request.resource.data.get('ret', '') != '');
+      allow delete: if canEdit('stock')
+        || (canEdit('orders') && resource.data.get('order', '') != '')
+        || (canEdit('returns') && resource.data.get('ret', '') != '');
     }
     match /config/plan {
-      allow read: if canRead();
-      allow write: if sec('plan');
+      allow read: if canView('plan');
+      allow write: if canEdit('plan');
     }
-    match /config/{doc} {
-      allow read: if canRead();
-      allow write: if (doc == 'catalog' || doc == 'lists') && sec('catalog');
+    match /config/catalog {
+      allow read: if anyAccess();
+      allow write: if canEdit('catalog');
+    }
+    match /config/lists {
+      allow read: if anyAccess();
+      allow write: if canEdit('catalog');
     }
     match /config/backups {
-      allow read: if canRead();
-      allow write: if anyWrite();
+      allow read, write: if isFull();
     }
     match /backups/{id} {
-      allow read: if canRead();
-      allow write: if anyWrite();
+      allow read, write: if isFull();
     }
   }
 }
