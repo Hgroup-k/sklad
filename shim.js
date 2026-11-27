@@ -57,17 +57,19 @@ const aerr=e=>AERR[e&&e.code]||('Не получилось: '+((e&&(e.message||e
 function fld2(id,label,type,ph){const pw=type==='password';return '<label class="fld" style="text-align:left"><span>'+label+'</span>'+(pw?'<span class="ag-pw">':'')+'<input id="'+id+'" type="'+(type||'text')+'" autocomplete="'+(pw?'current-password':'username')+'"'+(ph?' placeholder="'+ph+'"':'')+'>'+(pw?'<button type="button" class="ag-eye" data-eye="'+id+'" title="Показать пароль" aria-label="Показать пароль">👁</button></span>':'')+'</label>';}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-eye]');if(!b)return;e.preventDefault();const i=$(b.dataset.eye);if(!i)return;const show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'🙈':'👁';b.title=show?'Скрыть пароль':'Показать пароль';});
 function showLogin(msg){
-  const g=gate('<h2>Складской учёт</h2><form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя')+fld2('ag-p','Пароль','password')+
+  const g=gate('<h2>Складской учёт</h2><form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя или почта')+fld2('ag-p','Пароль','password')+
     '<p class="err" id="ag-err"'+(msg?'':' hidden')+'>'+esc(msg||'')+'</p><button type="submit" class="primary">Войти</button></form>'+
     '<p style="margin:8px 0"><button type="button" class="ghost" id="ag-reg">Создать аккаунт</button></p>'+
     '<p style="margin:8px 0"><button type="button" class="link" id="ag-forgot">Забыли пароль?</button></p>');
   const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
   g.querySelector('#ag-reg').onclick=()=>showRegister();
-  g.querySelector('#ag-forgot').onclick=async()=>{const u=unKey(g.querySelector('#ag-u').value);if(!u){err('Впишите имя пользователя и нажмите «Забыли пароль?» ещё раз. Ссылка для нового пароля придёт на вашу почту.');return;}
-    try{const s=await UN.doc(u).get();if(!s.exists){err('Такого имени пользователя нет.');return;}await auth.sendPasswordResetEmail(s.data().email);err('Письмо для смены пароля отправлено на почту '+maskMail(s.data().email)+'.');}catch(e){err(aerr(e));}};
-  g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();const u=unKey(g.querySelector('#ag-u').value),pw=g.querySelector('#ag-p').value;
+  const toEmail=async v=>{v=String(v||'').trim();if(v.includes('@'))return lower(v);const s=await UN.doc(unKey(v)).get();return s.exists?s.data().email:'';};
+  g.querySelector('#ag-forgot').onclick=async()=>{const u=g.querySelector('#ag-u').value.trim();if(!u){err('Впишите имя пользователя или почту и нажмите «Забыли пароль?» ещё раз. Ссылка для нового пароля придёт на вашу почту.');return;}
+    try{const em=await toEmail(u);if(!em){err('Такого имени пользователя нет.');return;}await auth.sendPasswordResetEmail(em);err('Письмо для смены пароля отправлено на почту '+maskMail(em)+'.');return;
+      const s={data:()=>({email:em})};await auth.sendPasswordResetEmail(s.data().email);err('Письмо для смены пароля отправлено на почту '+maskMail(s.data().email)+'.');}catch(e){err(aerr(e));}};
+  g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();const u=g.querySelector('#ag-u').value.trim(),pw=g.querySelector('#ag-p').value;
     if(!u||!pw){err('Впишите имя пользователя и пароль.');return;}
-    try{const s=await UN.doc(u).get();if(!s.exists){err('Неверное имя пользователя или пароль.');return;}await auth.signInWithEmailAndPassword(s.data().email,pw);}
+    try{const em=await toEmail(u);if(!em){err('Неверное имя пользователя или пароль.');return;}await auth.signInWithEmailAndPassword(em,pw);}
     catch(x){err(aerr(x));}};
 }
 function maskMail(m){const [a,b]=String(m).split('@');return (a||'').slice(0,2)+'***@'+(b||'');}
@@ -91,7 +93,7 @@ function showRegister(){
 }
 let pendingName=null;
 function showPending(u,name){
-  const g=gate('<h2>Ждём доступа</h2><p>Аккаунт <b>'+esc(name||u.email)+'</b> создан. Владелец склада ещё не дал вам доступ. Как только даст, программа откроется сама.</p><button type="button" class="ghost" id="ag-out">Выйти</button>');
+  const g=gate('<h2>Ждём доступа</h2><p>Аккаунт <b>'+esc(name||u.email)+'</b> создан. Владелец склада ещё не дал вам доступ. Как только даст, программа откроется сама.</p><p class="muted" style="font-size:13px">Вы вошли с почтой <b>'+esc(u.email)+'</b>. Если вы владелец или вам уже дали доступ на другую почту, нажмите «Выйти» и войдите с той почтой и паролем (если пароля нет, нажмите «Забыли пароль?»).</p><button type="button" class="ghost" id="ag-out">Выйти</button>');
   g.querySelector('#ag-out').onclick=()=>auth.signOut();
   clearInterval(window.__pendT);window.__pendT=setInterval(async()=>{try{const s=await ACC.get();if(s.exists&&roleOf(s.data(),lower(u.email))!=='none')location.reload();}catch(e){}},20000);
 }
@@ -138,7 +140,8 @@ function askName(u,isGoogle){
   return new Promise(res=>{
     const g=gate('<h2>Придумайте имя пользователя</h2><p class="muted" style="font-size:13px">Это имя будут видеть все вместо вашей почты.'+(isGoogle?' Если задать пароль, потом можно входить просто по имени и паролю.':'')+'</p>'+
       '<form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя','text','например Миша')+(isGoogle?fld2('ag-p','Пароль для входа по имени (не меньше 6 знаков)','password'):'')+
-      '<p class="err" id="ag-err" hidden></p><button type="submit" class="primary">Сохранить</button></form>');
+      '<p class="err" id="ag-err" hidden></p><button type="submit" class="primary">Сохранить</button></form><p class="muted" style="font-size:12px">Вы вошли как '+esc(u.email)+'. <button type="button" class="link" id="ag-out2">Выйти</button></p>');
+    g.querySelector('#ag-out2').onclick=()=>auth.signOut();
     const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
     g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();const name=g.querySelector('#ag-u').value.trim().replace(/\s+/g,' ');const pe=g.querySelector('#ag-p');const pw=pe?pe.value:'';
       if(name.length<2||name.length>30)return err('Имя пользователя: от 2 до 30 знаков.');
