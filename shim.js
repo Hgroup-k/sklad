@@ -54,17 +54,16 @@ const AERR={'auth/invalid-credential':'Неверное имя пользова�
   'auth/too-many-requests':'Слишком много попыток. Подождите несколько минут.','auth/weak-password':'Пароль слишком короткий: нужно не меньше 6 знаков.',
   'auth/invalid-email':'Почта написана с ошибкой.','auth/network-request-failed':'Нет интернета.','auth/operation-not-allowed':'Вход по паролю ещё не включён в Firebase (владелец включает его один раз).'};
 const aerr=e=>AERR[e&&e.code]||('Не получилось: '+((e&&(e.message||e.code))||e));
-function fld2(id,label,type,ph){return '<label class="fld" style="text-align:left"><span>'+label+'</span><input id="'+id+'" type="'+(type||'text')+'" autocomplete="'+(type==='password'?'current-password':'username')+'"'+(ph?' placeholder="'+ph+'"':'')+'></label>';}
+function fld2(id,label,type,ph){const pw=type==='password';return '<label class="fld" style="text-align:left"><span>'+label+'</span>'+(pw?'<span class="ag-pw">':'')+'<input id="'+id+'" type="'+(type||'text')+'" autocomplete="'+(pw?'current-password':'username')+'"'+(ph?' placeholder="'+ph+'"':'')+'>'+(pw?'<button type="button" class="ag-eye" data-eye="'+id+'" title="Показать пароль" aria-label="Показать пароль">👁</button></span>':'')+'</label>';}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-eye]');if(!b)return;e.preventDefault();const i=$(b.dataset.eye);if(!i)return;const show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'🙈':'👁';b.title=show?'Скрыть пароль':'Показать пароль';});
 function showLogin(msg){
   const g=gate('<h2>Складской учёт</h2><form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-u','Имя пользователя')+fld2('ag-p','Пароль','password')+
     '<p class="err" id="ag-err"'+(msg?'':' hidden')+'>'+esc(msg||'')+'</p><button type="submit" class="primary">Войти</button></form>'+
-    '<p style="margin:8px 0"><button type="button" class="link" id="ag-reg">Первый вход: создать учётную запись</button></p>'+
-    '<p style="margin:8px 0"><button type="button" class="link" id="ag-forgot">Забыли пароль?</button></p>'+
-    '<p style="margin:14px 0 0"><button type="button" class="ghost" id="ag-in">Войти через Google</button></p>');
+    '<p style="margin:8px 0"><button type="button" class="ghost" id="ag-reg">Создать аккаунт</button></p>'+
+    '<p style="margin:8px 0"><button type="button" class="link" id="ag-forgot">Забыли пароль?</button></p>');
   const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
-  g.querySelector('#ag-in').onclick=signIn;
   g.querySelector('#ag-reg').onclick=()=>showRegister();
-  g.querySelector('#ag-forgot').onclick=async()=>{const u=unKey(g.querySelector('#ag-u').value);if(!u){err('Впишите имя пользователя, и нажмите «Забыли пароль?» ещё раз.');return;}
+  g.querySelector('#ag-forgot').onclick=async()=>{const u=unKey(g.querySelector('#ag-u').value);if(!u){err('Впишите имя пользователя и нажмите «Забыли пароль?» ещё раз. Ссылка для нового пароля придёт на вашу почту.');return;}
     try{const s=await UN.doc(u).get();if(!s.exists){err('Такого имени пользователя нет.');return;}await auth.sendPasswordResetEmail(s.data().email);err('Письмо для смены пароля отправлено на почту '+maskMail(s.data().email)+'.');}catch(e){err(aerr(e));}};
   g.querySelector('#ag-f').onsubmit=async e=>{e.preventDefault();const u=unKey(g.querySelector('#ag-u').value),pw=g.querySelector('#ag-p').value;
     if(!u||!pw){err('Впишите имя пользователя и пароль.');return;}
@@ -73,8 +72,8 @@ function showLogin(msg){
 }
 function maskMail(m){const [a,b]=String(m).split('@');return (a||'').slice(0,2)+'***@'+(b||'');}
 function showRegister(){
-  const g=gate('<h2>Создать учётную запись</h2><p class="muted" style="font-size:13px">Впишите почту, на которую владелец дал доступ, придумайте имя пользователя и пароль. Потом входить нужно будет только по имени и паролю.</p>'+
-    '<form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-e','Почта, на которую дали доступ','email','name@gmail.com')+fld2('ag-u','Имя пользователя (его будут видеть все)','text','например Миша')+
+  const g=gate('<h2>Создать аккаунт</h2><p class="muted" style="font-size:13px">Впишите свою почту, придумайте имя пользователя и пароль. На почту придёт письмо для подтверждения. После этого владелец склада даст вам доступ, а входить вы будете по имени и паролю.</p>'+
+    '<form id="ag-f" style="display:grid;gap:10px;margin:10px 0">'+fld2('ag-e','Ваша почта','email','name@gmail.com')+fld2('ag-u','Имя пользователя (его будут видеть все)','text','например Миша')+
     fld2('ag-p','Пароль (не меньше 6 знаков)','password')+fld2('ag-p2','Пароль ещё раз','password')+'<p class="err" id="ag-err" hidden></p><button type="submit" class="primary">Создать</button></form>'+
     '<p><button type="button" class="link" id="ag-back">Назад ко входу</button></p>');
   const err=m=>{const e=g.querySelector('#ag-err');e.textContent=m||'';e.hidden=!m;};
@@ -87,10 +86,15 @@ function showRegister(){
     try{const s=await UN.doc(unKey(name)).get();if(s.exists&&lower(s.data().email)!==em)return err('Такое имя пользователя уже занято, придумайте другое.');}catch(x){return err(aerr(x));}
     pendingName={name,email:em};
     try{const c=await auth.createUserWithEmailAndPassword(em,pw);try{await claimName(c.user,name);}catch(x){}try{await c.user.sendEmailVerification();}catch(x){}}
-    catch(x){pendingName=null;if(x.code==='auth/email-already-in-use')return err('С этой почтой уже входили. Если раньше входили через Google, нажмите «Назад ко входу» → «Войти через Google», и там программа попросит придумать имя и пароль. Если забыли пароль, нажмите «Забыли пароль?».');return err(aerr(x));}
+    catch(x){pendingName=null;if(x.code==='auth/email-already-in-use')return err('Аккаунт с этой почтой уже есть. Войдите по имени и паролю. Если забыли пароль, нажмите «Назад ко входу» → «Забыли пароль?».');return err(aerr(x));}
   };
 }
 let pendingName=null;
+function showPending(u,name){
+  const g=gate('<h2>Ждём доступа</h2><p>Аккаунт <b>'+esc(name||u.email)+'</b> создан. Владелец склада ещё не дал вам доступ. Как только даст, программа откроется сама.</p><button type="button" class="ghost" id="ag-out">Выйти</button>');
+  g.querySelector('#ag-out').onclick=()=>auth.signOut();
+  clearInterval(window.__pendT);window.__pendT=setInterval(async()=>{try{const s=await ACC.get();if(s.exists&&roleOf(s.data(),lower(u.email))!=='none')location.reload();}catch(e){}},20000);
+}
 async function claimName(u,name){
   const k=unKey(name);const ref=UN.doc(k);
   await fs.runTransaction(async t=>{const s=await t.get(ref);if(s.exists&&s.data().uid!==u.uid)throw {code:'taken'};t.set(ref,{uid:u.uid,email:lower(u.email),name});});
@@ -129,21 +133,20 @@ auth.onAuthStateChanged(async u=>{
   const isGoogle=(u.providerData||[]).some(p=>p.providerId==='google.com');
   if(!u.emailVerified&&!isGoogle){showVerify(u);return;}
   gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
-  let snap;
-  try{snap=await ACC.get();}catch(e){gate('<h2>Нет связи с базой</h2><p>Проверьте интернет и обновите страницу.</p>');return;}
-  if(!snap.exists){
-    /* первый вход: тот, кто открыл базу первым, становится владельцем */
-    try{await ACC.set({owner:email,editors:[],viewers:[],at:new Date().toISOString()});snap=await ACC.get();}
-    catch(e){showNoAccess(email);return;}
-  }
-  access=snap.data();role=roleOf(access,email);
-  if(role==='none'){showNoAccess(email);return;}
+  /* сначала аккаунт: без имени пользователя в программу не пускаем */
   let prof=null;try{const ps=await fs.doc('people/'+u.uid).get();prof=ps.exists?ps.data():null;}catch(e){}
   if(!prof||!prof.uname){
-    let done=false;if(pendingName&&lower(pendingName.email)===email){try{await claimName(u,pendingName.name);done=true;}catch(e){}}
-    if(!done)await askName(u,isGoogle);
+    let done=false,nm='';if(pendingName&&lower(pendingName.email)===email){try{await claimName(u,pendingName.name);done=true;nm=pendingName.name;}catch(e){}}
+    if(!done)nm=await askName(u,isGoogle);
+    prof={name:nm,uname:nm};
     gate('<h2>Складской учёт</h2><p>Загрузка…</p>');
   }else fs.doc('people/'+u.uid).set({email,at:new Date().toISOString()},{merge:true}).catch(()=>{});
+  /* потом доступ: новый аккаунт ничего не видит, пока владелец не даст права */
+  let snap;
+  try{snap=await ACC.get();}catch(e){if(e&&/permission/.test(e.code||'')){showPending(u,prof.name);return;}gate('<h2>Нет связи с базой</h2><p>Проверьте интернет и обновите страницу.</p>');return;}
+  if(!snap.exists){showPending(u,prof.name);return;}
+  access=snap.data();role=roleOf(access,email);
+  if(role==='none'){showPending(u,prof.name);return;}
   ACC.onSnapshot(s=>{if(!s.exists)return;const nr=roleOf(s.data(),email);access=s.data();if(nr!==role)location.reload();},()=>{});
   window.SKLAD_ME_EMAIL=email;
   window.SKLAD_ID_TOKEN=()=>auth.currentUser?auth.currentUser.getIdToken():Promise.resolve('');
@@ -191,10 +194,12 @@ function addBar(){
   const bar=document.createElement('span');bar.id='sa-bar';
   bar.innerHTML='<button type="button" class="ghost sa-b" id="sa-install"'+(installEvt?'':' hidden')+'>Установить</button>'+
     (role==='owner'?'<button type="button" class="ghost sa-b" id="sa-acc">Доступ</button>':'')+
-    '<button type="button" class="link sa-b" id="sa-out" title="'+esc(me.email)+'">Выйти</button>';
+    '<button type="button" class="link sa-b" id="sa-pw">Сменить пароль</button><button type="button" class="link sa-b" id="sa-out" title="'+esc(me.email)+'">Выйти</button>';
   fs.doc('people/'+me.uid).get().then(s=>{const n=s.exists&&s.data().name;const b=$('sa-out');if(n&&b)b.title=n;window.SKLAD_ME_NAME=n||'';}).catch(()=>{});
   brand.appendChild(bar);
   $('sa-out').onclick=()=>{if(confirm('Выйти из программы?'))auth.signOut();};
+  $('sa-pw').onclick=async()=>{if(!confirm('Отправить на вашу почту ('+maskMail(me.email)+') ссылку для смены пароля?'))return;try{await auth.sendPasswordResetEmail(me.email);alert('Письмо отправлено. Откройте его и задайте новый пароль (если письма нет, проверьте «Спам»).');}catch(x){alert(aerr(x));}};
+  if(role==='owner')loadPeople().then(()=>{const n=pendingList().length;const b=$('sa-acc');if(b&&n)b.innerHTML='Доступ <span class="cbadge">'+n+'</span>';});
   $('sa-install').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice;}catch(e){}installEvt=null;$('sa-install').hidden=true;};
   const ab=$('sa-acc');if(ab)ab.onclick=openAccessFresh;
 }
@@ -232,18 +237,21 @@ const PRESET={view:k=>'view',edit:k=>'edit',orders:k=>k==='orders'?'edit':'view'
   office:k=>grpOf(k)==='Офис'?'edit':'none',p11:k=>grpOf(k)==='Производство 11'?'edit':'none',p9:k=>grpOf(k)==='Производство 9'?'edit':'none'};
 function summary(p){const v=SEC().map(([k])=>p[k]);if(SEC().every(([k,,,e])=>p[k]===(e?'edit':'view')))return 'всё редактирует';if(v.every(x=>x==='view'))return 'всё только смотрит';return 'по разделам';}
 const OPEN=new Set();let PEOPLE={};
-async function loadPeople(){try{const q=await fs.collection('people').get();PEOPLE={};q.forEach(d=>{const x=d.data();if(x.email)PEOPLE[lower(x.email)]=x.name||'';});}catch(e){}}
+async function loadPeople(){try{const q=await fs.collection('people').get();PEOPLE={};q.forEach(d=>{const x=d.data();if(x.email&&x.uname)PEOPLE[lower(x.email)]=x.name||'';});}catch(e){}}
+function allNone(){const p={};SEC().forEach(([k])=>p[k]='none');return p;}
+function pendingList(){const P=people(access||{});const own=lower((access||{}).owner);return Object.keys(PEOPLE).filter(e=>e!==own&&!P.has(e));}
 async function openAccessFresh(){await loadPeople();openAccess();}
 function openAccess(){
   let d=$('sa-access');if(!d){d=document.createElement('div');d.id='sa-access';document.body.appendChild(d);}
   const a=access||{};const P=people(a);
-  const rows=[...P.entries()];
+  const pend=pendingList();
+  const rows=[...pend.map(e=>[e,allNone(),true]),...P.entries()];
   d.innerHTML='<div class="ag-card" style="max-width:560px;text-align:left"><div class="panel-head" style="margin-bottom:8px"><h2>Доступ к складу</h2><button type="button" class="link" id="sa-x">Закрыть</button></div>'+
-    '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(PEOPLE[lower(a.owner)]||a.owner)+'</b>. Добавьте почту человека. При первом входе он сам создаст имя пользователя и пароль. Нажмите на человека, чтобы открыть его права. Для каждой вкладки: <b>Редактирует</b>, <b>Просмотр</b> или <b>Нет доступа</b> (вкладки не видно совсем). Изменения сохраняются сразу.</p>'+
-    (rows.length?rows.map(([e,p])=>'<details class="sa-person" data-sa-d="'+esc(e)+'"'+(OPEN.has(e)?' open':'')+'><summary class="sa-ph"><span style="min-width:0"><b>'+esc(PEOPLE[e]||'ещё не входил')+'</b> <span class="muted" style="font-size:12px;word-break:break-all">'+esc(e)+' · '+summary(p)+'</span></span><button type="button" class="ghost del sa-b" data-sa-rm="'+esc(e)+'" style="margin-left:auto">Убрать</button></summary>'+
+    '<p class="muted" style="margin:0 0 12px;font-size:13px">Версия программы: '+esc(window.SKLAD_VERSION||'')+'. Владелец: <b>'+esc(PEOPLE[lower(a.owner)]||a.owner)+'</b>. Каждый сам создаёт аккаунт (имя пользователя и пароль). Новые аккаунты стоят первыми и ничего не видят, пока вы не дадите права. Нажмите на человека, чтобы открыть его права. Для каждой вкладки: <b>Редактирует</b>, <b>Просмотр</b> или <b>Нет доступа</b> (вкладки не видно совсем). Изменения сохраняются сразу.</p>'+
+    (rows.length?rows.map(([e,p,isNew])=>'<details class="sa-person'+(isNew?' sa-new':'')+'" data-sa-d="'+esc(e)+'"'+(OPEN.has(e)?' open':'')+'><summary class="sa-ph"><span style="min-width:0"><b>'+esc(PEOPLE[e]||'ещё не создал аккаунт')+'</b> '+(isNew?'<span class="cbadge" style="background:#d97706">новый, без доступа</span> ':'')+'<span class="muted" style="font-size:12px;word-break:break-all">'+esc(e)+(isNew?'':' · '+summary(p))+'</span></span>'+(isNew?'':'<button type="button" class="ghost del sa-b" data-sa-rm="'+esc(e)+'" style="margin-left:auto">Убрать</button>')+'</summary>'+
       SEC().map(([k,l,t,ed,g],i,A)=>(i===0||A[i-1][4]!==g?'<div class="sa-grp">'+esc(g)+'</div>':'')+'<label class="sa-row"><span>'+esc(l)+(t?'<br><small class="muted">'+esc(t)+'</small>':'')+'</span><select data-sa-p="'+esc(e)+'" data-k="'+k+'">'+LV.filter(([v])=>ed||v!=='edit').map(([v,n])=>'<option value="'+v+'"'+(p[k]===v?' selected':'')+'>'+n+'</option>').join('')+'</select></label>').join('')+'</details>').join('')
-      :'<p class="muted">Пока доступ есть только у вас.</p>')+
-    '<h3 style="margin:16px 0 6px">Добавить человека</h3><div class="filters" style="margin:0"><label class="fld wide"><span>Почта</span><input type="text" id="sa-email" inputmode="email" placeholder="name@gmail.com"></label>'+
+      :'<p class="muted">Других пользователей пока нет.</p>')+
+    '<h3 style="margin:16px 0 6px">Добавить по почте заранее</h3><div class="filters" style="margin:0"><label class="fld wide"><span>Почта</span><input type="text" id="sa-email" inputmode="email" placeholder="name@gmail.com"></label>'+
     '<label class="fld"><span>Начать с</span><select id="sa-role"><option value="view">всё только смотрит</option><option value="edit">всё редактирует</option><option value="orders">заказы редактирует, остальное смотрит</option><option value="ordersOnly">только заказы, остального не видит</option><option value="office">только Офис (заказы и возвраты)</option><option value="p11">только Производство 11</option><option value="p9">только Производство 9</option></select></label>'+
     '<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="sa-add" style="padding:8px 16px">Добавить</button></label></div><p class="muted" style="font-size:12px;margin:6px 0 0">После добавления права по каждому разделу можно поменять выше.</p><p class="err" id="sa-err" hidden></p>'+
     '<h3 style="margin:18px 0 6px">Перенос данных</h3><p class="muted" style="margin:0 0 8px;font-size:13px">Загрузите файл копии склада (.json): заказы, возвраты, журнал, справочники и план запишутся в эту базу. Записи с теми же номерами заменятся, остальное не трогается.</p>'+
@@ -252,7 +260,7 @@ function openAccess(){
   const err=m=>{const e=$('sa-err');e.textContent=m||'';e.hidden=!m;};
   const save=async P2=>{
     const editors=[],viewers=[],perms={};
-    for(const [e,p] of P2){const v=SEC().map(([k])=>p[k]);
+    for(const [e,p] of P2){const v=SEC().map(([k])=>p[k]);if(v.every(x=>x==='none'))continue;
       if(SEC().every(([k,,,ed])=>p[k]===(ed?'edit':'view')))editors.push(e);else if(v.every(x=>x==='view'))viewers.push(e);else{perms[e]={};SEC().forEach(([k])=>perms[e][k]=p[k]);}}
     try{await ACC.update({editors,viewers,perms});access={...access,editors,viewers,perms};openAccess();}catch(x){err('Не удалось сохранить: '+(x.code||x.message));}
   };
@@ -266,6 +274,6 @@ function openAccess(){
     const P2=people(access);P2.set(e,p);save(P2);};
   d.querySelectorAll('[data-sa-d]').forEach(x=>x.addEventListener('toggle',()=>{if(x.open)OPEN.add(x.dataset.saD);else OPEN.delete(x.dataset.saD);}));
   d.querySelectorAll('[data-sa-rm]').forEach(b=>b.onclick=ev=>{ev.preventDefault();ev.stopPropagation();if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Точно?';return;}const P2=people(access);P2.delete(b.dataset.saRm);save(P2);});
-  d.querySelectorAll('[data-sa-p]').forEach(c=>c.onchange=()=>{const P2=people(access);const p={...(P2.get(c.dataset.saP)||{})};p[c.dataset.k]=c.value;P2.set(c.dataset.saP,p);save(P2);});
+  d.querySelectorAll('[data-sa-p]').forEach(c=>c.onchange=()=>{const P2=people(access);const p={...(P2.get(c.dataset.saP)||allNone())};p[c.dataset.k]=c.value;P2.set(c.dataset.saP,p);save(P2);});
 }
 })();

@@ -34,6 +34,10 @@ head = f'''<!doctype html>
 #sa-bar{{display:inline-flex;gap:6px;align-items:center;margin-left:8px}}
 .sa-person{{border:1px solid var(--line,#d9e0e1);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:grid;gap:8px}}
 .sa-grp{{font-weight:700;font-size:13px;margin-top:6px;color:var(--accent,#2e6a6c)}}
+.ag-pw{{display:flex;gap:6px;align-items:center}}
+.ag-pw input{{flex:1}}
+.ag-eye{{background:none;border:1px solid var(--line,#d9e0e1);border-radius:6px;padding:6px 9px;cursor:pointer}}
+.sa-new{{border-color:#d97706 !important;background:rgba(217,119,6,.07)}}
 .sa-ph{{display:flex;gap:8px;align-items:center;flex-wrap:wrap;cursor:pointer;list-style:none}}
 .sa-ph::-webkit-details-marker{{display:none}}
 .sa-ph::before{{content:'▸';color:var(--muted,#888)}}
