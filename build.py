@@ -2,7 +2,7 @@
 Запуск: python3 build.py. Код страницы не меняется: shim.js подменяет window.claude на Firebase."""
 import re, pathlib
 here = pathlib.Path(__file__).parent
-src = ((here.parent / 'sklad.html') if (here.parent / 'sklad.html').exists() else (here / 'sklad-artifact.html')).read_text(encoding='utf8')
+src = ((here / 'sklad-artifact.html') if (here / 'sklad-artifact.html').exists() else (here.parent / 'sklad.html')).read_text(encoding='utf8')
 # убрать обёртку артефакта, если она есть
 src = re.sub(r'^<!doctype html><html><head>.*?</head><body>\n?', '', src, count=1, flags=re.S)
 src = re.sub(r'\n?</body></html>\s*$', '', src)
