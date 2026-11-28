@@ -2053,7 +2053,9 @@ function subscribeChats(){
 /* уведомление внутри программы + системное, если окно свёрнуто */
 function showNote(title,body,go){
   toast(title+': '+String(body||'').slice(0,90));
-  try{if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+  /* если включены push-уведомления, системное уведомление придёт с сервера — второе не показываем */
+  let hasPush=false;try{hasPush=!!(pushCfg()&&ls.get('push.sub',''));}catch(e){}
+  try{if(!hasPush&&document.hidden&&'Notification' in window&&Notification.permission==='granted'){
     const send=r=>r&&r.showNotification?r.showNotification(title,{body,icon:'icons/icon-192.png',tag:go||'sklad',data:{go}}):new Notification(title,{body});
     if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(send).catch(()=>{});else send(null);}}catch(e){}
 }

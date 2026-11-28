@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 09:27';</script>
-<script src="firebase-config.js?v=4bc685f2"></script>
-<script src="shim.js?v=4bc685f2"></script>
+<script>window.SKLAD_VERSION='28.11 09:29';</script>
+<script src="firebase-config.js?v=219ebfc5"></script>
+<script src="shim.js?v=219ebfc5"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2095,7 +2095,9 @@ function subscribeChats(){
 /* уведомление внутри программы + системное, если окно свёрнуто */
 function showNote(title,body,go){
   toast(title+': '+String(body||'').slice(0,90));
-  try{if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+  /* если включены push-уведомления, системное уведомление придёт с сервера — второе не показываем */
+  let hasPush=false;try{hasPush=!!(pushCfg()&&ls.get('push.sub',''));}catch(e){}
+  try{if(!hasPush&&document.hidden&&'Notification' in window&&Notification.permission==='granted'){
     const send=r=>r&&r.showNotification?r.showNotification(title,{body,icon:'icons/icon-192.png',tag:go||'sklad',data:{go}}):new Notification(title,{body});
     if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(send).catch(()=>{});else send(null);}}catch(e){}
 }
