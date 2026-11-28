@@ -129,13 +129,24 @@ async function stt(env,q){
   if(!r||typeof r.text!=='string')return {error:'ai_failed',detail:err.slice(0,300)};
   return {ok:true,text:r.text.trim().slice(0,4000)};
 }
+/* описание видео по кадрам (картинка 2×2, кадры по порядку) */
+async function vis(env,q){
+  if(!env.AI)return {error:'no_ai'};
+  const m=/^data:[^,]*,(.*)$/.exec(String(q.image||''));if(!m)return {error:'bad_image'};if(m[1].length>4e6)return {error:'too_big'};
+  const bin=atob(m[1]);const img=new Array(bin.length);for(let i=0;i<bin.length;i++)img[i]=bin.charCodeAt(i);
+  const prompt='These are 4 frames from one short video, in time order (left to right, top to bottom). Briefly describe what is happening in the video, in 2-3 sentences.';
+  let err='';
+  for(const model of ['@cf/llava-hf/llava-1.5-7b-hf','@cf/unum/uform-gen2-qwen-500m']){
+    try{const r=await env.AI.run(model,{image:img,prompt,max_tokens:220});const t=(r&&(r.description||r.response||r.text))||'';if(t)return {ok:true,text:String(t).trim().slice(0,2000)};}catch(e){err+=model+': '+String(e&&e.message||e)+' | ';}}
+  return {error:'ai_failed',detail:err.slice(0,400)};
+}
 export default {async fetch(req,env){env=env||{};
   const o=req.headers.get('Origin')||'';const allow=ORIGINS.includes(o)||/^http:\/\/localhost(:\d+)?$/.test(o)?o:ORIGINS[0];
   const cors={'Access-Control-Allow-Origin':allow,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'content-type, authorization','Vary':'Origin'};
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
   const u=new URL(req.url);
   if(req.method==='GET')return new Response('Сервер уведомлений склада работает.',{headers:{...cors,'content-type':'text/plain; charset=utf-8'}});
-  if(req.method!=='POST'||!['/notify','/code','/verify','/stt'].includes(u.pathname))return new Response('not found',{status:404,headers:cors});
+  if(req.method!=='POST'||!['/notify','/code','/verify','/stt','/vis'].includes(u.pathname))return new Response('not found',{status:404,headers:cors});
   const tok=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/,'');const me=await claims(tok);
   if(!me)return new Response(JSON.stringify({error:'no_auth'}),{status:401,headers:cors});
   let q={};try{q=await req.json();}catch(e){}
@@ -143,7 +154,7 @@ export default {async fetch(req,env){env=env||{};
     let res;try{res=u.pathname==='/code'?await sendCode(env,me):await verifyCode(env,me,String(q.code||''));}catch(e){res={error:'server',detail:String(e&&e.message||e)};}
     return new Response(JSON.stringify(res),{status:res.ok?200:400,headers:{...cors,'content-type':'application/json'}});
   }
-  if(u.pathname==='/stt'){let res;try{res=await stt(env,q);}catch(e){res={error:'server',detail:String(e&&e.message||e)};}
+  if(u.pathname==='/stt'||u.pathname==='/vis'){let res;try{res=u.pathname==='/stt'?await stt(env,q):await vis(env,q);}catch(e){res={error:'server',detail:String(e&&e.message||e)};}
     return new Response(JSON.stringify(res),{status:res.ok?200:400,headers:{...cors,'content-type':'application/json'}});}
   const n=await notify(tok,me,q);
   return new Response(JSON.stringify({sent:n}),{headers:{...cors,'content-type':'application/json'}});
