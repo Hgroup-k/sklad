@@ -2099,7 +2099,7 @@ function msgHtml(m,prev){
     return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'" id="cm-'+esc(m.id)+'">'+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+'<div class="cdeleted">🗑 '+esc(who)+'</div><div class="ctime">'+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';}
   if(m.kind==='file')body='<button type="button" class="cfile" data-cfile="'+esc(m.id)+'">📄 <span><b>'+esc(m.name||'файл')+'</b><br><small class="muted">'+fsize(m.size)+' · скачать</small></span></button>';
   else if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg>';
-  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="metadata" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button></div>'+(VBAD.has(m.id)?'<div class="vtr muted">Это голосовое записано на компьютере в старом формате, iPhone его не проигрывает. Нажмите «Aa», чтобы прочитать текст.</div>':'')+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
+  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="metadata" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button>'+(sttGet(m)?'<button type="button" class="vspeed" data-cact="tr" data-mid="'+esc(m.id)+'" title="Перевести текст">🌐</button>':'')+'</div>'+(VBAD.has(m.id)?'<div class="vtr muted">Это голосовое записано на компьютере в старом формате, iPhone его не проигрывает. Нажмите «Aa», чтобы прочитать текст.</div>':'')+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
   else if(m.kind==='video')body='<video controls preload="metadata" src="'+esc(m.data)+'" class="cimg"></video>';
   if(m.fw)body='<div class="cfw">↪ Переслано'+(m.fw.name?' от '+esc(m.fw.name):'')+'</div>'+body;
   if(m.re)body=quoteHtml(m.re,true)+body;
@@ -2142,7 +2142,7 @@ const TRX={};const TRL=[['ru','RU'],['ro','RO'],['uk','UA'],['en','EN']];
 function trxHtml(id){const r=TRX[id];
   const langs=TRL.map(([k,l])=>'<button type="button" class="link'+(r.tl===k?' on':'')+'" data-trx-l="'+k+'" data-trx="'+esc(id)+'">'+l+'</button>').join(' ');
   return '<div class="ctrx"><div class="ctrx-h">🌐 Перевод'+(r.src&&r.s==='ok'?' <span class="muted">('+esc(r.src)+' → '+esc(r.tl)+')</span>':'')+'<span style="flex:1"></span>'+langs+' <button type="button" class="link" data-trx-x="'+esc(id)+'" title="Скрыть">✕</button></div>'+
-    (r.s==='load'?'<div class="muted">переводим…</div>':r.s==='err'?'<div class="muted">Не удалось перевести. Проверьте интернет и попробуйте ещё раз.</div>':'<div>'+esc(r.t).replace(/\n/g,'<br>')+'</div>')+'</div>';}
+    (r.s==='load'?'<div class="muted">переводим…</div>':r.s==='err'?'<div class="muted">Не удалось перевести'+(r.e&&r.e!=='0'?' ('+esc(r.e.slice(0,80))+')':'')+'. Проверьте интернет и попробуйте ещё раз.</div>':r.src&&r.src===r.tl?'<div class="muted">Текст уже на этом языке. Выберите другой язык справа: RU, RO, UA или EN.</div>':'<div>'+esc(r.t).replace(/\n/g,'<br>')+'</div>')+'</div>';}
 async function translateMsg(id,txt,tl){
   if(!tl){try{tl=localStorage.getItem('sklad-trl')||'';}catch(_){}tl=tl||'ru';}
   TRX[id]={s:'load',tl,txt};VIEWS.chat.update();
@@ -2152,11 +2152,11 @@ async function translateMsg(id,txt,tl){
     /* уже на этом языке — переводим на русский или, если по-русски, на румынский */
     if(src===tl&&!TRX[id].auto){const alt=tl==='ru'?'ro':'ru';TRX[id].auto=1;return translateMsg2(id,txt,alt);}
     TRX[id]={s:'ok',t,src,tl,txt};}
-  catch(e){if(TRX[id])TRX[id].s='err';}
+  catch(e){if(TRX[id]){TRX[id].s='err';TRX[id].e=String(e&&e.message||e||'');}try{console.warn('translate',e);}catch(_){}}
   VIEWS.chat.update();}
 async function translateMsg2(id,txt,tl){TRX[id]={s:'load',tl,txt,auto:1};VIEWS.chat.update();
   try{const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+tl+'&dt=t&q='+encodeURIComponent(txt.slice(0,4500)));if(!r.ok)throw 0;const j=await r.json();
-    if(!TRX[id]||TRX[id].tl!==tl)return;TRX[id]={s:'ok',t:(j[0]||[]).map(x=>x&&x[0]||'').join(''),src:j[2]||'',tl,txt};}catch(e){if(TRX[id])TRX[id].s='err';}
+    if(!TRX[id]||TRX[id].tl!==tl)return;TRX[id]={s:'ok',t:(j[0]||[]).map(x=>x&&x[0]||'').join(''),src:j[2]||'',tl,txt};}catch(e){if(TRX[id]){TRX[id].s='err';TRX[id].e=String(e&&e.message||e||'');}}
   VIEWS.chat.update();}
 function msgPreview(m){if(m.kind==='del')return 'Сообщение удалено';if(m.kind==='file')return ('📄 '+(m.name||'файл')+' '+(m.t||'')).trim();const k=m.kind==='img'?'📷 Фото':m.kind==='voice'?'🎤 Голосовое':m.kind==='video'?'🎬 Видео':'';return ((k?k+' ':'')+(m.ord?'📦 №'+m.ord.no+' ':'')+(m.t||'')).trim().slice(0,140);}
 function quoteHtml(r,jump){return '<div class="cquote"'+(jump&&r.id?' data-cjump="'+esc(r.id)+'"':'')+'><b>'+esc(S.names[r.uid]||r.name||'…')+(r.ch?' <span class="muted">· '+esc(r.ch)+'</span>':'')+'</b>'+esc(r.t||'')+'</div>';}
