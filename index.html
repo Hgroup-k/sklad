@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 10:08';</script>
-<script src="firebase-config.js?v=513e94dc"></script>
-<script src="shim.js?v=513e94dc"></script>
+<script>window.SKLAD_VERSION='28.11 10:17';</script>
+<script src="firebase-config.js?v=3e1b7f8c"></script>
+<script src="shim.js?v=3e1b7f8c"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2141,7 +2141,7 @@ function msgHtml(m,prev){
     return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'" id="cm-'+esc(m.id)+'">'+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+'<div class="cdeleted">🗑 '+esc(who)+'</div><div class="ctime">'+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';}
   if(m.kind==='file')body='<button type="button" class="cfile" data-cfile="'+esc(m.id)+'">📄 <span><b>'+esc(m.name||'файл')+'</b><br><small class="muted">'+fsize(m.size)+' · скачать</small></span></button>';
   else if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg>';
-  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="'+(m.fid?'metadata':'none')+'" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button></div>'+(VBAD.has(m.id)?'<div class="vtr muted">Это голосовое записано на компьютере в старом формате, iPhone его не проигрывает. Нажмите «Aa», чтобы прочитать текст.</div>':'')+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
+  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="metadata" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button></div>'+(VBAD.has(m.id)?'<div class="vtr muted">Это голосовое записано на компьютере в старом формате, iPhone его не проигрывает. Нажмите «Aa», чтобы прочитать текст.</div>':'')+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
   else if(m.kind==='video')body='<video controls preload="metadata" src="'+esc(m.data)+'" class="cimg"></video>';
   if(m.fw)body='<div class="cfw">↪ Переслано'+(m.fw.name?' от '+esc(m.fw.name):'')+'</div>'+body;
   if(m.re)body=quoteHtml(m.re,true)+body;
@@ -2396,6 +2396,9 @@ async function imgToData(file){
 let LAME=null;function loadLame(){return LAME||(LAME=new Promise((ok,no)=>{if(window.lamejs)return ok();const sc=document.createElement('script');sc.src='lame.min.js';sc.onload=()=>ok();sc.onerror=()=>{LAME=null;no(new Error('lame'));};document.head.appendChild(sc);}));}
 const VREC_SR=24000,VREC_KBPS=64,VREC_MAX=30*60;
 async function startVoice(){
+  /* защита от двойного нажатия: пока запуск/остановка не закончились, новую запись не начинаем */
+  if(CH.recBusy||Date.now()-(CH.recStopAt||0)<1200)return;CH.recBusy=true;try{await startVoice2();}finally{CH.recBusy=false;}}
+async function startVoice2(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Этот браузер не умеет записывать голос');return;}
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC){toast('Этот браузер не умеет записывать голос');return;}
   const ac=new AC();try{await ac.resume();}catch(_){}
@@ -2414,13 +2417,15 @@ async function startVoice(){
     const mp=enc.encodeBuffer(pcm);if(mp.length){out.push(mp);bytes+=mp.length;}};
   let lvl=0;
   src.connect(proc);proc.connect(mute);mute.connect(ac.destination);
-  let wl=null;try{if(navigator.wakeLock)wl=await navigator.wakeLock.request('screen');}catch(_){}
-  const rec={ac,st,send:true,why:'',stop:null};CH.rec=rec;CH.recSec=0;
+  let wl=null;try{if(navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>{wl=w;if(CH.rec!==rec)try{w.release();}catch(_){}}).catch(()=>{});}catch(_){}
+  const rec={ac,st,send:true,why:'',stop:null};CH.rec=rec;CH.recSec=0;const t0=Date.now();
   st.getAudioTracks().forEach(t=>{t.onended=()=>{if(CH.rec===rec){rec.why='микрофон отключился (его забрала другая программа или звонок)';stopVoice(true);}};});
   const onHide=()=>{if(document.hidden&&CH.rec===rec){rec.why='экран заблокировали или свернули программу';stopVoice(true);}};document.addEventListener('visibilitychange',onHide);
-  rec.stop=async()=>{document.removeEventListener('visibilitychange',onHide);clearInterval(CH.recT);try{src.disconnect();proc.disconnect();mute.disconnect();}catch(_){}
-    st.getTracks().forEach(t=>t.stop());try{wl&&wl.release();}catch(_){}try{await ac.close();}catch(_){}
-    const secs=Math.round(samples/VREC_SR);CH.rec=null;VIEWS.chat.update();
+  rec.stop=async()=>{/* сразу выключаем микрофон и всё, что его держит */
+    CH.rec=null;CH.recStopAt=Date.now();document.removeEventListener('visibilitychange',onHide);clearInterval(CH.recT);
+    proc.onaudioprocess=null;try{src.disconnect();proc.disconnect();mute.disconnect();}catch(_){}
+    st.getTracks().forEach(t=>{try{t.stop();}catch(_){}});try{wl&&wl.release();}catch(_){}try{ac.close();}catch(_){}
+    const secs=Math.round(samples/VREC_SR);VIEWS.chat.update();
     if(rec.why)toast('Запись остановилась на '+secs+' с: '+rec.why+'. Записанное отправлено.');
     if(!rec.send)return;if(secs<1){toast('Слишком короткое голосовое');return;}
     const f=enc.flush();if(f.length){out.push(f);bytes+=f.length;}
@@ -2431,11 +2436,12 @@ async function startVoice(){
         await chatSend({kind:'voice',file:{fid,n,mime,size:blob.size,dur:secs}});}}catch(e){toast(dbErr(e));}};
   CH.recT=setInterval(()=>{CH.recSec=Math.floor(samples/VREC_SR);const b=document.querySelector('#ch-go');if(b)b.textContent=recLabel();
     const m=document.getElementById('ch-lvl');if(m){m.style.width=Math.min(100,Math.round(Math.sqrt(lvl)*140))+'%';}lvl=0;
-    if(CH.recSec>=VREC_MAX){rec.why='достигнут предел 30 минут';stopVoice(true);}},250);
+    if(CH.recSec>=VREC_MAX){rec.why='достигнут предел 30 минут';stopVoice(true);}
+    if(!samples&&Date.now()-t0>3000){rec.why='микрофон не отвечает';stopVoice(false);}},250);
   VIEWS.chat.update();
 }
 function recLabel(){return '⏹ '+Math.floor(CH.recSec/60)+':'+String(CH.recSec%60).padStart(2,'0');}
-function stopVoice(send){const r=CH.rec;if(!r||r.stopping)return;r.stopping=true;r.send=send;r.stop();}
+function stopVoice(send){const r=CH.rec;if(!r){CH.recStopAt=Date.now();return;}if(r.stopping)return;r.stopping=true;r.send=send;r.stop();}
 document.addEventListener('click',async e=>{
   if(!e.target.closest('#chat-b'))return;
   const t=e.target;let b;
