@@ -3019,7 +3019,7 @@ function render(){
   rq=requestAnimationFrame(()=>{
     rq=0;
     {const part=!S.readOnly&&!S.can.full;const ok=Object.keys(SECS).filter(k=>S.can[k]).map(k=>SECS[k]);
-     $('ro').hidden=!S.readOnly&&!part;
+     $('ro').hidden=true;
      $('ro').textContent=S.readOnly?'Режим просмотра: вносить записи и изменения могут только те, кому владелец дал права. Остатки и отчёты обновляются сами.':'Вам можно вносить изменения во вкладках: '+ok.join(', ')+'. Остальные открытые вам вкладки только для просмотра.';}
     renderRecent();updateHint();
     const v=VIEWS[S.view];if(v){const box=$('v-'+S.view);const sc=box?[...box.querySelectorAll('.tbl-wrap')].map(w=>[w.scrollLeft,w.scrollTop]):[];const y=window.scrollY;

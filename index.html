@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 10:29';</script>
-<script src="firebase-config.js?v=92b98c15"></script>
-<script src="shim.js?v=92b98c15"></script>
+<script>window.SKLAD_VERSION='28.11 10:42';</script>
+<script src="firebase-config.js?v=203f506e"></script>
+<script src="shim.js?v=203f506e"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3061,7 +3061,7 @@ function render(){
   rq=requestAnimationFrame(()=>{
     rq=0;
     {const part=!S.readOnly&&!S.can.full;const ok=Object.keys(SECS).filter(k=>S.can[k]).map(k=>SECS[k]);
-     $('ro').hidden=!S.readOnly&&!part;
+     $('ro').hidden=true;
      $('ro').textContent=S.readOnly?'Режим просмотра: вносить записи и изменения могут только те, кому владелец дал права. Остатки и отчёты обновляются сами.':'Вам можно вносить изменения во вкладках: '+ok.join(', ')+'. Остальные открытые вам вкладки только для просмотра.';}
     renderRecent();updateHint();
     const v=VIEWS[S.view];if(v){const box=$('v-'+S.view);const sc=box?[...box.querySelectorAll('.tbl-wrap')].map(w=>[w.scrollLeft,w.scrollTop]):[];const y=window.scrollY;
