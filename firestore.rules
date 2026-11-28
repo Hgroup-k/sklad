@@ -136,12 +136,13 @@ service cloud.firestore {
       allow write: if canEdit('prep11');
     }
     match /config/mats {
-      allow read: if matView();
+      allow read: if matView() || canView('pack11');
       allow write: if canEdit('mstock');
     }
     match /matops/{id} {
       allow read: if matView();
-      allow create: if (canEdit('mops') || (canEdit('prep11') && request.resource.data.get('prep', '') != ''))
+      allow create: if (canEdit('mops') || (canEdit('prep11') && request.resource.data.get('prep', '') != '')
+        || (canEdit('pack11') && request.resource.data.get('pack', '') == 'pack11' && request.resource.data.type == 'out'))
         && request.resource.data.by == me();
       allow update: if canEdit('mops');
       allow delete: if canEdit('mops') || (canEdit('prep11') && resource.data.get('prep', '') != '');

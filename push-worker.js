@@ -130,21 +130,25 @@ async function stt(env,q){
   const m=/^data:([^;,]*)[^,]*,(.*)$/.exec(String(q.audio||''));if(!m)return {error:'bad_audio'};
   const b64=m[2];if(b64.length>14e6)return {error:'too_big'};
   let r,err='';
-  try{r=await env.AI.run('@cf/openai/whisper-large-v3-turbo',{audio:b64,language:q.lang||undefined});}catch(e){err=String(e&&e.message||e);}
+  try{r=await env.AI.run('@cf/openai/whisper-large-v3-turbo',{audio:b64,language:q.lang||undefined,vad_filter:true});}catch(e){err=String(e&&e.message||e);}
   if(!r||!r.text){try{const bin=atob(b64);const a=new Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);r=await env.AI.run('@cf/openai/whisper',{audio:a});}catch(e){err+=' | '+String(e&&e.message||e);}}
   if(!r||typeof r.text!=='string')return {error:'ai_failed',detail:err.slice(0,300)};
   return {ok:true,text:r.text.trim().slice(0,4000)};
 }
-/* описание видео по кадрам (картинка 2×2, кадры по порядку) */
+/* описание видео по кадрам (картинка 2×2, кадры по порядку). Пробуем несколько бесплатных моделей Workers AI по очереди */
 async function vis(env,q){
   if(!env.AI)return {error:'no_ai'};
-  const m=/^data:[^,]*,(.*)$/.exec(String(q.image||''));if(!m)return {error:'bad_image'};if(m[1].length>4e6)return {error:'too_big'};
+  const dataUrl=String(q.image||'');const m=/^data:[^,]*,(.*)$/.exec(dataUrl);if(!m)return {error:'bad_image'};if(m[1].length>6e6)return {error:'too_big'};
   const bin=atob(m[1]);const img=new Array(bin.length);for(let i=0;i<bin.length;i++)img[i]=bin.charCodeAt(i);
-  const prompt='These are 4 frames from one short video, in time order (left to right, top to bottom). Briefly describe what is happening in the video, in 2-3 sentences.';
-  let err='';
+  const ru=(q.lang||'ru')==='ru';
+  const prompt='These are 4 frames from one video, in time order (left to right, top to bottom). Describe what is happening: people, actions, objects, place. 2-4 sentences.'+(ru?' Answer in Russian.':'');
+  let err='';const pick=r=>String((r&&(r.response||r.description||r.text||(r.result&&r.result.response)))||'').trim();
+  try{const r=await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct',{messages:[{role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUrl}}]}],max_tokens:300});const t=pick(r);if(t)return {ok:true,text:t.slice(0,2000)};}catch(e){err+='llama4: '+String(e&&e.message||e)+' | ';}
+  for(let k=0;k<2;k++){try{const r=await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct',{messages:[{role:'user',content:prompt}],image:img,max_tokens:300});const t=pick(r);if(t)return {ok:true,text:t.slice(0,2000)};break;}
+    catch(e){const s=String(e&&e.message||e);err+='llama3.2: '+s+' | ';if(k===0&&/agree|licen|5016/i.test(s)){try{await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct',{prompt:'agree'});}catch(_){}continue;}break;}}
   for(const model of ['@cf/llava-hf/llava-1.5-7b-hf','@cf/unum/uform-gen2-qwen-500m']){
-    try{const r=await env.AI.run(model,{image:img,prompt,max_tokens:220});const t=(r&&(r.description||r.response||r.text))||'';if(t)return {ok:true,text:String(t).trim().slice(0,2000)};}catch(e){err+=model+': '+String(e&&e.message||e)+' | ';}}
-  return {error:'ai_failed',detail:err.slice(0,400)};
+    try{const r=await env.AI.run(model,{image:img,prompt,max_tokens:250});const t=pick(r);if(t)return {ok:true,text:t.slice(0,2000)};}catch(e){err+=model+': '+String(e&&e.message||e)+' | ';}}
+  return {error:'ai_failed',detail:err.slice(0,600)};
 }
 export default {async fetch(req,env){env=env||{};
   const o=req.headers.get('Origin')||'';const allow=ORIGINS.includes(o)||/^http:\/\/localhost(:\d+)?$/.test(o)?o:ORIGINS[0];
