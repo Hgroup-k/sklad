@@ -39,8 +39,8 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>window.SKLAD_VERSION='28.11 12:23';</script>
-<script src="firebase-config.js?v=2c0a3239"></script>
-<script src="shim.js?v=2c0a3239"></script>
+<script src="firebase-config.js?v=4bc9522f"></script>
+<script src="shim.js?v=4bc9522f"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2389,37 +2389,37 @@ const QF_DEFS=[
   {ru:'Отклонения и проблемы за смену',en:'Deviations / issues during the shift',items:[QT('l1','Компонент, проблема, что сделано (1)','Component, problem, action (1)'),QT('l2','Компонент, проблема, что сделано (2)','Component, problem, action (2)'),QT('l3','Компонент, проблема, что сделано (3)','Component, problem, action (3)')]},
   {ru:'Итоговый контроль смеси',en:'Final mixture control',items:[QY('f1','Смесь однородная','Mixture homogeneous'),QY('f2','Комки отсутствуют','No lumps'),QY('f3','Расслоение отсутствует','No delamination'),QY('f4','Цвет равномерный','Color uniform'),QY('f5','Смесь пригодна для формования','Mixture fit for molding'),QT('iso','Изолировано','Isolated'),QT('isor','Причина изоляции / брака','Reason for isolation / rejection',true)]},
   {ru:'Итоговое решение',en:'Final decision',items:[QP('dec','Решение','Decision',[['Смесь допущена к формованию','Approved for molding'],['Допущена после корректировки','Approved after correction'],['Частично изолирована','Partially isolated'],['Забракована','Rejected']])]}]},
- {k:'F03-1A',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Смазочный состав',en:'Release agent preparation',auto:'lubp',batch:true,secs:[
+ {k:'F03-1A',code:'KDK-QMS-F03',g:'Производство',dep:'III',ru:'Смазочный состав',en:'Release agent preparation',auto:'lubp',batch:true,secs:[
   {ru:'Состав (сколько взяли)',en:'Composition',items:[QN('w','Вода','Water','л'),QN('soap','Хозяйственное мыло','Household soap','кг'),QN('oil','Индустриальное масло','Industrial oil','л'),QT('oilm','Марка масла','Oil grade'),QN('vol','Получилось состава','Volume prepared','л'),QT('how','Как готовили (нагрев, время перемешивания)','How it was prepared',true)]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Рецепт соблюдён','Formulation followed'),QY('k2','Консистенция однородная','Consistency uniform'),QY('k3','Нет осадка и комков мыла','No sediment / soap lumps')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
- {k:'F03-1B',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Колеровка посыпки',en:'Coloring of the dusting mix',auto:'dustp',batch:true,secs:[
+ {k:'F03-1B',code:'KDK-QMS-F04',g:'Производство',dep:'III',ru:'Колеровка посыпки',en:'Coloring of the dusting mix',auto:'dustp',batch:true,secs:[
   {ru:'Состав',en:'Composition',items:[QT('ox','Оксид (цвет, марка)','Oxide (color, grade)'),QN('oxq','Оксида','Oxide','г'),QT('fr','Мраморная крошка (фракция)','Marble chips (fraction)'),QN('frq','Мраморной крошки','Marble chips','кг'),QT('pos','Какая посыпка получилась','Dusting mix name')]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Технология соблюдена','Technology followed'),QY('k2','Цвет соответствует образцу','Color matches the sample'),QY('k3','Окрас равномерный, без пятен','Even coloring, no spots')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
- {k:'F03-1C',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Подготовка и смазка форм',en:'Mold preparation and lubrication',auto:'grease',secs:[
+ {k:'F03-1C',code:'KDK-QMS-F05',g:'Производство',dep:'III',ru:'Подготовка и смазка форм',en:'Mold preparation and lubrication',auto:'grease',secs:[
   {ru:'Чем и как смазывали',en:'Lubrication',items:[QT('agent','Чем смазывали (состав)','Release agent used'),QT('lubb','Партия смазочного состава','Release agent batch'),QT('dustb','Партия посыпки','Dusting mix batch'),QP('apply','Как наносили','Application method',QAPPLY),QN('layers','Слоёв','Layers','шт.'),QN('wait','Выдержка после смазки','Waiting time after lubrication','мин'),QT('pos','Посыпка','Dusting mix')]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Формы чистые','Molds clean'),QY('k2','Рельеф форм без повреждений','Mold relief undamaged'),QY('k3','Смазочный состав нанесён равномерно','Release agent applied evenly'),QY('k4','Посыпка нанесена по технологии (для серий с посыпкой)','Dusting applied per technology'),QY('k5','Формы готовы к заливке','Molds ready for pouring')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
- {k:'F03-1D',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Подготовка мембраны',en:'Membrane preparation',secs:[
+ {k:'F03-1D',code:'KDK-QMS-F06',g:'Производство',dep:'III',ru:'Подготовка мембраны',en:'Membrane preparation',secs:[
   {ru:'Мембрана',en:'Membrane',items:[QT('party','Партия мембраны','Membrane batch'),QT('fmt','Формат','Format'),QN('qty','Подготовлено листов','Sheets prepared','шт.')]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Мембрана подготовлена по нужному формату','Prepared to the required format'),QY('k2','Материал целый, без разрывов и складок','Intact, no tears or folds'),QY('k3','Мембрана пригодна к укладке','Fit for application')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
- {k:'F03-2',code:'KDK-QMS-F03-2',g:'Производство',dep:'III',ru:'Формование (заливка)',en:'Forming',auto:'cast',batch:true,secs:[
+ {k:'F03-2',code:'KDK-QMS-F07',g:'Производство',dep:'III',ru:'Формование (заливка)',en:'Forming',auto:'cast',batch:true,secs:[
   {ru:'Условия',en:'Conditions',items:[QN('temp','Температура в цеху','Workshop temperature','°C'),QN('vib','Время вибрации','Vibration time','сек'),QT('vats','Из какого чана / замеса','From which vat / mix')]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Смесь распределена равномерно','Mixture spread evenly'),QY('k2','Мембрана уложена правильно','Membrane laid correctly'),QY('k3','После вибрации обеспечено соединение слоёв','Layer bonding after vibration')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
- {k:'F03-3A',code:'KDK-QMS-F03-3',g:'Производство',dep:'III',ru:'Сушка и распалубка',en:'Drying and demolding',auto:'dry',batch:true,secs:[
+ {k:'F03-3A',code:'KDK-QMS-F08',g:'Производство',dep:'III',ru:'Сушка и распалубка',en:'Drying and demolding',auto:'dry',batch:true,secs:[
   {ru:'Сушка',en:'Drying',items:[QT('dtime','Сколько сохло','Drying time'),QN('temp','Температура в сушке','Drying temperature','°C'),QN('hum','Влажность','Humidity','%'),QP('dq','Качество сушки','Drying quality',[['Высохло полностью','Fully dried'],['Недосушено','Underdried'],['Пересушено / трещины','Overdried / cracks']])]},
   {ru:'Проверка при снятии с формы',en:'Demolding check',items:[QY('k1','Изделие высушено','Product dried'),QY('k2','Снимается легко, не прилипает к форме','Demolds easily, no sticking'),QY('k3','Поверхность целостная','Surface intact'),QY('k4','Цвет соответствует серии / модели','Color matches the series / model'),QY('k5','Пригодно для передачи на резку','Ready for cutting')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')},
   {ru:'Решение по партии',en:'Decision on the batch',items:[QP('dec','Решение','Decision',QBATCHDEC)]}]},
- {k:'F03-3B',code:'KDK-QMS-F03-3',g:'Производство',dep:'III',ru:'Резка',en:'Cutting',auto:'cut',batch:true,secs:[
+ {k:'F03-3B',code:'KDK-QMS-F09',g:'Производство',dep:'III',ru:'Резка',en:'Cutting',auto:'cut',batch:true,secs:[
   {ru:'Резка',en:'Cutting',items:[QT('die','Штанц-форма (какая)','Die-cutting form'),QN('ht','Температура термообработки кромок','Edge heat treatment temperature','°C')]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Установлена правильная штанц-форма','Correct die installed'),QY('k2','Размер соответствует формату','Size matches the format'),QY('k3','Бракованные элементы удалены','Defective pieces removed'),QY('k4','Кромки обработаны: не распушены, без пережога','Edges treated, no fraying or scorching')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')},
   {ru:'Решение по партии',en:'Decision on the batch',items:[QP('dec','Решение','Decision',QBATCHDEC)]}]},
- {k:'F03-4',code:'KDK-QMS-F03-4',g:'Итог и упаковка',dep:'III',ru:'Финальный контроль и упаковка',en:'Final inspection and packaging',auto:'pack',batch:true,secs:[
+ {k:'F03-4',code:'KDK-QMS-F10',g:'Итог и упаковка',dep:'III',ru:'Финальный контроль и упаковка',en:'Final inspection and packaging',auto:'pack',batch:true,secs:[
   {ru:'Лицевая поверхность',en:'Face surface',items:[QY('s1','Лицевая поверхность чистая','Face surface clean'),QY('s2','Поверхность целостная','Surface intact')]},
   {ru:'Цвет и текстура',en:'Color and texture',items:[QY('c1','Цвет соответствует образцу','Color matches the sample'),QY('c2','Текстура соответствует серии','Texture matches the series'),QY('c3','Серия / модель / размер соответствуют','Series / model / size match')]},
   {ru:'Геометрия и размеры',en:'Geometry and dimensions',items:[QN('len','Длина: отклонение (допуск ±2 мм)','Length deviation (±2 mm)','мм'),QN('wid','Ширина: отклонение (допуск ±2 мм)','Width deviation (±2 mm)','мм'),QN('thmin','Толщина min (норма 2–6,5 мм)','Thickness min (2–6.5 mm)','мм'),QN('thmax','Толщина max','Thickness max','мм'),QY('g4','Геометрия изделий приемлемая','Geometry acceptable')]},
@@ -2428,18 +2428,18 @@ const QF_DEFS=[
   {ru:'Упаковка и маркировка',en:'Packaging and labeling',items:[QY('u1','Упаковка без повреждений','Packaging undamaged'),QY('u2','Маркировка нанесена','Marking applied'),QY('u3','Штамп номера партии нанесён','Batch stamp applied'),QY('u4','Штамп даты производства нанесён','Production date stamp applied'),QY('u5','Штамп резчика нанесён','Cutter stamp applied'),QY('u6','Штамп упаковщика нанесён','Packer stamp applied')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')},
   {ru:'Итог по партии',en:'Final decision on the batch',items:[QN('good','Годной продукции','Good product','м²'),QN('bad','Брака','Defective product','м²'),QP('dec','Заключение','Conclusion',[['Годна, допущена к отгрузке','Cleared for shipment'],['Годна частично','Partially acceptable'],['Временно изолирована','Temporarily isolated'],['Забракована','Rejected']])]}]},
- {k:'F04',code:'KDK-QMS-F04',g:'Несоответствия и изменения',dep:'',ru:'Карточка несоответствия и брака',en:'Nonconformity and defect card',batch:true,num:true,secs:[
+ {k:'F04',code:'KDK-QMS-F11',g:'Несоответствия и изменения',dep:'',ru:'Карточка несоответствия и брака',en:'Nonconformity and defect card',batch:true,num:true,secs:[
   {ru:'Где выявлено',en:'Stage detected',items:[QT('dept','Отдел','Department'),QP('stage','Этап','Stage',[['Входной контроль сырья','Incoming inspection'],['Подготовка смеси','Mixture preparation'],['Подготовка формы / смазка','Mold preparation / lubrication'],['Подготовка мембраны','Membrane preparation'],['Формование','Molding'],['Сушка','Drying'],['Снятие с формы','Demolding'],['Резка','Cutting'],['Контроль кромок','Edge control'],['Упаковка','Packaging'],['Финальный контроль','Final inspection'],['Склад / отгрузка','Warehouse / shipment']])]},
   {ru:'Описание',en:'Description',items:QDEV('x').slice(0,2).concat([QT('desc','Подробное описание','Detailed description',true)])},
   {ru:'Решение',en:'Decision',items:[QP('dec','Решение','Decision',[['Корректировка','Correction'],['Переработка','Rework'],['Частичная браковка','Partial rejection'],['Полная браковка','Full rejection'],['Допуск после проверки','Approved after inspection']]),QT('rem','Примечание','Remarks',true)]}]},
- {k:'F05',code:'KDK-QMS-F05',g:'Несоответствия и изменения',dep:'',ru:'Журнал изменений продукции',en:'Product change log',secs:[
+ {k:'F05',code:'KDK-QMS-F12',g:'Несоответствия и изменения',dep:'',ru:'Журнал изменений продукции',en:'Product change log',secs:[
   {ru:'Что затрагивает изменение',en:'What the change affects',items:[QT('dept','Отдел','Department'),QP('aff','Затрагивает','Affects',[['Состав рабочей смеси','Mixture composition'],['Сырьё или поставщик','Raw material or supplier'],['Рецептура','Formulation'],['Технология производства','Production technology'],['Конструкция изделия','Product design'],['Размер, формат, внешний вид','Size, format, appearance'],['Оборудование','Equipment'],['Маркировка или упаковка','Marking or packaging']],true)]},
   {ru:'Описание изменения',en:'Description of the change',items:[QT('desc','Описание изменения','Description',true),QT('why','Причина изменения','Reason',true),QT('proc','Какие процессы или материалы затрагиваются','Affected processes or materials',true)]},
   {ru:'Оценка влияния',en:'Impact assessment',yes:'Влияет',no:'Не влияет',items:[QY('i1','Качество продукции','Product quality'),QY('i2','Стабильность производства','Production stability'),QY('i3','Внешний вид и характеристики','Appearance and characteristics')]},
   {ru:'Дополнительные проверки',en:'Additional checks',items:[QP('chk','Проверки','Checks',[['Пробное производство','Trial production'],['Доп. контроль качества','Additional QC'],['Проверка характеристик','Verification of characteristics'],['Не требуются','Not required']],true),QT('res','Результат','Result',true)]},
   {ru:'Решение',en:'Decision',items:[QP('dec','Решение','Decision',[['Изменение одобрено','Approved'],['Изменение отклонено','Rejected'],['Нужна доп. проверка','Additional verification required']]),QP('cat','Категория (KDK-QMS-10, п. 6.3)','Category (KDK-QMS-10, 6.3)',[['Существенное — согласование с ICC-ES','Significant — ICC-ES review'],['Несущественное — внутреннее утверждение','Minor — internal approval']]),QT('cond','Условия / обоснование','Conditions / justification',true)]},
   {ru:'Контроль после внедрения',en:'Control after implementation',items:[QY('p1','Качество продукции стабильно','Product quality is stable'),QY('p2','Отклонений не выявлено','No deviations identified'),QT('meas','Если выявлены отклонения — принятые меры','Measures taken if deviations',true)]}]},
- {k:'F06',code:'KDK-QMS-F06',g:'Несоответствия и изменения',dep:'',ru:'Журнал жалоб и рекламаций',en:'Complaints log',batch:true,num:true,auto:'claim',secs:[
+ {k:'F06',code:'KDK-QMS-F13',g:'Несоответствия и изменения',dep:'',ru:'Журнал жалоб и рекламаций',en:'Complaints log',batch:true,num:true,auto:'claim',secs:[
   {ru:'Данные обращения',en:'Request details',items:[QT('rd','Дата обращения','Date of request'),QT('cli','Клиент','Customer'),QT('con','Контактное лицо, телефон','Contact person, telephone'),QT('prod','Модель / серия / код продукции','Product model / series / code'),QT('pdate','Дата производства','Production date'),QT('qty','Количество продукции','Quantity of products'),QT('ord','Заказ №','Order no.')]},
   {ru:'Суть жалобы',en:'Subject of the complaint',items:[QP('subj','Суть','Subject',[['Качество продукции','Product quality'],['Внешний вид, цвет, текстура','Appearance, color, texture'],['Размер','Size'],['Повреждения','Damage'],['Упаковка или маркировка','Packaging or marking'],['Хранение, транспортировка, монтаж','Storage, transport, installation']],true),QT('desc','Описание проблемы','Description of the problem',true),QP('photo','Фото / видео предоставлены','Photos / video provided',[['да','yes'],['нет','no']])]},
   {ru:'Проверка',en:'Verification',items:[QY('v1','Проверены формы контроля качества по партии','QC forms of the batch checked'),QY('v2','Соответствует эталонному образцу','Conforms to the reference sample')]},
@@ -2514,7 +2514,7 @@ VIEWS.qc={controls(){subscribeQc();subscribeMats();},update(){
   const el=$('qc-b');if(!el)return;
   if(QC.form){if(!el.querySelector('.qform'))el.innerHTML=qcFormHtml();return;}
   const ro=RO('qc');const gs=[...new Set(QF_DEFS.map(d=>d.g))];
-  let h=gs.map(g=>'<div class="panel" style="margin-bottom:12px"><h3 style="margin-bottom:8px">'+esc(g)+'</h3><div class="qcards">'+QF_DEFS.filter(d=>d.g===g).map(d=>{const n=QC.list.filter(x=>x.f===d.k&&x.d===todayStr()).length;return '<button type="button" class="qcard" data-qc-new="'+d.k+'"'+(ro?' disabled':'')+'><b>'+esc(d.ru)+'</b><small class="muted">'+esc(d.code)+(n?' · сегодня: '+n:'')+'</small></button>';}).join('')+'</div></div>').join('');
+  let h=gs.map(g=>'<div class="panel" style="margin-bottom:12px"><h3 style="margin-bottom:8px">'+esc(g)+'</h3><div class="qcards">'+QF_DEFS.filter(d=>d.g===g).map(d=>{const n=QC.list.filter(x=>x.f===d.k&&x.d===todayStr()).length;return '<button type="button" class="qcard" data-qc-new="'+d.k+'"'+(ro?' disabled':'')+'><b>'+esc(d.code.slice(-2))+'. '+esc(d.ru)+'</b><small class="muted">'+esc(d.code)+(n?' · сегодня: '+n:'')+'</small></button>';}).join('')+'</div></div>').join('');
   const q=(QC.q||'').trim().toLowerCase();
   const L=QC.list.filter(x=>(!QC.ff||x.f===QC.ff)&&(!q||String(x.batch||'').toLowerCase().includes(q)||String(x.no||'').includes(q))).sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at))).slice(0,300);
   h+='<div class="panel"><div class="panel-head"><h2>Заполненные формы</h2></div><div class="filters"><label class="fld"><span>Номер партии</span><input type="text" id="qc-q" value="'+esc(QC.q||'')+'" placeholder="например, 15-030325"></label><label class="fld"><span>Форма</span><select id="qc-ff"><option value="">Все</option>'+QF_DEFS.map(d=>opt(d.k,d.ru,QC.ff)).join('')+'</select></label></div>'+
