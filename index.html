@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 09:54';</script>
-<script src="firebase-config.js?v=0b33871a"></script>
-<script src="shim.js?v=0b33871a"></script>
+<script>window.SKLAD_VERSION='28.11 10:06';</script>
+<script src="firebase-config.js?v=cbd91931"></script>
+<script src="shim.js?v=cbd91931"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -265,6 +265,11 @@ details.tk-done>summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
 .cmenu{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
 .cmenu button{font-size:12.5px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
 .cmenu button.del{color:#c0392b}
+.crecbar{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12.5px;border-top:1px solid var(--line);color:var(--muted)}
+.crecdot{width:10px;height:10px;border-radius:50%;background:#e53935;flex:none;animation:recb 1s infinite}
+@keyframes recb{50%{opacity:.3}}
+.crecl{flex:1;min-width:50px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.crecl i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
 .cnewbar{display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--accent);font-size:12.5px;font-weight:700}
 .cnewbar:before,.cnewbar:after{content:'';flex:1;height:1px;background:var(--accent);opacity:.5}
 .crxpick button{font-size:18px;padding:2px 6px;background:none;border-color:transparent}
@@ -1201,7 +1206,7 @@ VIEWS.catalog={
   controls(){
     if(!S.catalog){$('catalog-b').innerHTML='<div class="panel empty">Справочники ещё не загружены.</div>';return;}
     const ro=RO('catalog')?' disabled':'';
-    let h='<nav class="refnav">'+[['ref-gen','Общее'],['ref-off','Офис'],['ref-p11','Производство 11'],['ref-p9','Производство 9'],['ref-st','Склад']].map(([a,l])=>'<a href="#" data-ref="'+a+'">'+l+'</a>').join('')+'</nav>'+
+    let h='<nav class="refnav">'+[['ref-gen','Общее'],['ref-emp','Сотрудники'],['ref-off','Офис'],['ref-p11','Производство 11'],['ref-p9','Производство 9'],['ref-st','Склад']].map(([a,l])=>'<a href="#" data-ref="'+a+'">'+l+'</a>').join('')+'</nav>'+
       '<h2 class="refh" id="ref-gen">Общее: товары и размеры</h2><div class="bar"><p class="muted" style="margin:0">Одна строка = одно наименование или один размер. Что поменяете здесь, сразу поменяется во всех вкладках. Удаление из списка не трогает уже сделанные записи.</p>'+(RO('catalog')?'':'<button type="button" class="primary" id="cat-save">Сохранить товары</button>')+'</div><div class="cat-grid">';
     for(const c of cats()){
       const k=cat(c);
@@ -1211,7 +1216,8 @@ VIEWS.catalog={
     }
     h+='</div>';
     $('catalog-b').innerHTML=h;
-    $('catalog-b').insertAdjacentHTML('beforeend','<h2 class="refh" id="ref-off">Офис</h2>'+staffPanel()+
+    $('catalog-b').insertAdjacentHTML('beforeend','<h2 class="refh" id="ref-emp">Сотрудники</h2><div class="cat-grid">'+listPanel('emps','Все сотрудники','По одному имени в строке. Их можно выбрать как исполнителя задачи. Добавляйте, меняйте и удаляйте строки, потом «Сохранить».',emps())+'</div>'+
+      '<h2 class="refh" id="ref-off">Офис</h2>'+staffPanel()+
       '<h2 class="refh" id="ref-p11">Производство 11</h2><div class="cat-grid">'+listPanel('w11','Рабочие','По одному имени в строке. Их можно будет выбрать в «Кто делал».',workersOf('w11'))+
         listPanel('forms','Формы','Строка: название формы, двоеточие и буквы видов камня. Например «Скала: R» или «Травертин: TR, TB».',formsList().map(f=>f.n+': '+(f.p||[]).join(', ')))+
         listPanel('pos','Посыпки','По одной посыпке в строке.',posList())+'</div>'+posMapPanel()+
@@ -2289,6 +2295,8 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
   if(!c){P.innerHTML='<div class="panel empty">Выберите чат слева.</div>';return;}
   const keep=P.querySelector('#ch-in');const draft=keep?keep.value:(CH.draft||'');const focused=document.activeElement===keep;
   const box=P.querySelector('#ch-msgs');const atBottom=!box||box.scrollHeight-box.scrollTop-box.clientHeight<60;const prevTop=box?box.scrollTop:0;
+  /* якорь: первое видимое сообщение и его отступ — чтобы после перерисовки чат не прыгал */
+  let anc=null;if(box){const bt=box.getBoundingClientRect().top;for(const el of box.querySelectorAll('.cmsg')){const r=el.getBoundingClientRect();if(r.bottom>bt+2){anc={id:el.id,d:r.top-bt};break;}}}
   const NF=CH.newFrom&&CH.newFrom.chat===c.id&&CH.newFrom.at!==undefined?CH.newFrom:null;
   const firstNew=NF?(visMsgs().find(m=>m.uid!==S.me&&m.kind!=='del'&&(!NF.at||m.at>NF.at))||{}).id:'';
   const otherUnread=CH.list.filter(x=>x.id!==c.id&&chatUnread(x)).length;
@@ -2302,6 +2310,7 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
     (CH.pickOrd?'<div class="cattach"><select id="ch-ord"><option value="">— выберите заказ —</option>'+[...S.orders].filter(o=>!o.cancel).sort((a,b)=>String(b.no).localeCompare(String(a.no),'ru',{numeric:true})).map(o=>'<option value="'+esc(o.id)+'">№'+esc(o.no)+' · '+esc(o.obj||'')+' · '+esc(orderStatus(o)[0])+'</option>').join('')+'</select> <button type="button" class="link" data-cpick-x>Отмена</button></div>':'')+
     (chatLv(c.id)==='view'?'<p class="muted" style="padding:10px 14px;margin:0;border-top:1px solid var(--line)">В этом чате вы можете только читать.</p>':
     (CH.clip?'<div class="cclip"><label class="cclipi">📷 Фото или видео<input type="file" id="ch-file" accept="image/*,video/*" hidden></label><label class="cclipi">📄 Документ<input type="file" id="ch-doc" hidden></label>'+(c.id==='orders'?'<button type="button" class="cclipi" data-cpick>📦 Заказ</button>':'')+'</div>':'')+
+    (CH.rec?'<div class="crecbar"><span class="crecdot"></span><span>Идёт запись. Не блокируйте экран и не сворачивайте программу.</span><span class="crecl"><i id="ch-lvl"></i></span><button type="button" class="link" data-crec-x>Отмена</button></div>':'')+
     '<form class="cinput" id="ch-f" autocomplete="off"><button type="button" class="cround'+(CH.clip?' on':'')+'" data-cclip title="Прикрепить: фото, документ'+(c.id==='orders'?', заказ':'')+'">📎</button>'+
     '<div class="cfield"><textarea id="ch-in" rows="1" placeholder="'+(c.id==='orders'?'Вопрос по заказу':'Сообщение')+'">'+esc(draft)+'</textarea><button type="button" class="cemob" data-cemo title="Смайлики">😊</button></div>'+
     '<button type="button" id="ch-go" class="cround cgo'+(CH.rec?' rec':'')+'">'+(CH.rec?recLabel():'🎤')+'</button></form>');
@@ -2310,12 +2319,11 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
   if(nb){
     if(CH.scrollInit&&CH.loaded){CH.scrollInit=false;CH.scrollGoal={chat:c.id,until:Date.now()+2500};chatScrollGoal();
       nb.addEventListener('load',()=>{if(CH.scrollGoal&&Date.now()<CH.scrollGoal.until)chatScrollGoal();},true);
-      const stop=()=>{CH.scrollGoal=null;};nb.addEventListener('wheel',stop,{passive:true,once:true});nb.addEventListener('touchstart',stop,{passive:true,once:true});}
-    else if(CH.scrollGoal&&Date.now()<CH.scrollGoal.until&&CH.scrollGoal.chat===c.id)chatScrollGoal();
+      const stop=()=>{CH.scrollGoal=null;};for(const ev of ['wheel','touchstart','pointerdown','keydown'])nb.addEventListener(ev,stop,{passive:true,once:true});}
     else if(atBottom||CH.mineNew||onlyMsgs===true)nb.scrollTop=nb.scrollHeight;
-    else nb.scrollTop=prevTop;
+    else{nb.scrollTop=prevTop;const el=anc&&document.getElementById(anc.id);if(el)nb.scrollTop+=el.getBoundingClientRect().top-nb.getBoundingClientRect().top-anc.d;}
     CH.mineNew=false;}
-  if(focused){const i=$('ch-in');i.focus();i.setSelectionRange(i.value.length,i.value.length);}
+  if(focused){const i=$('ch-in');try{i.focus({preventScroll:true});}catch(_){i.focus();}i.setSelectionRange(i.value.length,i.value.length);}
   markRead();
 }};
 function chatFormHtml(){const f=CH.form;const ppl=(CH.people||[]).filter(p=>p.uid!==S.me);
@@ -2383,43 +2391,51 @@ async function imgToData(file){
   for(const q of [0.8,0.65,0.5,0.4]){const d=cv.toDataURL('image/jpeg',q);if(d.length<900000)return d;}
   const cv2=document.createElement('canvas');cv2.width=Math.round(w/2);cv2.height=Math.round(h/2);cv2.getContext('2d').drawImage(cv,0,0,cv2.width,cv2.height);return cv2.toDataURL('image/jpeg',0.6);
 }
+/* ---------- голосовые: запись напрямую с микрофона (Web Audio) и сразу в MP3 ----------
+   Не зависит от MediaRecorder (на iPhone он писал тишину/обрывал). Экран не гаснет во время записи. */
+let LAME=null;function loadLame(){return LAME||(LAME=new Promise((ok,no)=>{if(window.lamejs)return ok();const sc=document.createElement('script');sc.src='lame.min.js';sc.onload=()=>ok();sc.onerror=()=>{LAME=null;no(new Error('lame'));};document.head.appendChild(sc);}));}
+const VREC_SR=24000,VREC_KBPS=64,VREC_MAX=30*60;
 async function startVoice(){
-  if(!navigator.mediaDevices||!window.MediaRecorder){toast('Этот браузер не умеет записывать голос');return;}
-  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:true});}catch(e){toast('Нет доступа к микрофону. Разрешите его в настройках браузера.');return;}
-  /* формат, который играет и iPhone, и компьютер (AAC в mp4); если нельзя — webm/opus */
-  const mt=['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/webm;codecs=opus','audio/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||'';
-  let r;try{r=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:64000}:{});}catch(e){r=new MediaRecorder(st);}
-  const parts=[];let why='';
-  /* браузерное распознавание речи больше не включаем: оно занимает микрофон, из-за него была тишина и обрыв записи. Текст делает сервер (кнопка «Aa») */
-  r.ondataavailable=e=>{if(e.data&&e.data.size)parts.push(e.data);};
-  r.onerror=e=>{why='ошибка записи: '+((e.error&&(e.error.name||e.error.message))||'неизвестно');};
-  st.getAudioTracks().forEach(t=>{t.onended=()=>{if(CH.rec&&CH.rec.r===r){why='микрофон отключился (его забрала другая программа или звонок)';try{r.stop();}catch(_){}}};});
-  r.onstop=async()=>{st.getTracks().forEach(t=>t.stop());clearInterval(CH.recT);const sent=CH.rec&&CH.rec.send;const secs=CH.recSec;CH.rec=null;VIEWS.chat.update();
-    if(why)toast('Запись остановилась на '+secs+' с: '+why);
-    if(!sent||!parts.length)return;
-    let mime=(r.mimeType||mt||'audio/webm');let blob=new Blob(parts,{type:mime});
-    /* переводим в MP3: его играют и iPhone, и Android, и компьютер */
-    try{const x=await toMp3(blob,secs);if(x){if(x.peak<0.01)toast('Похоже, микрофон записал тишину. Проверьте, какой микрофон выбран и не выключен ли он.');if(x.blob){blob=x.blob;mime='audio/mpeg';}}}catch(e){try{console.warn('mp3',e);}catch(_){}}
-    try{if(blob.size<=600000){const d=await fileToData(blob);await chatSend({kind:'voice',data:d});}
-      else{if(blob.size>FMAX){toast('Голосовое слишком большое.');return;}toast('Отправляем голосовое…');const {fid,n}=await putParts(CH.sel,new Uint8Array(await blob.arrayBuffer()));
-        await chatSend({kind:'voice',file:{fid,n,mime,size:blob.size}});}}catch(e){toast(dbErr(e));}};
-  CH.rec={r,send:true};CH.recSec=0;CH.recT=setInterval(()=>{CH.recSec++;const b=document.querySelector('#ch-go');if(b)b.textContent=recLabel();if(CH.recSec>=1800)stopVoice(true);},1000);
-  r.start();VIEWS.chat.update();
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('Этот браузер не умеет записывать голос');return;}
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC){toast('Этот браузер не умеет записывать голос');return;}
+  const ac=new AC();try{await ac.resume();}catch(_){}
+  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}catch(e){try{ac.close();}catch(_){}toast('Нет доступа к микрофону. Разрешите его в настройках.');return;}
+  try{await loadLame();}catch(e){st.getTracks().forEach(t=>t.stop());try{ac.close();}catch(_){}toast('Не удалось загрузить запись голоса. Проверьте интернет.');return;}
+  const enc=new lamejs.Mp3Encoder(1,VREC_SR,VREC_KBPS);const out=[];let bytes=0,peak=0,samples=0;
+  const ratio=ac.sampleRate/VREC_SR;let carry=new Float32Array(0);
+  const src=ac.createMediaStreamSource(st);const proc=(ac.createScriptProcessor||ac.createJavaScriptNode).call(ac,4096,1,1);const mute=ac.createGain();mute.gain.value=0;
+  proc.onaudioprocess=e=>{if(!CH.rec||CH.rec.ac!==ac)return;const inp=e.inputBuffer.getChannelData(0);
+    /* понижаем частоту с усреднением (простой фильтр) */
+    const buf=new Float32Array(carry.length+inp.length);buf.set(carry);buf.set(inp,carry.length);
+    const n=Math.floor(buf.length/ratio);const pcm=new Int16Array(n);
+    for(let i=0;i<n;i++){const s0=Math.floor(i*ratio),s1=Math.max(s0+1,Math.floor((i+1)*ratio));let v=0;for(let k=s0;k<s1;k++)v+=buf[k];v/=(s1-s0);
+      const av=Math.abs(v);if(av>peak)peak=av;if(av>lvl)lvl=av;v=Math.max(-1,Math.min(1,v));pcm[i]=v<0?v*32768:v*32767;}
+    carry=buf.slice(Math.floor(n*ratio));samples+=n;
+    const mp=enc.encodeBuffer(pcm);if(mp.length){out.push(mp);bytes+=mp.length;}};
+  let lvl=0;
+  src.connect(proc);proc.connect(mute);mute.connect(ac.destination);
+  let wl=null;try{if(navigator.wakeLock)wl=await navigator.wakeLock.request('screen');}catch(_){}
+  const rec={ac,st,send:true,why:'',stop:null};CH.rec=rec;CH.recSec=0;
+  st.getAudioTracks().forEach(t=>{t.onended=()=>{if(CH.rec===rec){rec.why='микрофон отключился (его забрала другая программа или звонок)';stopVoice(true);}};});
+  const onHide=()=>{if(document.hidden&&CH.rec===rec){rec.why='экран заблокировали или свернули программу';stopVoice(true);}};document.addEventListener('visibilitychange',onHide);
+  rec.stop=async()=>{document.removeEventListener('visibilitychange',onHide);clearInterval(CH.recT);try{src.disconnect();proc.disconnect();mute.disconnect();}catch(_){}
+    st.getTracks().forEach(t=>t.stop());try{wl&&wl.release();}catch(_){}try{await ac.close();}catch(_){}
+    const secs=Math.round(samples/VREC_SR);CH.rec=null;VIEWS.chat.update();
+    if(rec.why)toast('Запись остановилась на '+secs+' с: '+rec.why+'. Записанное отправлено.');
+    if(!rec.send)return;if(secs<1){toast('Слишком короткое голосовое');return;}
+    const f=enc.flush();if(f.length){out.push(f);bytes+=f.length;}
+    if(peak<0.01)toast('Микрофон записал тишину. Проверьте, какой микрофон выбран (например, наушники) и не выключен ли он.');
+    const blob=new Blob(out,{type:'audio/mpeg'});const mime='audio/mpeg';
+    try{if(blob.size<=600000){const d=await fileToData(blob);await chatSend({kind:'voice',data:d,dur:secs});}
+      else{toast('Отправляем голосовое…');const {fid,n}=await putParts(CH.sel,new Uint8Array(await blob.arrayBuffer()));
+        await chatSend({kind:'voice',file:{fid,n,mime,size:blob.size,dur:secs}});}}catch(e){toast(dbErr(e));}};
+  CH.recT=setInterval(()=>{CH.recSec=Math.floor(samples/VREC_SR);const b=document.querySelector('#ch-go');if(b)b.textContent=recLabel();
+    const m=document.getElementById('ch-lvl');if(m){m.style.width=Math.min(100,Math.round(Math.sqrt(lvl)*140))+'%';}lvl=0;
+    if(CH.recSec>=VREC_MAX){rec.why='достигнут предел 30 минут';stopVoice(true);}},250);
+  VIEWS.chat.update();
 }
 function recLabel(){return '⏹ '+Math.floor(CH.recSec/60)+':'+String(CH.recSec%60).padStart(2,'0');}
-/* голосовое → MP3 (моно 22 кГц, 48 кбит/с) + громкость, чтобы предупредить о тишине */
-let LAME=null;function loadLame(){return LAME||(LAME=new Promise((ok,no)=>{if(window.lamejs)return ok();const sc=document.createElement('script');sc.src='lame.min.js';sc.onload=()=>ok();sc.onerror=()=>{LAME=null;no(new Error('lame'));};document.head.appendChild(sc);}));}
-async function toMp3(blob,secs){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
-  const ac=new AC();let buf;try{const ab=await blob.arrayBuffer();buf=await new Promise((ok,no)=>{const p=ac.decodeAudioData(ab,ok,no);if(p&&p.then)p.then(ok,no);});}finally{try{ac.close();}catch(_){}}
-  const SR=22050;const n=Math.ceil(buf.duration*SR);
-  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(1,n,SR);const src=oc.createBufferSource();src.buffer=buf;src.connect(oc.destination);src.start();
-  const out=await new Promise((ok,no)=>{const p=oc.startRendering();if(p&&p.then)p.then(ok,no);else oc.oncomplete=e=>ok(e.renderedBuffer);});
-  const d=out.getChannelData(0);let pk=0;for(let i=0;i<d.length;i+=5){const v=Math.abs(d[i]);if(v>pk)pk=v;}
-  if(buf.duration>20*60)return {peak:pk};
-  await loadLame();const enc=new lamejs.Mp3Encoder(1,SR,48);const pcm=new Int16Array(d.length);for(let i=0;i<d.length;i++){const v=Math.max(-1,Math.min(1,d[i]));pcm[i]=v<0?v*32768:v*32767;}
-  const chunks=[];for(let i=0;i<pcm.length;i+=1152*20){const c=enc.encodeBuffer(pcm.subarray(i,i+1152*20));if(c.length)chunks.push(c);if(i%(1152*2000)===0)await new Promise(z=>setTimeout(z,0));}
-  const f=enc.flush();if(f.length)chunks.push(f);return {peak:pk,blob:new Blob(chunks,{type:'audio/mpeg'})};}
-function stopVoice(send){if(!CH.rec)return;CH.rec.send=send;try{CH.rec.r.stop();}catch(e){}}
+function stopVoice(send){const r=CH.rec;if(!r||r.stopping)return;r.stopping=true;r.send=send;r.stop();}
 document.addEventListener('click',async e=>{
   if(!e.target.closest('#chat-b'))return;
   const t=e.target;let b;
@@ -2454,6 +2470,7 @@ document.addEventListener('click',async e=>{
   if(t.closest('[data-cpick-x]')){CH.pickOrd=false;VIEWS.chat.update();return;}
   if(t.closest('[data-cemo]')){CH.draft=($('ch-in')||{}).value||'';CH.clip=false;CH.emo=!CH.emo;VIEWS.chat.update();return;}
   if((b=t.closest('[data-emo]'))){const i=$('ch-in');i.value+=b.dataset.emo;CH.draft=i.value;syncGo();return;}
+  if(t.closest('[data-crec-x]')){stopVoice(false);return;}
   if(t.closest('[data-cvoice]')){if(CH.rec)stopVoice(true);else startVoice();return;}
   if(t.closest('#ch-go')){if(CH.rec)stopVoice(true);else if(hasToSend())$('ch-f').requestSubmit();else startVoice();return;}
   if(t.closest('[data-cclip]')){CH.draft=($('ch-in')||{}).value||'';CH.clip=!CH.clip;CH.emo=false;VIEWS.chat.update();return;}
@@ -2499,7 +2516,7 @@ function tkName(x){return S.names[x.to]||x.toName||'—';}
 function tkKey(x){return x.to||('n:'+(x.toName||''));}
 /* исполнители: пользователи программы + сотрудники из Справочника (без аккаунта) */
 function tkPeople(){const us=(CH.people||[]).map(p=>({v:p.uid,n:p.name+(p.uid===S.me?' (я)':'')}));const have=new Set((CH.people||[]).map(p=>p.name.toLowerCase()));
-  const names=[...staff(),...workersOf('w11'),...workersOf('w9')].map(x=>String(x||'').trim()).filter(Boolean);const seen=new Set();
+  const names=emps().map(x=>String(x||'').trim()).filter(Boolean);const seen=new Set();
   const ext=names.filter(n=>{const k=n.toLowerCase();if(have.has(k)||seen.has(k))return false;seen.add(k);return true;}).sort((a,b)=>a.localeCompare(b,'ru')).map(n=>({v:'n:'+n,n:n+' (без аккаунта)'}));
   return [...us,...ext];}
 function tkMineOpen(){return TK.list.filter(x=>x.to===S.me&&x.st!=='done');}
@@ -2523,7 +2540,8 @@ function tkFormHtml(){const f=TK.form;const ppl=CH.people||[];
   return '<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h2>'+(f.id?'Изменить задачу':'Новая задача')+'</h2><button type="button" class="link" data-tk-x>Отмена</button></div>'+
     '<div class="tk-form">'+textField('tk-t','Что сделать',f.t||'','wide')+
     '<label class="fld wide"><span>Подробно (необязательно)</span><textarea id="tk-d" rows="3">'+esc(f.d||'')+'</textarea></label>'+
-    (()=>{const cur=f.to||(f.toName?'n:'+f.toName:'');const L=tkPeople();if(cur&&!L.some(o=>o.v===cur))L.push({v:cur,n:f.toName||cur});return '<label class="fld"><span>Кому</span><select id="tk-to"><option value="">— выберите —</option>'+L.map(o=>'<option value="'+esc(o.v)+'"'+(cur===o.v?' selected':'')+'>'+esc(o.n)+'</option>').join('')+'</select></label>';})()+
+    (()=>{const cur=f.to||(f.toName?'n:'+f.toName:'');const L=tkPeople();if(cur&&!L.some(o=>o.v===cur))L.push({v:cur,n:f.toName||cur});return '<label class="fld"><span>Кому</span><select id="tk-to"><option value="">— выберите —</option>'+L.map(o=>'<option value="'+esc(o.v)+'"'+(cur===o.v?' selected':'')+'>'+esc(o.n)+'</option>').join('')+'<option value="__manual"'+(f.to==='__manual'?' selected':'')+'>✍️ Вписать имя вручную…</option></select></label>'+
+      (f.to==='__manual'?'<label class="fld"><span>Имя сотрудника</span><input id="tk-toN" value="'+esc(f.toN||'')+'" placeholder="Например: Иван"></label>':'');})()+
     dateField('tk-due','Срок (необязательно)',f.due||'')+
     '<label class="fld"><span>Заказ (необязательно)</span><select id="tk-ord"><option value="">— без заказа —</option>'+ords.map(o=>'<option value="'+esc(o.id)+'"'+(f.ord&&f.ord.id===o.id?' selected':'')+'>№'+esc(o.no)+' · '+esc(o.obj||'')+'</option>').join('')+'</select></label>'+
     '</div><p class="err" id="tk-err" hidden></p><div class="actions"><button type="button" class="primary" data-tk-save>'+(f.id?'Сохранить':'Поставить задачу')+'</button></div></div>';}
@@ -2575,7 +2593,8 @@ document.addEventListener('click',async e=>{
   if(t.closest('[data-tk-new]')){await loadPeople();TK.form={to:'',due:''};VIEWS.tasks.update();window.scrollTo(0,0);const i=$('tk-t');if(i)i.focus();return;}
   if(t.closest('[data-tk-x]')){TK.form=null;VIEWS.tasks.update();return;}
   if((b=t.closest('[data-tk-ed]'))){await loadPeople();const x=TK.list.find(z=>z.id===b.dataset.tkEd);if(x){TK.form={...x};VIEWS.tasks.update();window.scrollTo(0,0);}return;}
-  if(t.closest('[data-tk-save]')){const f=TK.form;const er=$('tk-err');const tt=$('tk-t').value.trim();const to=$('tk-to').value;
+  if(t.closest('[data-tk-save]')){const f=TK.form;const er=$('tk-err');const tt=$('tk-t').value.trim();let to=$('tk-to').value;
+    if(to==='__manual'){const nm=($('tk-toN')||{}).value||'';if(!nm.trim()){er.textContent='Впишите имя сотрудника.';er.hidden=false;return;}to='n:'+nm.trim();}
     if(!tt){er.textContent='Впишите, что нужно сделать.';er.hidden=false;return;}if(!to){er.textContent='Выберите, кому задача.';er.hidden=false;return;}
     const oid=$('tk-ord').value;const o=oid?S.orders.find(z=>z.id===oid):null;const now=new Date().toISOString();
     const isN=to.indexOf('n:')===0;const toName=isN?to.slice(2):((CH.people||[]).find(p=>p.uid===to)||{}).name||'';
@@ -2591,7 +2610,7 @@ document.addEventListener('click',async e=>{
   if((b=t.closest('[data-cord-t]'))){const id=b.dataset.cordT;if(tabOk('orders')&&S.orders.some(o=>o.id===id)){go('orders');openOrder(id);}else if(tabOk('porders'))go('porders');return;}
   if((b=t.closest('[data-tk-open]'))){const id=b.dataset.tkOpen;if(TK.open.has(id))TK.open.delete(id);else TK.open.add(id);VIEWS.tasks.update();return;}
 });
-document.addEventListener('input',e=>{const f=TK.form;if(!f||!e.target.closest('.tk-form'))return;const m={'tk-t':'t','tk-d':'d','tk-to':'to','tk-due':'due'};const k=m[e.target.id];if(k)f[k]=e.target.value;if(e.target.id==='tk-ord'){const o=S.orders.find(z=>z.id===e.target.value);f.ord=o?{id:o.id,no:o.no,obj:o.obj}:null;}});
+document.addEventListener('input',e=>{const f=TK.form;if(!f||!e.target.closest('.tk-form'))return;const m={'tk-t':'t','tk-d':'d','tk-to':'to','tk-due':'due','tk-toN':'toN'};const k=m[e.target.id];if(k)f[k]=e.target.value;if(e.target.id==='tk-to'&&(e.target.value==='__manual'||f._man)){f._man=e.target.value==='__manual';try{document.activeElement.blur();}catch(_){}VIEWS.tasks.update();if(f._man)setTimeout(()=>{const i=$('tk-toN');if(i)i.focus();},50);}if(e.target.id==='tk-ord'){const o=S.orders.find(z=>z.id===e.target.value);f.ord=o?{id:o.id,no:o.no,obj:o.obj}:null;}});
 document.addEventListener('change',e=>{if(e.target.closest&&e.target.closest('.tk-form'))e.target.dispatchEvent(new Event('input',{bubbles:true}));});
 document.addEventListener('focusout',e=>{if(TK.dirty&&e.target.closest&&e.target.closest('#tasks-b'))setTimeout(()=>{if(TK.dirty&&S.view==='tasks')VIEWS.tasks.update();},200);});
 document.addEventListener('change',e=>{if(e.target.id==='tk-who'){TK.who=e.target.value;e.target.blur();VIEWS.tasks.update();}});
@@ -2889,7 +2908,7 @@ async function restoreBackup(slot){
 }
 function staffPanel(){
   const ro=RO('catalog')?' disabled':'';
-  return '<div class="panel cat-card" style="margin-top:14px;max-width:420px"><h3>Оформители заказов и возвратов</h3><label class="fld"><span>По одному имени в строке</span><textarea id="staff-ta" style="min-height:100px"'+ro+'>'+esc(staff().join('\n'))+'</textarea></label>'+(RO('catalog')?'':'<div><button type="button" class="ghost" id="staff-save">Сохранить список</button></div>')+'</div>';
+  return '<div class="panel cat-card" style="margin-top:14px;max-width:420px"><h3>Кто оформляет заказы и возвраты</h3><p class="muted" style="margin:0 0 8px;font-size:13px">Эти имена выбираются в бланке заказа в поле «Оформил(а)».</p><label class="fld"><span>По одному имени в строке</span><textarea id="staff-ta" style="min-height:100px"'+ro+'>'+esc(staff().join('\n'))+'</textarea></label>'+(RO('catalog')?'':'<div><button type="button" class="ghost" id="staff-save">Сохранить список</button></div>')+'</div>';
 }
 function wireStaff(){
   const b=$('staff-save');if(!b)return;
@@ -2898,6 +2917,8 @@ function wireStaff(){
 }
 
 /* ---- справочник: списки производств ---- */
+/* все сотрудники фирмы (для задач); пока список не заведён — собираем из оформителей и рабочих */
+function emps(){const l=S.lists&&S.lists.emps;if(Array.isArray(l)&&l.length)return l;const seen=new Set();return [...staff(),...workersOf('w11'),...workersOf('w9')].map(x=>String(x||'').trim()).filter(x=>x&&!seen.has(x.toLowerCase())&&seen.add(x.toLowerCase()));}
 function workersOf(key){const l=S.lists&&S.lists[key];return Array.isArray(l)?l:[];}
 function listPanel(key,title,hint,vals){const ro=RO('catalog')?' disabled':'';
   return '<div class="panel cat-card"><h3>'+esc(title)+'</h3><label class="fld"><span>'+esc(hint)+'</span><textarea data-lst="'+key+'" style="min-height:120px"'+ro+'>'+esc(vals.join('\n'))+'</textarea></label>'+(ro?'':'<div><button type="button" class="ghost" data-lst-save="'+key+'">Сохранить</button></div>')+'</div>';}
