@@ -140,6 +140,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 .md-item[aria-expanded="true"] .md-arr{transform:rotate(90deg)}
 .md-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .md-out{background:none;border:1px solid var(--line);border-radius:18px;padding:7px 12px;font-size:14px;color:var(--danger,#c62828);cursor:pointer}
+.ctrx{margin-top:6px;padding:6px 8px;border-left:3px solid var(--accent);background:rgba(127,127,127,.08);border-radius:6px;font-size:14px}
+.ctrx-h{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:3px;flex-wrap:wrap}
+.ctrx-h .link{font-size:12px;padding:0 2px}.ctrx-h .link.on{font-weight:700;text-decoration:underline}
 .vspeed{font-size:12px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;margin-left:6px}
 .vrow{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
 .vtr{font-size:13.5px;margin-top:4px;padding:4px 8px;border-left:3px solid var(--line);color:var(--ink)}
@@ -2079,11 +2082,33 @@ function msgHtml(m,prev){
   if(m.re)body=quoteHtml(m.re,true)+body;
   if(m.ord)body+=ordCard(m.ord);
   if(m.t)body+='<div class="ctext">'+esc(m.t).replace(/\n/g,'<br>')+'</div>';
+  if(TRX[m.id])body+=trxHtml(m.id);
   const av=!mine&&!same&&window.SKLAD_AVA?'<span class="cava">'+window.SKLAD_AVA((CH.ava&&CH.ava[m.uid])||{name:S.names[m.uid]||'?'},28)+'</span>':'';
   return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+(av?' hasava':'')+'" id="cm-'+esc(m.id)+'">'+av+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+body+'<div class="ctime">'+(m.ed?'<span class="ced">изменено</span> ':'')+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия: ответить, копировать, переслать…">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';
 }
 function fsize(n){n=Number(n)||0;return n>=1048576?(n/1048576).toFixed(1).replace('.',',')+' МБ':Math.max(1,Math.round(n/1024))+' КБ';}
 const VSPEED={},VTR=new Set();
+/* перевод прямо в чате */
+const TRX={};const TRL=[['ru','RU'],['ro','RO'],['uk','UA'],['en','EN']];
+function trxHtml(id){const r=TRX[id];
+  const langs=TRL.map(([k,l])=>'<button type="button" class="link'+(r.tl===k?' on':'')+'" data-trx-l="'+k+'" data-trx="'+esc(id)+'">'+l+'</button>').join(' ');
+  return '<div class="ctrx"><div class="ctrx-h">🌐 Перевод'+(r.src&&r.s==='ok'?' <span class="muted">('+esc(r.src)+' → '+esc(r.tl)+')</span>':'')+'<span style="flex:1"></span>'+langs+' <button type="button" class="link" data-trx-x="'+esc(id)+'" title="Скрыть">✕</button></div>'+
+    (r.s==='load'?'<div class="muted">переводим…</div>':r.s==='err'?'<div class="muted">Не удалось перевести. Проверьте интернет и попробуйте ещё раз.</div>':'<div>'+esc(r.t).replace(/\n/g,'<br>')+'</div>')+'</div>';}
+async function translateMsg(id,txt,tl){
+  if(!tl){try{tl=localStorage.getItem('sklad-trl')||'';}catch(_){}tl=tl||'ru';}
+  TRX[id]={s:'load',tl,txt};VIEWS.chat.update();
+  try{const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+tl+'&dt=t&q='+encodeURIComponent(txt.slice(0,4500)));
+    if(!r.ok)throw 0;const j=await r.json();const t=(j[0]||[]).map(x=>x&&x[0]||'').join('');const src=j[2]||'';
+    if(!TRX[id]||TRX[id].tl!==tl)return;
+    /* уже на этом языке — переводим на русский или, если по-русски, на румынский */
+    if(src===tl&&!TRX[id].auto){const alt=tl==='ru'?'ro':'ru';TRX[id].auto=1;return translateMsg2(id,txt,alt);}
+    TRX[id]={s:'ok',t,src,tl,txt};}
+  catch(e){if(TRX[id])TRX[id].s='err';}
+  VIEWS.chat.update();}
+async function translateMsg2(id,txt,tl){TRX[id]={s:'load',tl,txt,auto:1};VIEWS.chat.update();
+  try{const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl='+tl+'&dt=t&q='+encodeURIComponent(txt.slice(0,4500)));if(!r.ok)throw 0;const j=await r.json();
+    if(!TRX[id]||TRX[id].tl!==tl)return;TRX[id]={s:'ok',t:(j[0]||[]).map(x=>x&&x[0]||'').join(''),src:j[2]||'',tl,txt};}catch(e){if(TRX[id])TRX[id].s='err';}
+  VIEWS.chat.update();}
 function msgPreview(m){if(m.kind==='del')return 'Сообщение удалено';if(m.kind==='file')return ('📄 '+(m.name||'файл')+' '+(m.t||'')).trim();const k=m.kind==='img'?'📷 Фото':m.kind==='voice'?'🎤 Голосовое':m.kind==='video'?'🎬 Видео':'';return ((k?k+' ':'')+(m.ord?'📦 №'+m.ord.no+' ':'')+(m.t||'')).trim().slice(0,140);}
 function quoteHtml(r,jump){return '<div class="cquote"'+(jump&&r.id?' data-cjump="'+esc(r.id)+'"':'')+'><b>'+esc(S.names[r.uid]||r.name||'…')+(r.ch?' <span class="muted">· '+esc(r.ch)+'</span>':'')+'</b>'+esc(r.t||'')+'</div>';}
 function visMsgs(){const h=(CH.reads&&CH.reads.hide)||{};return CH.msgs.filter(m=>!h[m.id]);}
@@ -2099,7 +2124,7 @@ function canWrite(id){return chatLv(id)==='edit';}
 function menuHtml(m){const mine=m.uid===S.me;
   if(m.kind==='del'){const B0=(a,l)=>'<button type="button" class="del" data-cact="'+a+'" data-mid="'+esc(m.id)+'">'+l+'</button>';return '<div class="cmenu">'+B0('hide','🗑 Убрать у себя')+(S.chatMod?B0('wipe','🗑 Удалить без следа'):'')+'</div>';}const c=CH.list.find(x=>x.id===CH.sel)||{id:CH.sel};const w=canWrite(CH.sel);const pinned=pinsOf(c).some(x=>x.id===m.id);
   const B=(a,l,cl)=>'<button type="button" data-cact="'+a+'" data-mid="'+esc(m.id)+'"'+(cl?' class="'+cl+'"':'')+'>'+l+'</button>';
-  return '<div class="cmenu">'+(w?B('reply','↩ Ответить'):'')+(!mine&&c.type!=='dm'?B('dm','💬 Ответить лично'):'')+(m.t?B('copy','📋 Копировать'):'')+B('fwd','↪ Переслать')+(m.t?B('tr','🌐 Перевести'):'')+
+  return '<div class="cmenu">'+(w?B('reply','↩ Ответить'):'')+(!mine&&c.type!=='dm'?B('dm','💬 Ответить лично'):'')+(m.t?B('copy','📋 Копировать'):'')+B('fwd','↪ Переслать')+(m.t||m.tr?B('tr','🌐 Перевести'):'')+
     (w?B('pin',pinned?'📌 Открепить':'📌 Закрепить'):'')+(mine&&m.t&&m.kind!=='del'?B('edit','✏️ Изменить'):'')+B('del','🗑 Удалить','del')+'</div>'+
     (CH.delAsk===m.id?'<div class="cmenu"><span class="muted" style="font-size:12.5px;align-self:center">Удалить:</span>'+B('hide','у себя')+((mine||S.chatMod)&&m.kind!=='del'?B('delall','у всех','del'):'')+(S.chatMod?B('wipe','без следа','del'):'')+'</div>':'');}
 function jumpTo(id){const el=document.getElementById('cm-'+id);if(!el){toast('Это сообщение уже не загружено');return;}el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1500);}
@@ -2116,7 +2141,7 @@ async function msgAction(a,mid){const m=CH.msgs.find(x=>x.id===mid);CH.menu=null
   if(a==='dm'){const from=chatName(CH.list.find(x=>x.id===CH.sel)||{id:CH.sel});const r={uid:m.uid,name:S.names[m.uid]||'',t:msgPreview(m),ch:from};
     try{await openDm(m.uid);CH.edit=null;CH.reply=r;VIEWS.chat.update();focusIn();}catch(x){toast(dbErr(x));}return;}
   if(a==='copy'){try{await navigator.clipboard.writeText(m.t);toast('Текст скопирован');}catch(e){const ta=document.createElement('textarea');ta.value=m.t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Текст скопирован');}catch(_){toast('Не удалось скопировать');}ta.remove();}VIEWS.chat.update();return;}
-  if(a==='tr'){window.open('https://translate.google.com/?sl=auto&tl=ru&op=translate&text='+encodeURIComponent(m.t),'_blank','noopener');VIEWS.chat.update();return;}
+  if(a==='tr'){CH.menu=null;translateMsg(m.id,m.t||m.tr||'');return;}
   if(a==='fwd'){CH.fwd=m;await loadPeople();CH.form={kind:'fwd'};VIEWS.chat.update();return;}
   if(a==='pin'){const c=CH.list.find(x=>x.id===CH.sel)||{};const P=pinsOf(c);const un=P.some(x=>x.id===m.id);
     const pins=un?P.filter(x=>x.id!==m.id):[...P,{id:m.id,uid:m.uid,t:msgPreview(m),at:new Date().toISOString()}].slice(-30);CH.pinIdx=0;
@@ -2250,6 +2275,8 @@ document.addEventListener('click',async e=>{
   if((b=t.closest('[data-cord]'))){const id=b.dataset.cord;if(tabOk('orders')&&S.see.orders!==false&&S.orders.some(o=>o.id===id)){go('orders');openOrder(id);}else{const o=S.orders.find(z=>z.id===id);if(o&&tabOk('porders'))go('porders');else toast('Этот заказ вам не виден');}return;}
   if(t.closest('[data-cattach-x]')){CH.attach=null;VIEWS.chat.update();return;}
   if((b=t.closest('[data-vspeed]'))){const id=b.dataset.vspeed;const n={1:1.5,1.5:2,2:1}[VSPEED[id]||1];VSPEED[id]=n;b.textContent=n+'×';const a=document.querySelector('audio[data-vid="'+id+'"]');if(a)a.playbackRate=n;return;}
+  if((b=t.closest('[data-trx-x]'))){delete TRX[b.dataset.trxX];VIEWS.chat.update();return;}
+  if((b=t.closest('[data-trx-l]'))){const id=b.dataset.trx,r=TRX[id];if(r){try{localStorage.setItem('sklad-trl',b.dataset.trxL);}catch(_){}TRX[id]={s:'load',tl:b.dataset.trxL,txt:r.txt,auto:1};translateMsg2(id,r.txt,b.dataset.trxL);}return;}
   if((b=t.closest('[data-vtr]'))){const id=b.dataset.vtr;if(VTR.has(id))VTR.delete(id);else VTR.add(id);VIEWS.chat.update();return;}
   if((b=t.closest('[data-cfile]'))){const m=CH.msgs.find(x=>x.id===b.dataset.cfile);if(m)await downloadFile(m);return;}
   if((b=t.closest('[data-cmenu]'))){CH.delAsk=null;CH.menu=CH.menu===b.dataset.cmenu?null:b.dataset.cmenu;VIEWS.chat.update();return;}
