@@ -226,9 +226,11 @@ function addBar(){
   bar.innerHTML='<button type="button" class="ghost sa-b" id="sa-install"'+(installEvt?'':' hidden')+'>Установить</button>'+
     (role==='owner'?'<button type="button" class="ghost sa-b" id="sa-acc">Доступ</button>':'')+
     '<button type="button" class="sa-ava" id="sa-prof" title="Профиль и выход"></button>';
-  fs.doc('people/'+me.uid).onSnapshot(s=>{MYP=s.exists?s.data():{};const n=MYP.name||'';window.SKLAD_ME_NAME=n;const b=$('sa-prof');if(b)b.innerHTML=avaHtml(MYP,30);},()=>{});
+  fs.doc('people/'+me.uid).onSnapshot(s=>{MYP=s.exists?s.data():{};const n=MYP.name||'';window.SKLAD_ME_NAME=n;const b=$('sa-prof');if(b)b.innerHTML=avaHtml(MYP,30);if(window.SKLAD_ME_CHANGED)window.SKLAD_ME_CHANGED();},()=>{});
   brand.appendChild(bar);
   $('sa-prof').onclick=openProfile;
+  /* для мобильного меню ☰ */
+  window.SKLAD_ME={get p(){return MYP||{};},ava:sz=>avaHtml(MYP||{},sz),profile:openProfile,access:role==='owner'?openAccessFresh:null,signOut:()=>{if(confirm('Выйти из программы?'))auth.signOut();},email:me.email};
   if(role==='owner')loadPeople().then(()=>{const n=pendingList().length;const b=$('sa-acc');if(b&&n)b.innerHTML='Доступ <span class="cbadge">'+n+'</span>';});
   $('sa-install').onclick=async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice;}catch(e){}installEvt=null;$('sa-install').hidden=true;};
   const ab=$('sa-acc');if(ab)ab.onclick=openAccessFresh;
