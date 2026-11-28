@@ -104,7 +104,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 .cbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
 .citem{display:grid;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;position:relative}
 .citem.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
-.citem .cbadge{position:absolute;right:10px;top:8px}
+.citem .cbadge{position:absolute;right:34px;top:8px}
+.crow{position:relative;display:grid}
+.crow .citem{padding-right:40px}
+.chdots{position:absolute;right:4px;top:6px;font-size:18px;padding:2px 8px;text-decoration:none}
+.chmenu{margin:4px 0 6px;border-top:none;padding-top:0}
 .cbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--danger,#c62828);color:#fff;font-size:11px;line-height:18px;text-align:center;font-weight:700}
 .cpane{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;height:calc(100vh - var(--toph,120px) - 40px);height:calc(var(--vvh,100dvh) - var(--toph,120px) - 40px);min-height:380px}
 .cback{display:none}
@@ -2150,7 +2154,40 @@ async function translateMsg2(id,txt,tl){TRX[id]={s:'load',tl,txt,auto:1};VIEWS.c
   VIEWS.chat.update();}
 function msgPreview(m){if(m.kind==='del')return 'Сообщение удалено';if(m.kind==='file')return ('📄 '+(m.name||'файл')+' '+(m.t||'')).trim();const k=m.kind==='img'?'📷 Фото':m.kind==='voice'?'🎤 Голосовое':m.kind==='video'?'🎬 Видео':'';return ((k?k+' ':'')+(m.ord?'📦 №'+m.ord.no+' ':'')+(m.t||'')).trim().slice(0,140);}
 function quoteHtml(r,jump){return '<div class="cquote"'+(jump&&r.id?' data-cjump="'+esc(r.id)+'"':'')+'><b>'+esc(S.names[r.uid]||r.name||'…')+(r.ch?' <span class="muted">· '+esc(r.ch)+'</span>':'')+'</b>'+esc(r.t||'')+'</div>';}
-function visMsgs(){const h=(CH.reads&&CH.reads.hide)||{};return CH.msgs.filter(m=>!h[m.id]);}
+function visMsgs(){const h=(CH.reads&&CH.reads.hide)||{};const cl=((CH.reads&&CH.reads.cleared)||{})[CH.sel]||'';return CH.msgs.filter(m=>!h[m.id]&&(!cl||m.at>cl));}
+/* ---------- действия с чатами, как в Telegram: закрепить, очистить, закрыть, выйти, удалить ---------- */
+function chatClosed(c){const cl=((CH.reads&&CH.reads.closed)||{})[c.id];return !!cl&&!(c.last&&c.last.at>cl&&c.last.uid!==S.me);}
+function chatPinned(c){return !!((CH.reads&&CH.reads.cpins)||{})[c.id];}
+function chatsShown(){const P=(CH.reads&&CH.reads.cpins)||{};const L=CH.list.filter(c=>CH.showClosed?chatClosed(c):!chatClosed(c)||c.id===CH.sel);
+  return L.sort((a,b)=>((P[b.id]||'')>(P[a.id]||'')?1:(P[b.id]||'')<(P[a.id]||'')?-1:0)||0);}
+function chatCanDelAll(c){return !FIXED[c.id]&&(c.type==='dm'||c.by===S.me);}
+function chatMenuHtml(c){const B=(a,l,cl)=>'<button type="button" data-chact="'+a+'" data-chid="'+esc(c.id)+'"'+(cl?' class="'+cl+'"':'')+'>'+l+'</button>';
+  if(CH.chDel===c.id)return '<div class="cmenu chmenu"><span class="muted" style="font-size:12.5px;align-self:center">Удалить чат:</span>'+B('delme','у себя','del')+(chatCanDelAll(c)?B('delall',c.type==='dm'?'у обоих':'для всех','del'):'')+B('x','Отмена')+'</div>';
+  return '<div class="cmenu chmenu">'+B('pin',chatPinned(c)?'📌 Открепить':'📌 Закрепить')+B('clear','🧹 Очистить историю')+(chatClosed(c)?B('open','📂 Вернуть в список'):B('close','📁 Закрыть чат'))+
+    (c.type==='group'&&c.by!==S.me?B('leave','🚪 Выйти из группы','del'):'')+(!FIXED[c.id]?B('del','🗑 Удалить чат','del'):'')+'</div>';}
+async function readsSet(field,id,v){const val=v===null?'':v;
+  CH.reads[field]={...(CH.reads[field]||{})};if(v===null)delete CH.reads[field][id];else CH.reads[field][id]=v;
+  await rawdb.doc('reads/'+S.me).set({[field]:{[id]:val}},{merge:true});}
+async function wipeChat(id){/* сначала сообщения и файлы, потом сам чат */
+  for(const col of ['msgs','files']){for(;;){const q=await rawdb.collection('chats/'+id+'/'+col).limit(200).get();if(q.empty)break;await Promise.all(q.docs.map(d=>d.ref.delete()));if(q.size<200)break;}}
+  await rawdb.doc('chats/'+id).delete();}
+function chatGone(id){CH.list=CH.list.filter(x=>x.id!==id);if(CH.extra)delete CH.extra[id];if(CH.sel===id){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}CH.sel=null;CH.msgs=[];CH.mobList=true;}}
+async function chatAction(a,id){const c=CH.list.find(x=>x.id===id)||{id};const now=new Date().toISOString();CH.chMenu=null;
+  try{
+    if(a==='x'){CH.chDel=null;}
+    else if(a==='pin')await readsSet('cpins',id,chatPinned(c)?null:now);
+    else if(a==='clear'){if(!confirm('Очистить историю этого чата у вас? У других сообщения останутся.'))return;await readsSet('cleared',id,now);toast('История очищена');}
+    else if(a==='close'){await readsSet('closed',id,now);if(CH.sel===id){CH.mobList=true;}toast('Чат закрыт. Он вернётся, когда придёт новое сообщение, или в «Закрытые чаты»');}
+    else if(a==='open')await readsSet('closed',id,null);
+    else if(a==='leave'){if(!confirm('Выйти из группы «'+chatName(c)+'»?'))return;await rawdb.doc('chats/'+id).update({members:(c.members||[]).filter(u=>u!==S.me)});chatGone(id);toast('Вы вышли из группы');}
+    else if(a==='del'){CH.chDel=id;CH.chMenu=id;}
+    else if(a==='delme'){CH.chDel=null;
+      if(c.type==='group'&&c.by!==S.me){await rawdb.doc('chats/'+id).update({members:(c.members||[]).filter(u=>u!==S.me)});chatGone(id);}
+      else{await readsSet('cleared',id,now);await readsSet('closed',id,now);if(CH.sel===id)CH.mobList=true;}
+      toast('Чат удалён у вас');}
+    else if(a==='delall'){if(!confirm(c.type==='dm'?'Удалить переписку у обоих? Это нельзя отменить.':'Удалить группу «'+chatName(c)+'» для всех участников? Это нельзя отменить.'))return;CH.chDel=null;toast('Удаляем…');await wipeChat(id);chatGone(id);toast('Чат удалён');}
+  }catch(x){toast(dbErr(x));}
+  VIEWS.chat.update();}
 /* правая кнопка: микрофон, а когда есть что отправить — самолётик */
 function hasToSend(){const i=$('ch-in');return !!((i&&i.value.trim())||(CH.sel==='orders'&&CH.attach)||CH.edit);}
 function syncGo(){const b=$('ch-go');if(!b||CH.rec)return;const s=hasToSend();b.classList.toggle('send',s);b.innerHTML=s?'<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10.2 15 12 3.4 13.8z"/></svg>':'🎤';b.title=s?'Отправить':'Голосовое (нажмите, чтобы начать и закончить запись)';}
@@ -2201,8 +2238,10 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
   const L=$('ch-list');
   L.innerHTML='<div class="cbtns"><button type="button" class="ghost" data-cnew="group">+ Группа</button><button type="button" class="ghost" data-cnew="dm">+ Личный чат</button></div>'+
     (('Notification' in window)&&Notification.permission!=='granted'?'<button type="button" class="link" data-cnotif style="margin:0 0 8px">Включить уведомления</button>':'')+
-    CH.list.map(x=>'<button type="button" class="citem'+(x.id===CH.sel?' on':'')+'" data-chat="'+esc(x.id)+'"><b>'+esc(chatName(x))+'</b>'+(chatUnread(x)?'<span class="cbadge">•</span>':'')+
-      '<small class="muted">'+(x.type==='group'?'группа · ':x.type==='dm'?'личный · ':x.id==='orders'?'вопросы по заказам · ':'все · ')+(x.last?esc((x.last.uid===S.me?'вы: ':'')+x.last.t).slice(0,40):'нет сообщений')+'</small></button>').join('');
+    (CH.showClosed?'<button type="button" class="link" data-chclosed style="margin:0 0 8px">← Все чаты</button>':'')+
+    chatsShown().map(x=>'<div class="crow"><button type="button" class="citem'+(x.id===CH.sel?' on':'')+'" data-chat="'+esc(x.id)+'"><b>'+(chatPinned(x)?'📌 ':'')+esc(chatName(x))+'</b>'+(chatUnread(x)?'<span class="cbadge">•</span>':'')+
+      '<small class="muted">'+(x.type==='group'?'группа · ':x.type==='dm'?'личный · ':x.id==='orders'?'вопросы по заказам · ':'все · ')+(x.last?esc((x.last.uid===S.me?'вы: ':'')+x.last.t).slice(0,40):'нет сообщений')+'</small></button><button type="button" class="link chdots" data-chmenu="'+esc(x.id)+'" title="Закрепить, очистить, закрыть, удалить">⋯</button>'+(CH.chMenu===x.id?chatMenuHtml(x):'')+'</div>').join('')+
+    (()=>{const n=CH.list.filter(chatClosed).length;return !CH.showClosed&&n?'<button type="button" class="link" data-chclosed style="margin:8px 0 0">📁 Закрытые чаты ('+n+')</button>':'';})();
   const P=$('ch-pane');
   if(CH.form){P.innerHTML=chatFormHtml();return;}
   if(!c){P.innerHTML='<div class="panel empty">Выберите чат слева.</div>';return;}
@@ -2342,6 +2381,9 @@ function stopVoice(send){if(!CH.rec)return;CH.rec.send=send;try{CH.rec.r.stop();
 document.addEventListener('click',async e=>{
   if(!e.target.closest('#chat-b'))return;
   const t=e.target;let b;
+  if((b=t.closest('[data-chmenu]'))){const id=b.dataset.chmenu;CH.chDel=null;CH.chMenu=CH.chMenu===id?null:id;VIEWS.chat.update();return;}
+  if((b=t.closest('[data-chact]'))){await chatAction(b.dataset.chact,b.dataset.chid);return;}
+  if(t.closest('[data-chclosed]')){CH.showClosed=!CH.showClosed;CH.chMenu=null;VIEWS.chat.update();return;}
   if((b=t.closest('[data-chat]'))){CH.form=null;CH.mobList=false;openChat(b.dataset.chat);VIEWS.chat.update(true);if(window.innerWidth<=800)window.scrollTo(0,0);return;}
   if(t.closest('[data-cback]')){CH.mobList=true;VIEWS.chat.update();window.scrollTo(0,0);return;}
   if((b=t.closest('[data-cord]'))){const id=b.dataset.cord;if(tabOk('orders')&&S.see.orders!==false&&S.orders.some(o=>o.id===id)){go('orders');openOrder(id);}else{const o=S.orders.find(z=>z.id===id);if(o&&tabOk('porders'))go('porders');else toast('Этот заказ вам не виден');}return;}

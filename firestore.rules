@@ -43,12 +43,14 @@ service cloud.firestore {
     function fx(i) { return i == 'all' || i == 'orders'; }
     function fk(i) { return i == 'all' ? 'chatall' : 'chatord'; }
     function clv(s) { return isFull() ? 'edit' : isViewer() ? 'view' : custom() ? perms()[email()].get(s, 'edit') : 'none'; }
+    function chatBoss(id) { return !fx(id) && (get(/databases/$(database)/documents/chats/$(id)).data.by == me()
+      || (get(/databases/$(database)/documents/chats/$(id)).data.type == 'dm' && me() in get(/databases/$(database)/documents/chats/$(id)).data.members)); }
     match /chats/{id} {
       allow get: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in resource.data.members);
       allow list: if anyAccess() && me() in resource.data.members;
       allow create: if anyAccess() && (fx(id) ? clv(fk(id)) == 'edit' : (me() in request.resource.data.members && request.resource.data.by == me()));
       allow update: if anyAccess() && (fx(id) ? clv(fk(id)) == 'edit' : me() in resource.data.members);
-      allow delete: if anyAccess() && !fx(id) && resource.data.by == me();
+      allow delete: if anyAccess() && !fx(id) && (resource.data.by == me() || (resource.data.type == 'dm' && me() in resource.data.members));
       match /msgs/{m} {
         allow read: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
         allow create: if anyAccess() && request.resource.data.uid == me()
@@ -63,13 +65,13 @@ service cloud.firestore {
           || ((resource.data.uid == me() || clean()) && request.resource.data.kind == 'del'
             && request.resource.data.uid == resource.data.uid
             && request.resource.data.keys().hasOnly(['uid', 'at', 'kind', 'del', 'by'])));
-        allow delete: if anyAccess() && clean();
+        allow delete: if anyAccess() && (clean() || chatBoss(id));
       }
       match /files/{f} {
         allow read: if anyAccess() && (fx(id) ? clv(fk(id)) != 'none' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
         allow create: if anyAccess() && request.resource.data.uid == me()
           && (fx(id) ? clv(fk(id)) == 'edit' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members);
-        allow delete: if anyAccess() && (resource.data.uid == me() || clean());
+        allow delete: if anyAccess() && (resource.data.uid == me() || clean() || chatBoss(id));
       }
     }
     match /tasks/{id} {
