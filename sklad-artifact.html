@@ -1315,8 +1315,21 @@ function roundArea(c,s,q){
   const pcs=Math.ceil(q/a-1e-6);
   return {q:Math.ceil(pcs*a*100-1e-6)/100,pcs,a};
 }
-function roundNote(c,s,q){const r=roundArea(c,s,q);if(!r.pcs)return '';return 'Округлится до целых плиток: '+r.pcs+' шт. по '+fmt4(r.a)+' м² = '+fmt(r.q)+' м²';}
-function pcsNote(it){const a=pieceArea(it.c,it.s);return it.pcs&&a?it.pcs+' шт. по '+fmt4(a)+' м²':'';}
+/* упаковка по «шпаргалке м²»: штук в коробке, вес коробки без картона, вес картона (кг) */
+/* [штук в коробке, вес плитки в коробке, вес картона, коробка Д×Ш×В см ('' — коробки нет)] */
+const PACK={'7,5х30':[184,16.56,.3,'64×32×9'],'10х30':[138,16.56,.3,'64×32×9'],'15х30':[92,16.56,.3,'64×32×9'],'20х40':[44,14.08,.3,'42×22×16'],'15х60':[46,16.56,.3,'64×32×9'],'30х60':[23,16.56,.3,'64×32×9'],'60х60':[10,14.4,.5,'63,5×63×4'],'30х90':[14,15.12,0,''],'15х120':[24,17.28,0,''],'20х120':[16,15.36,.6,'123×43×4'],'30х120':[10,14.4,0,''],'40х120':[8,15.36,.6,'123×43×4'],'60х120':[5,14.4,.8,'123×63×4'],'0,27':[12,12.96,.3,'78×23,5×13,5'],'0,32':[12,12.96,.25,'78×18×13,5']};
+function boxTypes(items){const m=new Map();for(const it of items||[]){const P=packOf(it.c,it.s);const b=boxInfo(it.c,it.s,itemPcs(it));if(!b)continue;const k=P[3]||'без коробки (пачки)';m.set(k,(m.get(k)||0)+b.box+(b.rest?1:0));}return [...m.entries()];}
+function packHint(c,s,q){const P=packOf(c,s);if(!P)return '';const a=pieceArea(c,s);const per=r2(P[0]*a);const n=a&&q>0?Math.ceil(q/per-1e-6):0;
+  const b=a&&q>0?boxInfo(c,s,Math.round(q/a)):null;
+  return (P[3]?'Коробка '+P[3]+' см':'Без коробки')+', по '+P[0]+' шт. ('+fmt(per)+' м²)'+(b?'. '+fmt(q)+' м² = '+Math.round(q/a)+' плиток = '+b.t:'')+'.';}
+function packOf(c,s){if(unit(c)!=='м²'||!s)return null;const k=String(s).toLowerCase().replace(/см|cm/g,'').replace(/\s+/g,'').replace(/[x×*х]/g,'х').replace(/\./g,',');return PACK[k]||null;}
+function boxInfo(c,s,pcs){const P=packOf(c,s);pcs=Math.round(Number(pcs)||0);if(!P||!(pcs>0))return null;const box=Math.floor(pcs/P[0]),rest=pcs-box*P[0];
+  return {box,rest,per:P[0],kg:Math.round((box*(P[1]+P[2])+rest*P[1]/P[0]+(rest?P[2]:0))*10)/10,t:(box?box+' '+plur(box,'коробка','коробки','коробок'):'')+(box&&rest?' + ':'')+(rest?rest+' '+plur(rest,'плитка','плитки','плиток')+(box?' отдельно':''):'')};}
+function plur(n,a,b,c){n=Math.abs(n)%100;const m=n%10;return n>10&&n<20?c:m===1?a:m>=2&&m<=4?b:c;}
+function itemPcs(it){return it.pcs||(pieceArea(it.c,it.s)&&Number(it.q)>0?Math.round(Number(it.q)/pieceArea(it.c,it.s)):0);}
+function orderWeight(items){let kg=0,box=0,n=0;for(const it of items||[]){const b=boxInfo(it.c,it.s,itemPcs(it));if(b){kg+=b.kg;box+=b.box+(b.rest?1:0);n++;}}return n?{kg:Math.round(kg),box}:null;}
+function roundNote(c,s,q){const r=roundArea(c,s,q);if(!r.pcs)return '';const b=boxInfo(c,s,r.pcs);return 'Округлится до целых плиток: '+r.pcs+' шт. по '+fmt4(r.a)+' м² = '+fmt(r.q)+' м²'+(b?' · '+b.t+' (в коробке '+b.per+' шт.) · ≈'+fmt(b.kg)+' кг':'');}
+function pcsNote(it){const a=pieceArea(it.c,it.s);const b=boxInfo(it.c,it.s,it.pcs);return it.pcs&&a?it.pcs+' шт. по '+fmt4(a)+' м²'+(b?' · '+b.t+' · ≈'+fmt(b.kg)+' кг':''):'';}
 function pkChips(k,vals,cur){return '<div class="chips" data-pk="'+k+'">'+vals.map(v=>'<button type="button" class="chip" data-v="'+esc(v)+'" aria-pressed="'+(v===cur)+'">'+esc(v)+'</button>').join('')+'</div>';}
 function itemRowsHtml(d,lockFn){
   const items=d.items;const p=d.pick||(d.pick={c:'',n:'',s:'',q:'',f:''});
@@ -1623,6 +1636,7 @@ function renderOrderDetail(){
     (OV.issuedNow!=null&&(o.iss||[])[OV.issuedNow]?'<div class="banner">Выдача записана, товар списан со склада. <button type="button" class="primary" style="margin-left:8px;padding:6px 14px;font-size:14px" data-print="act" data-k="'+OV.issuedNow+'">Печать акта выдачи</button></div>':'')+
     '<dl class="info">'+info.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v||'—')+'</dd>').join('')+'</dl>'+
     itemsTable(o.items||[],[['Заказано',it=>it.q],['Выдано',(it,i)=>issuedQ(o,i)],['Осталось',(it,i)=>Math.max(0,r2(it.q-issuedQ(o,i))),'b'],['На складе',it=>balanceOf({c:it.c,n:it.n,s:it.s||''})]])+
+    (()=>{const w=orderWeight(o.items);const bt=boxTypes(o.items);return w?'<p class="muted" style="margin:6px 0 0;font-size:13px">📦 Вес заказа ≈ <b>'+fmt(w.kg)+' кг</b>. Коробки: '+bt.map(([k,n])=>'<b>'+esc(k)+'</b> — '+n+' шт.').join('; ')+' (неполная коробка считается за место).</p>':'';})()+
     (()=>{if(o.cancel||o.pre)return '';const dm=orderDemand();const short=(o.items||[]).filter((it,i)=>{const rest=r2(it.q-issuedQ(o,i));if(rest<=1e-9)return false;const r=dm.get(it.c+'\u0001'+it.n+'\u0001'+(it.s||''));return r&&r.q>balanceOf({c:it.c,n:it.n,s:it.s||''})+1e-9;});return short.length?'<p class="note">Не хватает на складе: '+short.map(it=>esc(it.n)+(it.s?' '+esc(it.s):'')).join(', ')+'. Это уже в плане производства. <button type="button" class="link" data-go="plan">Открыть план</button></p>':'';})()+
     '<div class="actions" style="margin-top:14px">'+
       (o.pre?(!ro&&!o.cancel?'<button type="button" class="primary" id="o-conv">✅ Клиент решил: оформить заказ</button>':'')+(!ro?'<button type="button" class="ghost" id="o-edit">Изменить</button>':'')+(chatLv('orders')!=='none'?'<button type="button" class="ghost" data-ask-o="'+esc(o.id)+'">💬 Спросить по заказу</button>':'')+(!ro?'<button type="button" class="ghost del" id="o-del">'+(o.cancel?'Удалить':'Клиент отказался')+'</button>':'')+(!ro&&o.cancel?'<button type="button" class="ghost" id="o-uncancel">Вернуть</button>':''):
@@ -2082,10 +2096,10 @@ VIEWS.cut11=stepView('cut11',{title:'Резка',from:W11.can,pickLabel:'Как�
 VIEWS.pack11=stepView('pack11',{title:'Упаковка',from:W11.unp,pickLabel:'Что упаковали (из нарезанного)',empty:'Неупакованной продукции нет.',qfn:r=>fmt(r.q)+' м²',btn:'Записать упаковку',listTitle:'Последние упаковки',
   hint:'Выберите вид и размер из нарезанного и впишите, сколько м² упаковали. Это перейдёт в готовую продукцию на складе производства.',
   fields:f=>numIn('pack11-q','Упаковали',f.q,'м²'),
-  note:(f,r)=>'Не упаковано: '+fmt(r.q)+' м².',
+  note:(f,r)=>'Не упаковано: '+fmt(r.q)+' м². '+packHint(r.c,r.s,pq(f.q)||r.q),
   check:(f,r)=>{const q=pq(f.q);if(!(q>0))return 'Впишите м².';if(q>r.q+1e-6)return 'Неупакованного только '+fmt(r.q)+' м².';if(!f.who)return 'Впишите, кто упаковывал.';return '';},
   ops:(f,r)=>[{d:f.d,op:'move',c:r.c,n:r.n,s:r.s,q:r2(pq(f.q)),wh:W11.unp,to:W11.fin,who:f.who,step:'Упаковка'}],
-  done:(f,r)=>'Упаковано: '+r.n+' '+r.s,reset:f=>{f.q='';f.sel='';},
+  done:(f,r)=>'Упаковано: '+r.n+' '+r.s+(()=>{const P=packOf(r.c,r.s);const a=pieceArea(r.c,r.s);const b=P&&a?boxInfo(r.c,r.s,Math.round(pq(f.q)/a)):null;return b?': '+b.t:'';})(),reset:f=>{f.q='';f.sel='';},
   list:()=>recentTable(recentOps(o=>o.step==='Упаковка'&&o.to===W11.fin),[['м²',o=>fmt(o.q)]])});
 
 /* --- затирки и колер: наряд → сразу на склад колера 1 или 2 --- */
@@ -3695,7 +3709,7 @@ function wrapDoc(t,html){return '<div class="doc" style="--a:'+PT[t][0]+';--t:'+
 function orderPages(o,kind,k,p){
   const pages=[];const items=o.items||[];
   const recv=o.recv+(o.whole?', '+o.whole.toLowerCase():'');
-  const qcol=['Заказано',it=>qU(it.q,it),'q'];const pcol=['Плиток',it=>{const p=it.pcs||dPcs(it,it.q);return p?p+' шт.':'';},'p'];
+  const qcol=['Заказано',it=>qU(it.q,it),'q'];const pcol=['Плиток',it=>{const p=it.pcs||dPcs(it,it.q);const b=p&&boxInfo(it.c,it.s,p);return p?p+' шт.'+(b&&b.box?' ('+b.t+')':''):'';},'p'];const wt=orderWeight(items);const bt=boxTypes(items);const wInfo=wt?['Вес ≈ / коробки',wt.kg+' кг; '+bt.map(([k,n])=>k+' — '+n).join(', '),3]:null;
   const prodPage=(its,p)=>{const ps=p?prodSt(o,p):((o.prod&&(o.prod.p11||o.prod.p9))||{});const taken=(ps.work&&ps.work.name)||'';
     return wrapDoc('prod',dHead('prod','Наряд в производство'+(p?' · '+(p==='p9'?'Пр.9':'Пр.11'):''),'производство',o.no,'сделать до',fmtDate(o.due)).replace('</span></div>',"</span>"+urgMark(o)+'</div>')+
       dInfo([['Дал в работу',o.by],['Принял в работу',taken?taken+(ps.work.d?', '+fmtDate(ps.work.d):''):''],['Выдать клиенту до',fmtDate(o.due),0,1],['Получение',o.recv],o.note?['Примечание',o.note,3]:null])+
@@ -3703,10 +3717,10 @@ function orderPages(o,kind,k,p){
   if(kind==='prod'){const its=prodLines(o,p).filter(l=>l.rest>1e-9).map(l=>({...l.it,q:l.rest,pcs:0}));if(its.length)pages.push(prodPage(its,p));return pages;}
   if(kind==='nar'){
     pages.push(wrapDoc('nar',dHead('nar','Наряд на заказ','офис',o.no,'от',fmtDate(o.d)).replace('</span></div>',"</span>"+urgMark(o)+'</div>')+
-      dInfo([['Клиент / объект',o.obj,2,1],['Выдать до',fmtDate(o.due),0,1],['Оформил',o.by],['Оплата',o.pay],['Накладная',o.inv],['Получение',recv,2],o.firm?['Фирма',o.firm]:null,o.recv==='Доставка'?['Адрес доставки',o.addr,3]:null,o.note?['Примечание',o.note,3]:null])+
+      dInfo([['Клиент / объект',o.obj,2,1],['Выдать до',fmtDate(o.due),0,1],['Оформил',o.by],['Оплата',o.pay],['Накладная',o.inv],['Получение',recv,2],o.firm?['Фирма',o.firm]:null,wInfo,o.recv==='Доставка'?['Адрес доставки',o.addr,3]:null,o.note?['Примечание',o.note,3]:null])+
       dTable(items,[qcol,pcol,['Отметка',()=>BOX,'b']])+dFoot()));
     pages.push(wrapDoc('wh',dHead('wh','Наряд на сборку','склад',o.no,'выдать до',fmtDate(o.due)).replace('</span></div>',"</span>"+urgMark(o)+'</div>')+
-      dInfo([['Клиент / объект',o.obj,2,1],['Получение',recv],o.recv==='Доставка'?['Адрес доставки',o.addr,3]:null,o.note?['Примечание',o.note,3]:null])+
+      dInfo([['Клиент / объект',o.obj,2,1],['Получение',recv],wInfo,o.recv==='Доставка'?['Адрес доставки',o.addr,3]:null,o.note?['Примечание',o.note,3]:null])+
       dTable(items,[qcol,pcol,['Собрано',()=>BOX,'b']])+dSign('Собрал')+dFoot()));
     for(const pp of ['p11','p9']){const its=items.filter(it=>prodOf(it.c)===pp);if(its.length)pages.push(prodPage(its,pp));}
   }else{
