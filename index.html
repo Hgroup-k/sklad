@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 09:29';</script>
-<script src="firebase-config.js?v=219ebfc5"></script>
-<script src="shim.js?v=219ebfc5"></script>
+<script>window.SKLAD_VERSION='28.11 09:43';</script>
+<script src="firebase-config.js?v=a87c322a"></script>
+<script src="shim.js?v=a87c322a"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -261,6 +261,8 @@ details.tk-done>summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
 .cmenu{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
 .cmenu button{font-size:12.5px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
 .cmenu button.del{color:#c0392b}
+.cnewbar{display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--accent);font-size:12.5px;font-weight:700}
+.cnewbar:before,.cnewbar:after{content:'';flex:1;height:1px;background:var(--accent);opacity:.5}
 .crxpick button{font-size:18px;padding:2px 6px;background:none;border-color:transparent}
 .crxpick button.on,.crx button.on{background:rgba(46,125,110,.18);border-color:var(--accent)}
 .crx{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
@@ -2102,14 +2104,19 @@ function showNote(title,body,go){
     if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(send).catch(()=>{});else send(null);}}catch(e){}
 }
 async function loadPeople(){if(CH.people)return CH.people;try{const q=await rawdb.collection('people').get();CH.people=[];CH.ava={};q.forEach(d=>{const x=d.data();if(x.ava)CH.ava[d.id]=x;if(x.name&&x.uname){CH.people.push({uid:d.id,name:x.name});S.names[d.id]=x.name;}});CH.people.sort((a,b)=>a.name.localeCompare(b.name,'ru'));}catch(e){CH.people=[];}return CH.people;}
+function chatScrollGoal(){const nb=$('ch-msgs');if(!nb)return;const nw=document.getElementById('ch-new');
+  if(nw)nb.scrollTop+=nw.getBoundingClientRect().top-nb.getBoundingClientRect().top-6;else nb.scrollTop=nb.scrollHeight;}
 function openChat(id){
+  /* при входе: к первому непрочитанному (с полосой «Новые сообщения»), иначе в самый низ */
+  CH.newFrom={chat:id,at:(CH.reads&&CH.reads[id])||''};CH.scrollInit=true;
   if(CH.sel===id&&CH.msgUnsub)return;
   if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}
   CH.sel=id;CH.pinIdx=0;CH.err=null;CH.msgs=[];CH.form=null;CH.emo=false;CH.loaded=false;CH.menu=null;CH.edit=null;CH.reply=null;
-  CH.msgUnsub=rawdb.collection('chats/'+id+'/msgs').orderBy('at','desc').limit(CH.more?600:150).onSnapshot(q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));CH.msgs=l.reverse();CH.loaded=true;resolveNames(CH.msgs.map(m=>m.uid));if(S.view==='chat')VIEWS.chat.update(true);},e=>{CH.loaded=true;CH.err=e&&e.code;CH.msgUnsub=null;if(S.view==='chat')VIEWS.chat.update(true);});
+  CH.msgUnsub=rawdb.collection('chats/'+id+'/msgs').orderBy('at','desc').limit(CH.more?600:150).onSnapshot(q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));const prevLast=CH.msgs.length?CH.msgs[CH.msgs.length-1].id:'';CH.msgs=l.reverse();CH.loaded=true;resolveNames(CH.msgs.map(m=>m.uid));
+    const nl=CH.msgs[CH.msgs.length-1];CH.mineNew=!!(nl&&nl.id!==prevLast&&nl.uid===S.me&&prevLast);if(S.view==='chat')VIEWS.chat.update('snap');},e=>{CH.loaded=true;CH.err=e&&e.code;CH.msgUnsub=null;if(S.view==='chat')VIEWS.chat.update(true);});
   VIEWS.chat.update(true);
 }
-function markRead(){const c=CH.list.find(x=>x.id===CH.sel);if(!c||!c.last||document.hidden||S.view!=='chat')return;if(CH.reads[c.id]&&CH.reads[c.id]>=c.last.at)return;
+function markRead(){const c=CH.list.find(x=>x.id===CH.sel);if(!c||!c.last||document.hidden||S.view!=='chat')return;if(CH.mobList&&window.innerWidth<=800)return;if(CH.reads[c.id]&&CH.reads[c.id]>=c.last.at)return;
   CH.reads[c.id]=c.last.at;rawdb.doc('reads/'+S.me).set({[c.id]:c.last.at},{merge:true}).catch(()=>{});chatBadge();}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.view==='chat')markRead();});
 function hhmm(iso){const d=new Date(iso);return pad(d.getHours())+':'+pad(d.getMinutes());}
@@ -2124,7 +2131,7 @@ function msgHtml(m,prev){
     return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'" id="cm-'+esc(m.id)+'">'+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+'<div class="cdeleted">🗑 '+esc(who)+'</div><div class="ctime">'+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';}
   if(m.kind==='file')body='<button type="button" class="cfile" data-cfile="'+esc(m.id)+'">📄 <span><b>'+esc(m.name||'файл')+'</b><br><small class="muted">'+fsize(m.size)+' · скачать</small></span></button>';
   else if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg>';
-  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="'+(m.fid?'metadata':'none')+'" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button></div>'+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
+  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="'+(m.fid?'metadata':'none')+'" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button></div>'+(VBAD.has(m.id)?'<div class="vtr muted">Это голосовое записано на компьютере в старом формате, iPhone его не проигрывает. Нажмите «Aa», чтобы прочитать текст.</div>':'')+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
   else if(m.kind==='video')body='<video controls preload="metadata" src="'+esc(m.data)+'" class="cimg"></video>';
   if(m.fw)body='<div class="cfw">↪ Переслано'+(m.fw.name?' от '+esc(m.fw.name):'')+'</div>'+body;
   if(m.re)body=quoteHtml(m.re,true)+body;
@@ -2142,9 +2149,11 @@ function rxHtml(m){const rx=m.rx||{};const cnt={};for(const u in rx){const e=rx[
   return '<div class="crx">'+ks.map(e=>'<button type="button" data-crx="'+esc(e)+'" data-mid="'+esc(m.id)+'" class="'+(rx[S.me]===e?'on':'')+'" title="'+esc(cnt[e].map(u=>S.names[u]||'…').join(', '))+'">'+esc(e)+(cnt[e].length>1?' '+cnt[e].length:'')+'</button>').join('')+'</div>';}
 async function setRx(mid,e){const m=CH.msgs.find(x=>x.id===mid);if(!m)return;const cur=(m.rx||{})[S.me];const v=cur===e?'':e;
   CH.menu=null;try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+mid).set({rx:{[S.me]:v}},{merge:true});}catch(x){toast(dbErr(x));}VIEWS.chat.update();}
+const VBAD=new Set();
+document.addEventListener('error',e=>{const a=e.target;if(a&&a.tagName==='AUDIO'&&a.dataset.vid&&a.src&&!VBAD.has(a.dataset.vid)){const m=CH.msgs.find(x=>x.id===a.dataset.vid);if(m&&/webm/.test(m.mime||m.data&&m.data.slice(0,40)||'')){VBAD.add(m.id);VIEWS.chat.update();}}},true);
 const VSPEED={},VTR=new Set(),STT={},VURL={};
 /* длинное голосовое хранится частями (как документы) — собираем при показе */
-function voiceSrc(m){if(m.data)return m.data;if(!m.fid)return '';if(VURL[m.id]&&VURL[m.id]!=='load')return VURL[m.id];
+function voiceSrc(m){if(m.data){if(!VURL[m.id]){try{const i=m.data.indexOf(',');const mime=(m.data.slice(5,i).split(';')[0])||'audio/webm';const bin=atob(m.data.slice(i+1));const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);VURL[m.id]=URL.createObjectURL(new Blob([u],{type:mime}));}catch(e){return m.data;}}return VURL[m.id];}if(!m.fid)return '';if(VURL[m.id]&&VURL[m.id]!=='load')return VURL[m.id];
   if(!VURL[m.id]){VURL[m.id]='load';const chat=CH.sel;getParts(chat,m).then(ps=>{VURL[m.id]=URL.createObjectURL(new Blob(ps,{type:m.mime||'audio/webm'}));if(CH.sel===chat)VIEWS.chat.update();}).catch(()=>{delete VURL[m.id];});}
   return '';}
 async function voiceData(m){if(m.data)return m.data;const ps=await getParts(CH.sel,m);return fileToData(new Blob(ps,{type:m.mime||'audio/webm'}));}
@@ -2240,11 +2249,13 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
   if(CH.form){P.innerHTML=chatFormHtml();return;}
   if(!c){P.innerHTML='<div class="panel empty">Выберите чат слева.</div>';return;}
   const keep=P.querySelector('#ch-in');const draft=keep?keep.value:(CH.draft||'');const focused=document.activeElement===keep;
-  const box=P.querySelector('#ch-msgs');const atBottom=!box||box.scrollHeight-box.scrollTop-box.clientHeight<60;
+  const box=P.querySelector('#ch-msgs');const atBottom=!box||box.scrollHeight-box.scrollTop-box.clientHeight<60;const prevTop=box?box.scrollTop:0;
+  const NF=CH.newFrom&&CH.newFrom.chat===c.id&&CH.newFrom.at!==undefined?CH.newFrom:null;
+  const firstNew=NF?(visMsgs().find(m=>m.uid!==S.me&&m.kind!=='del'&&(!NF.at||m.at>NF.at))||{}).id:'';
   const otherUnread=CH.list.filter(x=>x.id!==c.id&&chatUnread(x)).length;
   P.innerHTML='<div class="chead"><button type="button" class="link cback" data-cback>← Чаты'+(otherUnread?' <span class="cbadge">'+otherUnread+'</span>':'')+'</button><b>'+esc(chatName(c))+'</b>'+(c.type==='group'?' <span class="muted" style="font-size:12px">'+(c.members||[]).length+' участн.</span><button type="button" class="link" data-cmembers>Участники</button>':'')+'</div>'+
     pinBar(c)+
-    '<div class="cmsgs" id="ch-msgs">'+(!CH.loaded?'<p class="muted">Загрузка…</p>':CH.err?'<p class="muted">Нет доступа к этому чату.</p>':(CH.msgs.length>=150&&!CH.more?'<button type="button" class="link" data-cmore>Показать более ранние</button>':'')+(CH.msgs.length?visMsgs().map((m,i,L)=>msgHtml(m,L[i-1])).join(''):'<p class="muted">Сообщений пока нет. Напишите первым.</p>'))+'</div>'+
+    '<div class="cmsgs" id="ch-msgs">'+(!CH.loaded?'<p class="muted">Загрузка…</p>':CH.err?'<p class="muted">Нет доступа к этому чату.</p>':(CH.msgs.length>=150&&!CH.more?'<button type="button" class="link" data-cmore>Показать более ранние</button>':'')+(CH.msgs.length?visMsgs().map((m,i,L)=>(m.id===firstNew&&NF.at?'<div class="cnewbar" id="ch-new"><span>Новые сообщения</span></div>':'')+msgHtml(m,L[i-1])).join(''):'<p class="muted">Сообщений пока нет. Напишите первым.</p>'))+'</div>'+
     (CH.emo?'<div class="cemo">'+EMOJI.map(e=>'<button type="button" data-emo="'+e+'">'+e+'</button>').join('')+'</div>':'')+
     (CH.attach&&CH.sel==='orders'?'<div class="cattach">'+ordCard(CH.attach,true)+'</div>':'')+
     (CH.reply?'<div class="cbar">↩ '+quoteHtml(CH.reply)+'<button type="button" class="link" data-cbar-x>✕</button></div>':'')+
@@ -2254,9 +2265,17 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
     (CH.clip?'<div class="cclip"><label class="cclipi">📷 Фото или видео<input type="file" id="ch-file" accept="image/*,video/*" hidden></label><label class="cclipi">📄 Документ<input type="file" id="ch-doc" hidden></label>'+(c.id==='orders'?'<button type="button" class="cclipi" data-cpick>📦 Заказ</button>':'')+'</div>':'')+
     '<form class="cinput" id="ch-f" autocomplete="off"><button type="button" class="cround'+(CH.clip?' on':'')+'" data-cclip title="Прикрепить: фото, документ'+(c.id==='orders'?', заказ':'')+'">📎</button>'+
     '<div class="cfield"><textarea id="ch-in" rows="1" placeholder="'+(c.id==='orders'?'Вопрос по заказу':'Сообщение')+'">'+esc(draft)+'</textarea><button type="button" class="cemob" data-cemo title="Смайлики">😊</button></div>'+
-    '<button type="button" id="ch-go" class="cround cgo'+(CH.rec?' rec':'')+'">'+(CH.rec?'⏹ '+CH.recSec+'с':'🎤')+'</button></form>');
+    '<button type="button" id="ch-go" class="cround cgo'+(CH.rec?' rec':'')+'">'+(CH.rec?recLabel():'🎤')+'</button></form>');
   syncGo();
-  const nb=$('ch-msgs');if(nb&&(atBottom||onlyMsgs===true))nb.scrollTop=nb.scrollHeight;
+  const nb=$('ch-msgs');
+  if(nb){
+    if(CH.scrollInit&&CH.loaded){CH.scrollInit=false;CH.scrollGoal={chat:c.id,until:Date.now()+2500};chatScrollGoal();
+      nb.addEventListener('load',()=>{if(CH.scrollGoal&&Date.now()<CH.scrollGoal.until)chatScrollGoal();},true);
+      const stop=()=>{CH.scrollGoal=null;};nb.addEventListener('wheel',stop,{passive:true,once:true});nb.addEventListener('touchstart',stop,{passive:true,once:true});}
+    else if(CH.scrollGoal&&Date.now()<CH.scrollGoal.until&&CH.scrollGoal.chat===c.id)chatScrollGoal();
+    else if(atBottom||CH.mineNew||onlyMsgs===true)nb.scrollTop=nb.scrollHeight;
+    else nb.scrollTop=prevTop;
+    CH.mineNew=false;}
   if(focused){const i=$('ch-in');i.focus();i.setSelectionRange(i.value.length,i.value.length);}
   markRead();
 }};
@@ -2328,19 +2347,39 @@ async function imgToData(file){
 async function startVoice(){
   if(!navigator.mediaDevices||!window.MediaRecorder){toast('Этот браузер не умеет записывать голос');return;}
   let st;try{st=await navigator.mediaDevices.getUserMedia({audio:true});}catch(e){toast('Нет доступа к микрофону. Разрешите его в настройках браузера.');return;}
-  const mt=['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||'';
-  const r=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:64000}:{audioBitsPerSecond:64000});const parts=[];
-  let tr='',rec=null;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
-  if(SR&&!ios){try{rec=new SR();rec.lang='ru-RU';rec.continuous=true;rec.interimResults=false;rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)tr+=(tr?' ':'')+e.results[i][0].transcript;};rec.onerror=()=>{};rec.start();}catch(e){rec=null;}}
+  /* формат, который играет и iPhone, и компьютер (AAC в mp4); если нельзя — webm/opus */
+  const mt=['audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/webm;codecs=opus','audio/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||'';
+  let r;try{r=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:64000}:{});}catch(e){r=new MediaRecorder(st);}
+  const parts=[];let why='';
+  /* браузерное распознавание речи больше не включаем: оно занимает микрофон, из-за него была тишина и обрыв записи. Текст делает сервер (кнопка «Aa») */
   r.ondataavailable=e=>{if(e.data&&e.data.size)parts.push(e.data);};
-  r.onstop=async()=>{if(rec){try{rec.stop();}catch(e){}await new Promise(z=>setTimeout(z,700));}st.getTracks().forEach(t=>t.stop());clearInterval(CH.recT);const sent=CH.rec&&CH.rec.send;CH.rec=null;VIEWS.chat.update();if(!sent||!parts.length)return;
-    const mime=r.mimeType||mt||'audio/webm';const blob=new Blob(parts,{type:mime});
-    try{if(blob.size<=600000){const d=await fileToData(blob);await chatSend({kind:'voice',data:d,tr:tr.trim().slice(0,2000)});}
+  r.onerror=e=>{why='ошибка записи: '+((e.error&&(e.error.name||e.error.message))||'неизвестно');};
+  st.getAudioTracks().forEach(t=>{t.onended=()=>{if(CH.rec&&CH.rec.r===r){why='микрофон отключился (его забрала другая программа или звонок)';try{r.stop();}catch(_){}}};});
+  r.onstop=async()=>{st.getTracks().forEach(t=>t.stop());clearInterval(CH.recT);const sent=CH.rec&&CH.rec.send;const secs=CH.recSec;CH.rec=null;VIEWS.chat.update();
+    if(why)toast('Запись остановилась на '+secs+' с: '+why);
+    if(!sent||!parts.length)return;
+    let mime=(r.mimeType||mt||'audio/webm');let blob=new Blob(parts,{type:mime});
+    /* переводим в MP3: его играют и iPhone, и Android, и компьютер */
+    try{const x=await toMp3(blob,secs);if(x){if(x.peak<0.01)toast('Похоже, микрофон записал тишину. Проверьте, какой микрофон выбран и не выключен ли он.');if(x.blob){blob=x.blob;mime='audio/mpeg';}}}catch(e){try{console.warn('mp3',e);}catch(_){}}
+    try{if(blob.size<=600000){const d=await fileToData(blob);await chatSend({kind:'voice',data:d});}
       else{if(blob.size>FMAX){toast('Голосовое слишком большое.');return;}toast('Отправляем голосовое…');const {fid,n}=await putParts(CH.sel,new Uint8Array(await blob.arrayBuffer()));
-        await chatSend({kind:'voice',file:{fid,n,mime,size:blob.size},tr:tr.trim().slice(0,2000)});}}catch(e){toast(dbErr(e));}};
-  CH.rec={r,send:true};CH.recSec=0;CH.recT=setInterval(()=>{CH.recSec++;const b=document.querySelector('#ch-go');if(b)b.textContent='⏹ '+Math.floor(CH.recSec/60)+':'+String(CH.recSec%60).padStart(2,'0');if(CH.recSec>=1800)stopVoice(true);},1000);
+        await chatSend({kind:'voice',file:{fid,n,mime,size:blob.size}});}}catch(e){toast(dbErr(e));}};
+  CH.rec={r,send:true};CH.recSec=0;CH.recT=setInterval(()=>{CH.recSec++;const b=document.querySelector('#ch-go');if(b)b.textContent=recLabel();if(CH.recSec>=1800)stopVoice(true);},1000);
   r.start();VIEWS.chat.update();
 }
+function recLabel(){return '⏹ '+Math.floor(CH.recSec/60)+':'+String(CH.recSec%60).padStart(2,'0');}
+/* голосовое → MP3 (моно 22 кГц, 48 кбит/с) + громкость, чтобы предупредить о тишине */
+let LAME=null;function loadLame(){return LAME||(LAME=new Promise((ok,no)=>{if(window.lamejs)return ok();const sc=document.createElement('script');sc.src='lame.min.js';sc.onload=()=>ok();sc.onerror=()=>{LAME=null;no(new Error('lame'));};document.head.appendChild(sc);}));}
+async function toMp3(blob,secs){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+  const ac=new AC();let buf;try{const ab=await blob.arrayBuffer();buf=await new Promise((ok,no)=>{const p=ac.decodeAudioData(ab,ok,no);if(p&&p.then)p.then(ok,no);});}finally{try{ac.close();}catch(_){}}
+  const SR=22050;const n=Math.ceil(buf.duration*SR);
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OAC(1,n,SR);const src=oc.createBufferSource();src.buffer=buf;src.connect(oc.destination);src.start();
+  const out=await new Promise((ok,no)=>{const p=oc.startRendering();if(p&&p.then)p.then(ok,no);else oc.oncomplete=e=>ok(e.renderedBuffer);});
+  const d=out.getChannelData(0);let pk=0;for(let i=0;i<d.length;i+=5){const v=Math.abs(d[i]);if(v>pk)pk=v;}
+  if(buf.duration>20*60)return {peak:pk};
+  await loadLame();const enc=new lamejs.Mp3Encoder(1,SR,48);const pcm=new Int16Array(d.length);for(let i=0;i<d.length;i++){const v=Math.max(-1,Math.min(1,d[i]));pcm[i]=v<0?v*32768:v*32767;}
+  const chunks=[];for(let i=0;i<pcm.length;i+=1152*20){const c=enc.encodeBuffer(pcm.subarray(i,i+1152*20));if(c.length)chunks.push(c);if(i%(1152*2000)===0)await new Promise(z=>setTimeout(z,0));}
+  const f=enc.flush();if(f.length)chunks.push(f);return {peak:pk,blob:new Blob(chunks,{type:'audio/mpeg'})};}
 function stopVoice(send){if(!CH.rec)return;CH.rec.send=send;try{CH.rec.r.stop();}catch(e){}}
 document.addEventListener('click',async e=>{
   if(!e.target.closest('#chat-b'))return;
