@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 11:44';</script>
-<script src="firebase-config.js?v=bba9e6a8"></script>
-<script src="shim.js?v=bba9e6a8"></script>
+<script>window.SKLAD_VERSION='28.11 11:52';</script>
+<script src="firebase-config.js?v=615e75d8"></script>
+<script src="shim.js?v=615e75d8"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -308,6 +308,19 @@ details.tk-done>summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
 .cedopt{font-size:12px;display:flex;gap:4px;align-items:center}
 .cimg{max-width:100%;max-height:320px;border-radius:8px;display:block;cursor:pointer}
 tr.mlow td{background:rgba(198,40,40,.07)}
+.qcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.qcard{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.qsec{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
+.qsec h3{margin:0 0 8px;font-size:15px}
+.qsec .fld{margin-bottom:8px}
+.qrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.qlab{flex:1 1 240px}
+.qnote{flex:1 1 160px;max-width:260px}
+.qnum input{max-width:140px}
+.qlong{width:100%}
+.qlong textarea{width:100%}
+.qauto{background:rgba(46,106,108,.07);border-radius:8px;padding:10px 12px;margin:10px 0}
+.qauto>b{display:block;margin-bottom:6px}
 .tab.hasdot::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger,#c62828);margin-left:5px;vertical-align:top}
 img.cimg[width]{width:auto;height:auto}
 .cvbox{width:300px;max-width:100%;height:240px;max-height:none;background:#000;object-fit:contain}
@@ -508,6 +521,7 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
   <section class="view" id="v-mstock" hidden><div id="mstock-b"></div></section>
   <section class="view" id="v-mops" hidden><div id="mops-b"></div></section>
   <section class="view" id="v-buy" hidden><div id="buy-b"></div></section>
+  <section class="view" id="v-qc" hidden><div id="qc-b"></div></section>
 </main>
 <div id="toast" hidden></div>
 <div id="print-bar" hidden><div><b id="print-name"></b><br><span class="muted" style="font-size:13px">Если окно печати не открылось, скачайте файл и откройте его: печать запустится сама. Формат <span id="print-fmt">A6, альбомный</span>.</span></div><div class="actions"><button type="button" class="ghost" id="print-again">Печать ещё раз</button><button type="button" class="ghost" id="print-dl">Скачать для печати</button><button type="button" class="link" id="print-close">Закрыть</button></div></div>
@@ -547,8 +561,8 @@ const START_Y=2026, START_M=1;
 const TABS=[['home','Главная','home'],['tasks','Задачи','tasks'],['orders','Заказы','office'],['returns','Возвраты','office'],
   ['porders','Заказы в работе','p11'],['grease11','Смазка форм','p11'],['cast11','Заливка','p11'],['dry11','Сушка','p11'],['demold11','Распалубка','p11'],['cut11','Резка','p11'],['pack11','Упаковка','p11'],['grout','Затирки и колер','p11'],['wh11','Склад','p11'],
   ['porders9','Заказы в работе','p9'],['cast9','Заливка','p9'],['dry9','Сушка','p9'],['demold9','Распалубка','p9'],['sand9','Шкурение','p9'],['pack9','Упаковка','p9'],['wh9','Склад','p9'],
-  ['sorders','Заказы','store'],['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['mstock','Остатки','mat'],['mops','Приход и расход','mat'],['buy','Закупки','mat'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
-const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks','Задачи'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['mat','Материалы'],['ref','Справочник']];
+  ['sorders','Заказы','store'],['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['mstock','Остатки','mat'],['mops','Приход и расход','mat'],['buy','Закупки','mat'],['qc','Формы качества','qc'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
+const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks','Задачи'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['mat','Материалы'],['qc','Качество'],['ref','Справочник']];
 const REPORT_TABS=new Set(['dry11','dry9','stock','wh11','wh9','period','sizes','months']);
 window.SKLAD_TABS=TABS.filter(t=>t[0]!=='chat'&&t[0]!=='home'&&t[0]!=='tasks').map(([k,l,g])=>({k,l,g:(TGROUPS.find(x=>x[0]===g)||[])[1]||'',ed:!REPORT_TABS.has(k)}));
 /* общие чаты: «Редактирует» = пишет, «Просмотр» = только читает, «Нет доступа» = не состоит */
@@ -1849,6 +1863,8 @@ function recentTable(list,cols){
 async function pWrite(ops){for(const o of ops)await addOp({...o,sort:o.sort||'',st:o.st||'',sb:o.sb||'',amo:o.amo||'',note:o.note||''});}
 
 /* --- общий шаг «взять из одного склада и положить в другой» --- */
+const QC_OF={grease11:'F03-1C',cast11:'F03-2',demold11:'F03-3A',cut11:'F03-3B',pack11:'F03-4'};
+function qcBtn(k){const f=QC_OF[k];return f&&tabOk('qc')&&!RO('qc')?'<button type="button" class="ghost" data-qc-go="'+f+'" style="font-size:13px">📋 Форма качества</button>':'';}
 function stepView(k,cfg){
   return {
     controls(){},
@@ -1857,7 +1873,7 @@ function stepView(k,cfg){
       if(document.activeElement&&el.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
       const rows=balIn(cfg.from,cfg.filter);
       const cur=rows.find(r=>r.c+'|'+r.n+'|'+r.s===f.sel);
-      let h='<div class="input-grid"><div class="panel"><div class="panel-head"><h2>'+esc(cfg.title)+'</h2></div><p class="muted" style="margin:0 0 12px;font-size:13px">'+cfg.hint+'</p>';
+      let h='<div class="input-grid"><div class="panel"><div class="panel-head"><h2>'+esc(cfg.title)+'</h2>'+qcBtn(k)+'</div><p class="muted" style="margin:0 0 12px;font-size:13px">'+cfg.hint+'</p>';
       if(ro)h+='<p class="muted">Только просмотр.</p>';
       else{
         h+='<form id="'+k+'-f" class="oform" novalidate autocomplete="off">'+fld(cfg.pickLabel,pickRows(k,rows,f.sel,cfg.empty,cfg.qfn));
@@ -1909,7 +1925,7 @@ function greaseFor(n){const fm=formOf(n);const ok=posFor(n);const known=new Set(
 VIEWS.grease11={controls(){},update(){
   const k='grease11';const f=pf(k,{pos:NOPOS});const ro=RO(k);const el=$(k+'-b');
   if(document.activeElement&&el.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
-  let h='<div class="input-grid"><div class="panel"><div class="panel-head"><h2>Смазка форм</h2></div><p class="muted" style="margin:0 0 12px;font-size:13px">Выберите форму, посыпку и впишите, сколько форм смазали (1 форма = 1 холст). Потом на заливке можно будет залить только на смазанные формы подходящего вида.</p>';
+  let h='<div class="input-grid"><div class="panel"><div class="panel-head"><h2>Смазка форм</h2>'+qcBtn(k)+'</div><p class="muted" style="margin:0 0 12px;font-size:13px">Выберите форму, посыпку и впишите, сколько форм смазали (1 форма = 1 холст). Потом на заливке можно будет залить только на смазанные формы подходящего вида.</p>';
   if(ro)h+='<p class="muted">Только просмотр.</p>';
   else{const ty=f.form&&f.pos?typesFor(f.form,f.pos):[];
     h+='<form id="grease11-f" class="oform" novalidate autocomplete="off">'+
@@ -1943,14 +1959,15 @@ function castView(k,cfg){
       if(document.activeElement&&el.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
       if(!cfg.cats.includes(f.c))f.c=cfg.cats.find(c=>cats().includes(c))||cfg.cats[0];
       const names=cat(f.c).names;
-      let h='<div class="input-grid"><div class="panel"><div class="panel-head"><h2>'+esc(cfg.title)+'</h2></div><p class="muted" style="margin:0 0 12px;font-size:13px">'+cfg.hint+'</p>';
+      let h='<div class="input-grid"><div class="panel"><div class="panel-head"><h2>'+esc(cfg.title)+'</h2>'+qcBtn(k)+'</div><p class="muted" style="margin:0 0 12px;font-size:13px">'+cfg.hint+'</p>';
       if(ro)h+='<p class="muted">Только просмотр.</p>';
       else{
         h+='<form id="'+k+'-f" class="oform" novalidate autocomplete="off">'+
           (cfg.cats.length>1?fld('Раздел','<div class="chips" data-pcat>'+cfg.cats.filter(c=>cats().includes(c)).map(c=>'<button type="button" class="chip" data-v="'+esc(c)+'" aria-pressed="'+(c===f.c)+'">'+esc(c)+'</button>').join('')+'</div>'):'')+
           fld('Вид','<div class="chips names" data-pn2>'+names.map(n=>'<button type="button" class="chip" data-v="'+esc(n)+'" aria-pressed="'+(n===f.n)+'">'+esc(n)+'</button>').join('')+'</div><input type="text" id="'+k+'-n" placeholder="или впишите вид вручную" value="'+esc(f.n||'')+'" style="max-width:320px">')+
           (cfg.forms&&f.n?castFormsHtml(k,f):'')+
-          numIn(k+'-pcs',cfg.qtyLabel,f.pcs,'шт.')+dateField(k+'-d','Дата',f.d)+whoField(k,f)+
+          numIn(k+'-pcs',cfg.qtyLabel,f.pcs,'шт.')+dateField(k+'-d','Дата',f.d)+
+          '<label class="fld" style="max-width:240px"><span>Бочка акрила №</span><input id="'+k+'-drum" value="'+esc(f.drum!=null?f.drum:ls.get('p.drum',''))+'" placeholder="напр. 15" list="'+k+'-drl"><datalist id="'+k+'-drl">'+[...new Set((MT.ops||[]).filter(o=>o.type==='in'&&o.party).map(o=>o.party))].slice(-10).map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+whoField(k,f)+
           '<p class="hint" id="'+k+'-hint">'+cfg.note(f)+'</p><p class="err" id="'+k+'-err" hidden></p><div class="actions"><button type="submit" class="primary">Записать заливку</button></div></form>';
       }
       h+='</div><div class="panel"><div class="panel-head"><h2>Последние заливки</h2></div>'+recentTable(recentOps(o=>o.op==='cast'&&o.wh===cfg.to),cfg.cols)+'</div></div>'+whoList();
@@ -1969,7 +1986,7 @@ function castView(k,cfg){
           else if(!fsel)m='Выберите, на какие смазанные формы залили.';
           else if(pcs>fsel.q+1e-9)m='Смазано только '+fmt(fsel.q)+' форм ('+fsel.form+', '+fsel.pos+'), а залили '+pcs+'. Проверьте цифры или внесите смазку.';}
         pErr(k,m);if(m)return;const btn=form.querySelector('[type=submit]');btn.disabled=true;
-        try{await pWrite([{d:f.d,op:'cast',c:f.c,n:f.n,s:cfg.size,q:cfg.toQ(pcs),pcs,wh:cfg.to,who:f.who,step:'Заливка',...(fsel?{form:fsel.form,pos:fsel.pos}:{})}]);ls.set('p.who',f.who);toast('Записано: залили '+f.n+', '+pcs+' шт.');f.pcs='';this.update();}
+        try{await pWrite([{d:f.d,op:'cast',c:f.c,n:f.n,s:cfg.size,q:cfg.toQ(pcs),pcs,wh:cfg.to,who:f.who,step:'Заливка',...(fsel?{form:fsel.form,pos:fsel.pos}:{}),...(f.drum?{batch:f.drum+'-'+ddmmyy(f.d)}:{})}]);ls.set('p.who',f.who);if(f.drum)ls.set('p.drum',f.drum);toast('Записано: залили '+f.n+', '+pcs+' шт.');f.pcs='';this.update();}
         catch(x){pErr(k,dbErr(x));btn.disabled=false;}});
     }
   };
@@ -1995,7 +2012,7 @@ const pcsCols=[['Штук',o=>fmt(o.q)]];
 
 VIEWS.cast11=castView('cast11',{title:'Заливка',cats:['Плитка'],forms:true,to:W11.dry,size:'холст',qtyLabel:'Залили холстов',toQ:p=>r2(p*CANVAS),cols:stoneCols,
   hint:'Выберите вид, смазанные формы и впишите, сколько холстов залили. Метраж посчитается сам (1 холст = 0,72 м²). Всё залитое уходит в сушку.',
-  note:f=>{const p=pq(f.pcs);return p>0?'Это <b>'+fmt(p*CANVAS)+' м²</b>.':'';}});
+  note:f=>{const p=pq(f.pcs);return (p>0?'Это <b>'+fmt(p*CANVAS)+' м²</b>. ':'')+(f.drum?'Номер партии: <b>'+esc(f.drum+'-'+ddmmyy(f.d))+'</b>':'');}});
 VIEWS.dry11=dryView('dry11',W11.dry,true);
 VIEWS.demold11=stepView('demold11',{title:'Распалубка',from:W11.dry,pickLabel:'Что снимаете (из сушки)',empty:'В сушке ничего нет.',qfn:r=>fmt(canv(r.q))+' хол.',btn:'Записать распалубку',listTitle:'Последние распалубки',
   hint:'Выберите вид из тех, что в сушке, и впишите, сколько холстов сняли. Холсты попадут на склад производства.',
@@ -2232,7 +2249,8 @@ VIEWS.mops={controls(){subscribeMats();loadPeople().then(()=>{if(S.view==='mops'
       (f.type==='move'?'<label class="fld"><span>Куда</span><select id="mo-to"><option value="">—</option>'+whs.filter(w=>w!==f.wh).map(w=>opt(w,w,f.to)).join('')+'</select></label>':'')+
       (f.type==='make'?'<label class="fld"><span>Из чего сделали</span>'+msel('mo-smid',f.smid)+'</label><label class="fld"><span>Сколько ушло'+(matById(f.smid)&&matById(f.smid).u?', '+esc(matById(f.smid).u):'')+'</span><input type="text" inputmode="decimal" id="mo-sq" value="'+esc(f.sq)+'" style="max-width:130px"></label>':'')+
       '<label class="fld"><span>Дата</span><input type="date" id="mo-d" value="'+esc(f.d)+'" max="'+todayStr()+'"></label>'+
-      '<label class="fld" style="flex:1;min-width:180px"><span>Примечание</span><input type="text" id="mo-note" value="'+esc(f.note)+'" placeholder="поставщик, партия…"></label></div>'+
+      (f.type==='in'||f.type==='make'?'<label class="fld"><span>Номер партии / бочки</span><input type="text" id="mo-party" value="'+esc(f.party||'')+'" placeholder="напр. 15" style="max-width:150px"></label>':'')+
+      '<label class="fld" style="flex:1;min-width:180px"><span>'+(f.type==='in'?'Поставщик, примечание':'Примечание')+'</span><input type="text" id="mo-note" value="'+esc(f.note)+'" placeholder="'+(f.type==='in'?'поставщик…':'')+'"></label></div>'+
       (have!=null&&f.type!=='in'?'<p class="muted" style="margin:0 0 8px">Сейчас на «'+esc(f.wh)+'»: '+fmt(have)+' '+esc((m&&m.u)||'')+'</p>':'')+
       (showOpyt?'<div class="panel" style="background:var(--surface2,rgba(127,127,127,.08));margin:6px 0 10px;padding:10px 12px"><label class="check"><input type="checkbox" id="mo-opyt"'+(f.opyt?' checked':'')+'> 🧪 Поставить задачу «Сделать опыты»</label>'+(f.opyt?'<label class="fld" style="margin-top:6px"><span>Кому</span><select id="mo-who">'+ps.map(p=>opt(p.v,p.n,f.who)).join('')+'</select></label>':'')+'</div>':'')+
       (L.length?'':'<p class="muted">Сначала добавьте материалы в разделе «Остатки» материалов (кнопка «＋ Материал»).</p>')+
@@ -2241,7 +2259,7 @@ VIEWS.mops={controls(){subscribeMats();loadPeople().then(()=>{if(S.view==='mops'
   const J=[...MT.ops].sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at))).slice(0,300);
   const nm=id=>{const m=matById(id);return m?m.n:'(удалён)';};const un=id=>(matById(id)||{}).u||'';
   $('mops-j').innerHTML=J.length?'<div class="panel"><h3 style="margin-bottom:8px">Журнал материалов</h3><div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Что</th><th>Материал</th><th class="num">Кол-во</th><th>Склад</th><th>Кто, примечание</th><th></th></tr></thead><tbody>'+
-    J.map(o=>'<tr><td>'+fmtDate(o.d)+'</td><td>'+esc(MAT_T[o.type]||o.type)+'</td><td>'+esc(nm(o.mid))+(o.type==='make'&&o.src?'<br><small class="muted">из: '+esc(nm(o.src.mid))+' − '+fmt(o.src.q)+' '+esc(un(o.src.mid))+'</small>':'')+'</td><td class="num'+(o.type==='out'?' neg':'')+'">'+(o.type==='out'?'−':'')+fmt(o.q)+' <span class="muted">'+esc(un(o.mid))+'</span></td><td>'+esc(o.wh||'')+(o.type==='move'?' → '+esc(o.to||''):'')+'</td><td>'+esc(o.name||S.names[o.by]||'')+(o.note?'<br><small class="muted">'+esc(o.note)+'</small>':'')+'</td><td>'+(ro?'':'<button type="button" class="link" data-mo-del="'+esc(o.id)+'" title="Удалить запись">✕</button>')+'</td></tr>').join('')+'</tbody></table></div></div>':
+    J.map(o=>'<tr><td>'+fmtDate(o.d)+'</td><td>'+esc(MAT_T[o.type]||o.type)+'</td><td>'+esc(nm(o.mid))+(o.type==='make'&&o.src?'<br><small class="muted">из: '+esc(nm(o.src.mid))+' − '+fmt(o.src.q)+' '+esc(un(o.src.mid))+'</small>':'')+'</td><td class="num'+(o.type==='out'?' neg':'')+'">'+(o.type==='out'?'−':'')+fmt(o.q)+' <span class="muted">'+esc(un(o.mid))+'</span></td><td>'+esc(o.wh||'')+(o.type==='move'?' → '+esc(o.to||''):'')+'</td><td>'+esc(o.name||S.names[o.by]||'')+(o.party?'<br><small>партия '+esc(o.party)+'</small>':'')+(o.note?'<br><small class="muted">'+esc(o.note)+'</small>':'')+'</td><td>'+(ro?'':'<button type="button" class="link" data-mo-del="'+esc(o.id)+'" title="Удалить запись">✕</button>')+'</td></tr>').join('')+'</tbody></table></div></div>':
     '<div class="panel empty">'+(MT.loaded?'Записей пока нет.':'Загружаем…')+'</div>';
 }};
 async function mopsSave(){const f=mopsForm();const er=$('mo-err');const fail=t=>{er.textContent=t;er.hidden=false;};
@@ -2249,7 +2267,7 @@ async function mopsSave(){const f=mopsForm();const er=$('mo-err');const fail=t=>
   if(!f.wh)return fail('Выберите склад.');if(f.type==='move'&&(!f.to||f.to===f.wh))return fail('Выберите, куда переместить.');
   let src=null;if(f.type==='make'){const sm=matById(f.smid);const sq=parseQ(f.sq);if(!sm)return fail('Выберите, из чего сделали.');if(!(sq>0))return fail('Впишите, сколько ушло.');if(sm.id===m.id)return fail('Материал и сырьё должны быть разными.');src={mid:sm.id,q:r2(sq)};}
   const b0=matBal();const was=new Set(matLow(b0).map(x=>x.id));
-  const x={d:f.d||todayStr(),type:f.type,mid:m.id,q:r2(q),wh:f.wh,...(f.type==='move'?{to:f.to}:{}),...(src?{src}:{}),note:(f.note||'').trim(),by:S.me||'',name:myName(),at:new Date().toISOString()};
+  const x={d:f.d||todayStr(),type:f.type,mid:m.id,q:r2(q),wh:f.wh,...(f.type==='move'?{to:f.to}:{}),...(src?{src}:{}),...((f.type==='in'||f.type==='make')&&(f.party||'').trim()?{party:f.party.trim()}:{}),note:(f.note||'').trim(),by:S.me||'',name:myName(),at:new Date().toISOString()};
   try{await db.collection('matops').add(x);}catch(e){return fail(dbErr(e));}
   /* приход закрывает строку в «Закупках» */
   if(f.type==='in'){const bd=MT.buy.find(z=>z.mid===m.id);if(bd)db.doc('buy/'+bd.id).delete().catch(()=>{});}
@@ -2258,11 +2276,11 @@ async function mopsSave(){const f=mopsForm();const er=$('mo-err');const fail=t=>
   if(now.length){toast('⚠️ Пора закупить: '+now.map(z=>z.n).join(', '));pushSend({kind:'buy',title:'⚠️ Пора закупить',body:now.map(z=>z.n+' (осталось '+fmt(matTotal(b1,z.id))+' '+(z.u||'')+')').join(', ')});}
   else toast('Записано');
   if(m.test&&(f.type==='in'||f.type==='make')&&f.opyt){try{await opytTask(m,x,f.who);}catch(e){toast('Записано, но задачу поставить не удалось: '+dbErr(e));}}
-  MT.f={...f,q:'',sq:'',note:'',opyt:true};VIEWS.mops.update();}
+  MT.f={...f,q:'',sq:'',note:'',party:'',opyt:true};VIEWS.mops.update();}
 async function opytTask(m,x,who){
   await loadPeople();const isN=String(who||'').indexOf('n:')===0;const to=isN?'':(who||'');const toName=isN?who.slice(2):((CH.people||[]).find(p=>p.uid===to)||{}).name||'';
   const now=new Date().toISOString();
-  const t={t:'Сделать опыты: '+m.n+(x.type==='make'?' (новый замес)':' (новая партия)'),d:(x.type==='make'?'Изготовлено '+fmt(x.q)+' '+(m.u||'')+' «'+m.n+'»'+(x.src?' из «'+((matById(x.src.mid)||{}).n||'')+'»':''):'Пришло '+fmt(x.q)+' '+(m.u||'')+' «'+m.n+'»')+', склад: '+x.wh+(x.note?'. '+x.note:'')+'. Проверить на пробных образцах, результат записать в комментарий.',
+  const t={t:'Сделать опыты: '+m.n+(x.type==='make'?' (новый замес)':' (новая партия)'),d:(x.type==='make'?'Изготовлено '+fmt(x.q)+' '+(m.u||'')+' «'+m.n+'»'+(x.src?' из «'+((matById(x.src.mid)||{}).n||'')+'»':''):'Пришло '+fmt(x.q)+' '+(m.u||'')+' «'+m.n+'»')+(x.party?', партия '+x.party:'')+', склад: '+x.wh+(x.note?'. '+x.note:'')+'. Проверить на пробных образцах, результат записать в комментарий.',
     to,toName,watch:tkWatch(to,toName),due:'',ord:null,upd:now,st:'new',by:S.me,at:now,cm:[],auto:'opyt'};
   const r=await rawdb.collection('tasks').add(t);tkNotify(t,r.id,true);toast('Записано. Задача «Сделать опыты» поставлена'+(toName?': '+toName:''));}
 
@@ -2319,12 +2337,216 @@ document.addEventListener('click',async e=>{const t=e.target;let b;
 });
 document.addEventListener('input',e=>{const t=e.target;
   if(t.id==='mt-q'){MT.q=t.value;const p=t.selectionStart;t.blur();VIEWS.mstock.update();const i=$('mt-q');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(_){}}return;}
-  const k={'mo-mid':'mid','mo-q':'q','mo-wh':'wh','mo-to':'to','mo-smid':'smid','mo-sq':'sq','mo-d':'d','mo-note':'note','mo-who':'who'}[t.id];
+  const k={'mo-mid':'mid','mo-q':'q','mo-wh':'wh','mo-to':'to','mo-smid':'smid','mo-sq':'sq','mo-d':'d','mo-note':'note','mo-who':'who','mo-party':'party'}[t.id];
   if(k){const f=mopsForm();f[k]=t.value;if(t.tagName==='SELECT'){t.blur();VIEWS.mops.update();}}
   if(t.id==='mo-opyt'){mopsForm().opyt=t.checked;t.blur();VIEWS.mops.update();}});
 document.addEventListener('change',e=>{const t=e.target;if(t.id==='mt-wh'){MT.wh=t.value;t.blur();VIEWS.mstock.update();}
   if(t.id==='mo-opyt'){mopsForm().opyt=t.checked;t.blur();VIEWS.mops.update();}
   if(t.tagName==='SELECT'&&/^mo-/.test(t.id||'')){const k={'mo-mid':'mid','mo-wh':'wh','mo-to':'to','mo-smid':'smid','mo-who':'who'}[t.id];if(k){mopsForm()[k]=t.value;t.blur();VIEWS.mops.update();}}});
+
+/* ================= Качество: формы контроля качества (KDK-QMS), заполнение в программе, автоданные из этапов, печать ================= */
+/* хранится: qc/{id} = {f:код формы, d, batch, v:{поле:значение}, by, name, at, upd} */
+const QY=(id,ru,en)=>({t:'yn',id,ru,en});
+const QP=(id,ru,en,opts,multi)=>({t:'pick',id,ru,en,opts,multi:!!multi});
+const QT=(id,ru,en,long)=>({t:'text',id,ru,en,long:!!long});
+const QN=(id,ru,en,u)=>({t:'num',id,ru,en,u});
+const QDEV=p=>[QT(p+'_dt','Тип отклонения','Type of deviation'),QT(p+'_dq','Количество','Quantity'),QT(p+'_dd','Решение','Decision')];
+const QBATCHDEC=[['Партия допущена дальше','Batch approved for the next stage'],['Допущена частично','Partially approved'],['Направлена на дополнительную проверку','Sent for additional inspection'],['Забракована','Rejected']];
+const QAPPLY=[['Кисть','Brush'],['Распылитель','Sprayer'],['Губка','Sponge'],['Валик','Roller']];
+const QF_DEFS=[
+ {k:'F01',code:'KDK-QMS-F01',g:'Сырьё и смесь',dep:'I',ru:'Входной контроль сырья',en:'Incoming raw material inspection',auto:'in',secs:[
+  {ru:'Информация о материале',en:'Material information',items:[QT('mat','Вид материала','Type'),QT('sup','Поставщик','Supplier'),QT('party','Номер партии поставщика / бочки','Supplier batch / drum no.'),QN('qty','Количество поставки','Delivery quantity'),QT('unit','Единица измерения','Unit of measure'),QT('pack','Тара / упаковка','Container / packaging'),QT('exp','Срок годности','Expiry date')]},
+  {ru:'Проверка упаковки и маркировки',en:'Packaging and labeling check',items:[QY('p1','Упаковка целая','Packaging intact'),QY('p2','Нет следов влаги / протечки','No signs of moisture / leakage'),QY('p3','Маркировка читаемая','Marking legible')]},
+  {ru:'Сопроводительные документы',en:'Accompanying documents',items:[QY('d1','Накладная есть','Delivery note present'),QY('d2','Сертификат / технический лист есть','Certificate / TDS present')]},
+  {ru:'Визуальный контроль материала',en:'Visual inspection',items:[QY('v1','Цвет соответствует','Color matches'),QY('v2','Консистенция соответствует','Consistency matches'),QY('v3','Материал чистый','Material clean'),QY('v4','Нет комков / сгустков','No lumps / clots')]},
+  {ru:'Несоответствие / дефект',en:'Nonconformity / defect',items:[QT('nc','Описание несоответствия','Description of the nonconformity',true),QT('ncq','Количество','Quantity')]},
+  {ru:'Итоговое решение',en:'Final decision',items:[QP('dec','Решение','Decision',[['Полностью допущено','Fully approved'],['Частично изолировано','Partially isolated'],['Не допущено','Rejected']]),QT('rem','Примечание','Remarks',true)]}]},
+ {k:'F02',code:'KDK-QMS-F02',g:'Сырьё и смесь',dep:'II',ru:'Контроль смеси за смену',en:'Mixture control for the shift',auto:'mix',batch:true,secs:[
+  {ru:'Рецептура замеса',en:'Batch formulation',items:[QN('r_cem','Белый цемент','White cement','кг'),QN('r_sand','Кварцевый песок','Quartz sand','кг'),QN('r_marb','Мраморная мука','Marble flour','кг'),QN('r_acr','Акриловая дисперсия','Acrylic dispersion','кг'),QN('r_wat','Вода','Water','л'),QN('r_thk','Загуститель','Thickener','кг'),QN('r_pig','Оксидный пигмент','Oxide pigment','кг'),QT('r_pigc','Цвет / марка пигмента','Pigment color / grade'),QN('vats','Чанов за смену','Vats per shift','шт.'),QN('mixt','Время перемешивания','Mixing time','мин')]},
+  {ru:'Допуск сырья',en:'Raw material acceptance',yes:'Допущен',no:'Не допущен',items:[QY('a1','Белый цемент','White cement'),QY('a2','Кварцевый песок','Quartz sand'),QY('a3','Мраморная мука','Marble flour'),QY('a4','Акриловая дисперсия','Acrylic dispersion'),QY('a5','Вода','Water'),QY('a6','Загуститель','Thickener'),QY('a7','Оксидный пигмент','Oxide pigment'),QY('a8','Мраморная крошка (посыпка, в смесь не вводится)','Marble chips (dusting, not in the mixture)')]},
+  {ru:'Контроль технологического процесса',en:'Process control',items:[QY('c1','Компоненты допущены по входному контролю','Components approved by incoming inspection'),QY('c2','Рецептура соблюдена','Formulation followed'),QY('c3','Смесь визуально соответствует рабочей консистенции','Mixture matches the working consistency'),QY('c4','Оборудование работало исправно','Equipment operated properly')]},
+  {ru:'Отклонения и проблемы за смену',en:'Deviations / issues during the shift',items:[QT('l1','Компонент, проблема, что сделано (1)','Component, problem, action (1)'),QT('l2','Компонент, проблема, что сделано (2)','Component, problem, action (2)'),QT('l3','Компонент, проблема, что сделано (3)','Component, problem, action (3)')]},
+  {ru:'Итоговый контроль смеси',en:'Final mixture control',items:[QY('f1','Смесь однородная','Mixture homogeneous'),QY('f2','Комки отсутствуют','No lumps'),QY('f3','Расслоение отсутствует','No delamination'),QY('f4','Цвет равномерный','Color uniform'),QY('f5','Смесь пригодна для формования','Mixture fit for molding'),QT('iso','Изолировано','Isolated'),QT('isor','Причина изоляции / брака','Reason for isolation / rejection',true)]},
+  {ru:'Итоговое решение',en:'Final decision',items:[QP('dec','Решение','Decision',[['Смесь допущена к формованию','Approved for molding'],['Допущена после корректировки','Approved after correction'],['Частично изолирована','Partially isolated'],['Забракована','Rejected']])]}]},
+ {k:'F03-1A',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Смазочный состав',en:'Release agent preparation',secs:[
+  {ru:'Состав (сколько взяли)',en:'Composition',items:[QN('w','Вода','Water','л'),QN('soap','Хозяйственное мыло','Household soap','кг'),QN('oil','Индустриальное масло','Industrial oil','л'),QT('oilm','Марка масла','Oil grade'),QN('vol','Получилось состава','Volume prepared','л'),QT('how','Как готовили (нагрев, время перемешивания)','How it was prepared',true)]},
+  {ru:'Проверка',en:'Check',items:[QY('k1','Рецепт соблюдён','Formulation followed'),QY('k2','Консистенция однородная','Consistency uniform'),QY('k3','Нет осадка и комков мыла','No sediment / soap lumps')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
+ {k:'F03-1B',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Колеровка посыпки',en:'Coloring of the dusting mix',secs:[
+  {ru:'Состав',en:'Composition',items:[QT('ox','Оксид (цвет, марка)','Oxide (color, grade)'),QN('oxq','Оксида','Oxide','г'),QT('fr','Мраморная крошка (фракция)','Marble chips (fraction)'),QN('frq','Мраморной крошки','Marble chips','кг'),QT('pos','Какая посыпка получилась','Dusting mix name')]},
+  {ru:'Проверка',en:'Check',items:[QY('k1','Технология соблюдена','Technology followed'),QY('k2','Цвет соответствует образцу','Color matches the sample'),QY('k3','Окрас равномерный, без пятен','Even coloring, no spots')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
+ {k:'F03-1C',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Подготовка и смазка форм',en:'Mold preparation and lubrication',auto:'grease',secs:[
+  {ru:'Чем и как смазывали',en:'Lubrication',items:[QT('agent','Чем смазывали (состав)','Release agent used'),QP('apply','Как наносили','Application method',QAPPLY),QN('layers','Слоёв','Layers','шт.'),QN('wait','Выдержка после смазки','Waiting time after lubrication','мин'),QT('pos','Посыпка','Dusting mix')]},
+  {ru:'Проверка',en:'Check',items:[QY('k1','Формы чистые','Molds clean'),QY('k2','Рельеф форм без повреждений','Mold relief undamaged'),QY('k3','Смазочный состав нанесён равномерно','Release agent applied evenly'),QY('k4','Посыпка нанесена по технологии (для серий с посыпкой)','Dusting applied per technology'),QY('k5','Формы готовы к заливке','Molds ready for pouring')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
+ {k:'F03-1D',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Подготовка мембраны',en:'Membrane preparation',secs:[
+  {ru:'Мембрана',en:'Membrane',items:[QT('party','Партия мембраны','Membrane batch'),QT('fmt','Формат','Format'),QN('qty','Подготовлено листов','Sheets prepared','шт.')]},
+  {ru:'Проверка',en:'Check',items:[QY('k1','Мембрана подготовлена по нужному формату','Prepared to the required format'),QY('k2','Материал целый, без разрывов и складок','Intact, no tears or folds'),QY('k3','Мембрана пригодна к укладке','Fit for application')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
+ {k:'F03-2',code:'KDK-QMS-F03-2',g:'Производство',dep:'III',ru:'Формование (заливка)',en:'Forming',auto:'cast',batch:true,secs:[
+  {ru:'Условия',en:'Conditions',items:[QN('temp','Температура в цеху','Workshop temperature','°C'),QN('vib','Время вибрации','Vibration time','сек'),QT('vats','Из какого чана / замеса','From which vat / mix')]},
+  {ru:'Проверка',en:'Check',items:[QY('k1','Смесь распределена равномерно','Mixture spread evenly'),QY('k2','Мембрана уложена правильно','Membrane laid correctly'),QY('k3','После вибрации обеспечено соединение слоёв','Layer bonding after vibration')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
+ {k:'F03-3A',code:'KDK-QMS-F03-3',g:'Производство',dep:'III',ru:'Сушка и распалубка',en:'Drying and demolding',auto:'dry',batch:true,secs:[
+  {ru:'Сушка',en:'Drying',items:[QT('dtime','Сколько сохло','Drying time'),QN('temp','Температура в сушке','Drying temperature','°C'),QN('hum','Влажность','Humidity','%'),QP('dq','Качество сушки','Drying quality',[['Высохло полностью','Fully dried'],['Недосушено','Underdried'],['Пересушено / трещины','Overdried / cracks']])]},
+  {ru:'Проверка при снятии с формы',en:'Demolding check',items:[QY('k1','Изделие высушено','Product dried'),QY('k2','Снимается легко, не прилипает к форме','Demolds easily, no sticking'),QY('k3','Поверхность целостная','Surface intact'),QY('k4','Цвет соответствует серии / модели','Color matches the series / model'),QY('k5','Пригодно для передачи на резку','Ready for cutting')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')},
+  {ru:'Решение по партии',en:'Decision on the batch',items:[QP('dec','Решение','Decision',QBATCHDEC)]}]},
+ {k:'F03-3B',code:'KDK-QMS-F03-3',g:'Производство',dep:'III',ru:'Резка',en:'Cutting',auto:'cut',batch:true,secs:[
+  {ru:'Резка',en:'Cutting',items:[QT('die','Штанц-форма (какая)','Die-cutting form'),QN('ht','Температура термообработки кромок','Edge heat treatment temperature','°C')]},
+  {ru:'Проверка',en:'Check',items:[QY('k1','Установлена правильная штанц-форма','Correct die installed'),QY('k2','Размер соответствует формату','Size matches the format'),QY('k3','Бракованные элементы удалены','Defective pieces removed'),QY('k4','Кромки обработаны: не распушены, без пережога','Edges treated, no fraying or scorching')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')},
+  {ru:'Решение по партии',en:'Decision on the batch',items:[QP('dec','Решение','Decision',QBATCHDEC)]}]},
+ {k:'F03-4',code:'KDK-QMS-F03-4',g:'Итог и упаковка',dep:'III',ru:'Финальный контроль и упаковка',en:'Final inspection and packaging',auto:'pack',batch:true,secs:[
+  {ru:'Лицевая поверхность',en:'Face surface',items:[QY('s1','Лицевая поверхность чистая','Face surface clean'),QY('s2','Поверхность целостная','Surface intact')]},
+  {ru:'Цвет и текстура',en:'Color and texture',items:[QY('c1','Цвет соответствует образцу','Color matches the sample'),QY('c2','Текстура соответствует серии','Texture matches the series'),QY('c3','Серия / модель / размер соответствуют','Series / model / size match')]},
+  {ru:'Геометрия и размеры',en:'Geometry and dimensions',items:[QN('len','Длина: отклонение (допуск ±2 мм)','Length deviation (±2 mm)','мм'),QN('wid','Ширина: отклонение (допуск ±2 мм)','Width deviation (±2 mm)','мм'),QN('thmin','Толщина min (норма 2–6,5 мм)','Thickness min (2–6.5 mm)','мм'),QN('thmax','Толщина max','Thickness max','мм'),QY('g4','Геометрия изделий приемлемая','Geometry acceptable')]},
+  {ru:'Масса (норма 4 кг/м² ±400 г)',en:'Weight (4 kg/m² ±400 g)',items:[QN('mass','Фактическая масса','Actual weight','кг/м²')]},
+  {ru:'Кромки и целостность',en:'Edges and integrity',items:[QY('e1','Кромки аккуратные','Edges neat'),QY('e2','Срез ровный','Cut edge even'),QY('e3','Изделие пригодно к упаковке','Fit for packaging')]},
+  {ru:'Упаковка и маркировка',en:'Packaging and labeling',items:[QY('u1','Упаковка без повреждений','Packaging undamaged'),QY('u2','Маркировка нанесена','Marking applied'),QY('u3','Штамп номера партии нанесён','Batch stamp applied'),QY('u4','Штамп даты производства нанесён','Production date stamp applied'),QY('u5','Штамп резчика нанесён','Cutter stamp applied'),QY('u6','Штамп упаковщика нанесён','Packer stamp applied')]},
+  {ru:'Отклонение',en:'Deviation',items:QDEV('x')},
+  {ru:'Итог по партии',en:'Final decision on the batch',items:[QN('good','Годной продукции','Good product','м²'),QN('bad','Брака','Defective product','м²'),QP('dec','Заключение','Conclusion',[['Годна, допущена к отгрузке','Cleared for shipment'],['Годна частично','Partially acceptable'],['Временно изолирована','Temporarily isolated'],['Забракована','Rejected']])]}]},
+ {k:'F04',code:'KDK-QMS-F04',g:'Несоответствия и изменения',dep:'',ru:'Карточка несоответствия и брака',en:'Nonconformity and defect card',batch:true,num:true,secs:[
+  {ru:'Где выявлено',en:'Stage detected',items:[QT('dept','Отдел','Department'),QP('stage','Этап','Stage',[['Входной контроль сырья','Incoming inspection'],['Подготовка смеси','Mixture preparation'],['Подготовка формы / смазка','Mold preparation / lubrication'],['Подготовка мембраны','Membrane preparation'],['Формование','Molding'],['Сушка','Drying'],['Снятие с формы','Demolding'],['Резка','Cutting'],['Контроль кромок','Edge control'],['Упаковка','Packaging'],['Финальный контроль','Final inspection'],['Склад / отгрузка','Warehouse / shipment']])]},
+  {ru:'Описание',en:'Description',items:QDEV('x').slice(0,2).concat([QT('desc','Подробное описание','Detailed description',true)])},
+  {ru:'Решение',en:'Decision',items:[QP('dec','Решение','Decision',[['Корректировка','Correction'],['Переработка','Rework'],['Частичная браковка','Partial rejection'],['Полная браковка','Full rejection'],['Допуск после проверки','Approved after inspection']]),QT('rem','Примечание','Remarks',true)]}]},
+ {k:'F05',code:'KDK-QMS-F05',g:'Несоответствия и изменения',dep:'',ru:'Журнал изменений продукции',en:'Product change log',secs:[
+  {ru:'Что затрагивает изменение',en:'What the change affects',items:[QT('dept','Отдел','Department'),QP('aff','Затрагивает','Affects',[['Состав рабочей смеси','Mixture composition'],['Сырьё или поставщик','Raw material or supplier'],['Рецептура','Formulation'],['Технология производства','Production technology'],['Конструкция изделия','Product design'],['Размер, формат, внешний вид','Size, format, appearance'],['Оборудование','Equipment'],['Маркировка или упаковка','Marking or packaging']],true)]},
+  {ru:'Описание изменения',en:'Description of the change',items:[QT('desc','Описание изменения','Description',true),QT('why','Причина изменения','Reason',true),QT('proc','Какие процессы или материалы затрагиваются','Affected processes or materials',true)]},
+  {ru:'Оценка влияния',en:'Impact assessment',yes:'Влияет',no:'Не влияет',items:[QY('i1','Качество продукции','Product quality'),QY('i2','Стабильность производства','Production stability'),QY('i3','Внешний вид и характеристики','Appearance and characteristics')]},
+  {ru:'Дополнительные проверки',en:'Additional checks',items:[QP('chk','Проверки','Checks',[['Пробное производство','Trial production'],['Доп. контроль качества','Additional QC'],['Проверка характеристик','Verification of characteristics'],['Не требуются','Not required']],true),QT('res','Результат','Result',true)]},
+  {ru:'Решение',en:'Decision',items:[QP('dec','Решение','Decision',[['Изменение одобрено','Approved'],['Изменение отклонено','Rejected'],['Нужна доп. проверка','Additional verification required']]),QP('cat','Категория (KDK-QMS-10, п. 6.3)','Category (KDK-QMS-10, 6.3)',[['Существенное — согласование с ICC-ES','Significant — ICC-ES review'],['Несущественное — внутреннее утверждение','Minor — internal approval']]),QT('cond','Условия / обоснование','Conditions / justification',true)]},
+  {ru:'Контроль после внедрения',en:'Control after implementation',items:[QY('p1','Качество продукции стабильно','Product quality is stable'),QY('p2','Отклонений не выявлено','No deviations identified'),QT('meas','Если выявлены отклонения — принятые меры','Measures taken if deviations',true)]}]},
+ {k:'F06',code:'KDK-QMS-F06',g:'Несоответствия и изменения',dep:'',ru:'Журнал жалоб и рекламаций',en:'Complaints log',batch:true,num:true,auto:'claim',secs:[
+  {ru:'Данные обращения',en:'Request details',items:[QT('rd','Дата обращения','Date of request'),QT('cli','Клиент','Customer'),QT('con','Контактное лицо, телефон','Contact person, telephone'),QT('prod','Модель / серия / код продукции','Product model / series / code'),QT('pdate','Дата производства','Production date'),QT('qty','Количество продукции','Quantity of products'),QT('ord','Заказ №','Order no.')]},
+  {ru:'Суть жалобы',en:'Subject of the complaint',items:[QP('subj','Суть','Subject',[['Качество продукции','Product quality'],['Внешний вид, цвет, текстура','Appearance, color, texture'],['Размер','Size'],['Повреждения','Damage'],['Упаковка или маркировка','Packaging or marking'],['Хранение, транспортировка, монтаж','Storage, transport, installation']],true),QT('desc','Описание проблемы','Description of the problem',true),QP('photo','Фото / видео предоставлены','Photos / video provided',[['да','yes'],['нет','no']])]},
+  {ru:'Проверка',en:'Verification',items:[QY('v1','Проверены формы контроля качества по партии','QC forms of the batch checked'),QY('v2','Соответствует эталонному образцу','Conforms to the reference sample')]},
+  {ru:'Решение',en:'Decision',items:[QP('dec','Решение','Decision',[['Жалоба подтверждена','Confirmed'],['Жалоба не подтверждена','Not confirmed'],['Иное решение','Other decision']]),QT('just','Обоснование','Justification',true)]},
+  {ru:'Ответ клиенту',en:'Response to the customer',items:[QP('inf','Клиент проинформирован','Customer informed',[['да','yes'],['нет','no']])]}]}
+];
+const QFD=k=>QF_DEFS.find(x=>x.k===k);
+const QC={list:[],sub:false,form:null,q:'',ff:''};
+function subscribeQc(){if(QC.sub||!db||!tabOk('qc'))return;QC.sub=true;
+  db.collection('qc').onSnapshot(s=>{QC.list=s.docs.map(d=>({id:d.id,...d.data()}));QC.loaded=true;if(S.view==='qc'&&!QC.form)VIEWS.qc.update();},()=>{QC.loaded=true;});}
+const ddmmyy=d=>d?d.slice(8,10)+d.slice(5,7)+d.slice(2,4):'';
+/* данные этапов за день (и по партии, если заливки помечены партией) */
+function qcOps(d,pred){return allOps().filter(o=>o.d===d&&pred(o));}
+function qcDryDays(o){const cs=allOps().filter(c=>c.op==='cast'&&c.n===o.n&&c.d<=o.d).map(c=>c.d).sort();const c=cs[cs.length-1];return c?Math.round((new Date(o.d)-new Date(c))/864e5):null;}
+function qcAuto(def,d,batch){const T=(head,rows)=>rows.length?'<div class="tbl-wrap"><table><thead><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0">За '+fmtDate(d)+' записей этого этапа нет.</p>';
+  const W=o=>esc(o.who||S.names[o.by]||'');const pre={};let h='';
+  if(def.auto==='in'){const L=(MT.ops||[]).filter(o=>o.type==='in').sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at))).slice(0,30);
+    h=L.length?'<label class="fld"><span>Заполнить по приходу материала</span><select id="qc-pin"><option value="">— выберите приход —</option>'+L.map(o=>{const m=matById(o.mid)||{};return opt(o.id,fmtDate(o.d)+' · '+(m.n||'?')+' · '+fmt(o.q)+' '+(m.u||'')+(o.party?' · партия '+o.party:''),'');}).join('')+'</select></label>':'<p class="muted" style="margin:0">Приходов материалов пока нет (раздел «Материалы»).</p>';
+    return {h,pre};}
+  if(def.auto==='mix'){const cs=qcOps(d,o=>o.op==='cast');const parts=[...new Set(cs.map(o=>o.batch).filter(Boolean))];
+    const acr=(MT.ops||[]).filter(o=>o.type==='in'&&o.party&&/акрил/i.test((matById(o.mid)||{}).n||'')).slice(-5).map(o=>o.party);
+    h='<p style="margin:0">Залито за день: <b>'+fmt(cs.reduce((a,o)=>a+(Number(o.pcs)||0),0))+'</b> шт. ('+fmt(cs.reduce((a,o)=>a+(Number(o.q)||0),0))+' м²)'+(parts.length?' · партии: <b>'+esc(parts.join(', '))+'</b>':'')+(acr.length?'<br>Последние бочки акрила (приход): '+esc([...new Set(acr)].join(', ')):'')+'</p>';
+    if(parts.length===1&&!batch)pre._batch=parts[0];return {h,pre};}
+  if(def.auto==='grease'){const L=qcOps(d,o=>o.op==='grease');h=T(['Форма','Посыпка','Штук','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.pcs||o.q),W(o)]));
+    const ps=[...new Set(L.map(o=>o.s).filter(Boolean))];if(ps.length)pre.pos=ps.join(', ');return {h,pre};}
+  if(def.auto==='cast'){let L=qcOps(d,o=>o.op==='cast');if(batch&&L.some(o=>o.batch===batch))L=L.filter(o=>o.batch===batch);
+    h=T(['Вид','Холстов / шт.','м²','Формы','Партия','Кто'],L.map(o=>[esc(o.n),fmt(o.pcs||0),fmt(o.q),esc((o.form||'')+(o.pos?' · '+o.pos:'')),esc(o.batch||''),W(o)]));
+    const ps=[...new Set(L.map(o=>o.batch).filter(Boolean))];if(ps.length===1&&!batch)pre._batch=ps[0];return {h,pre};}
+  if(def.auto==='dry'){const L=qcOps(d,o=>o.step==='Распалубка'||o.step==='Снятие');
+    h=T(['Вид','Сняли, шт.','Сохло дней','Кто'],L.map(o=>{const dd=qcDryDays(o);return [esc(o.n),fmt(o.pcs||o.q),dd==null?'—':String(dd),W(o)];}));
+    const ds=[...new Set(L.map(qcDryDays).filter(x=>x!=null))];if(ds.length)pre.dtime=ds.map(x=>x+' дн.').join(', ');
+    const cd=L.map(o=>{const c=allOps().filter(c=>c.op==='cast'&&c.n===o.n&&c.d<=o.d).sort((a,b)=>a.d.localeCompare(b.d)).pop();return c&&c.batch;}).filter(Boolean);if(cd.length&&!batch)pre._batch=[...new Set(cd)].join(', ');
+    return {h,pre};}
+  if(def.auto==='cut'){const L=qcOps(d,o=>o.op==='cut');
+    h=T(['Вид','Размер','Холстов','Годно','Брак, м²','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.pcs||0),fmt(o.q)+' '+esc(unit(o.c)),fmt(o.brak||0),W(o)]));return {h,pre};}
+  if(def.auto==='pack'){const L=qcOps(d,o=>o.step==='Упаковка');const C=qcOps(d,o=>o.op==='cut');
+    h=T(['Вид','Размер','Упаковано','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.q)+' '+esc(unit(o.c)),W(o)]));
+    const g=L.reduce((a,o)=>a+(Number(o.q)||0),0),b=C.reduce((a,o)=>a+(Number(o.brak)||0),0);if(g)pre.good=String(r2(g)).replace('.',',');if(b)pre.bad=String(r2(b)).replace('.',',');return {h,pre};}
+  if(def.auto==='claim'){h=tabOk('orders')?'<label class="fld"><span>Заполнить по заказу</span><select id="qc-pord"><option value="">— выберите заказ —</option>'+[...S.orders].sort((a,b)=>String(b.no).localeCompare(String(a.no),'ru',{numeric:true})).slice(0,200).map(o=>opt(o.id,'№'+o.no+' · '+(o.obj||'')+' · '+(o.firm||''),'')).join('')+'</select></label>':'';return {h,pre};}
+  return {h:'',pre};}
+function qcVal(v,id){return v[id]==null?'':v[id];}
+function qcItemHtml(it,v,sec){const val=qcVal(v,it.id);
+  if(it.t==='yn')return '<div class="qrow"><span class="qlab">'+esc(it.ru)+'</span><span class="chips qyn" data-qyn="'+it.id+'"><button type="button" class="chip" data-v="y" aria-pressed="'+(val==='y')+'">'+esc(sec.yes||'Да')+'</button><button type="button" class="chip" data-v="n" aria-pressed="'+(val==='n')+'">'+esc(sec.no||'Нет')+'</button></span><input type="text" class="qnote" data-qf="'+it.id+'_n" placeholder="примечание" value="'+esc(qcVal(v,it.id+'_n'))+'"></div>';
+  if(it.t==='pick'){const cur=it.multi?(Array.isArray(val)?val:[]):val;return '<div class="fld"><span>'+esc(it.ru)+(it.multi?' <small class="muted">(можно несколько)</small>':'')+'</span><div class="chips" data-qpk="'+it.id+'"'+(it.multi?' data-multi="1"':'')+'>'+it.opts.map(o=>'<button type="button" class="chip" data-v="'+esc(o[0])+'" aria-pressed="'+(it.multi?cur.includes(o[0]):cur===o[0])+'">'+esc(o[0])+'</button>').join('')+'</div></div>';}
+  if(it.t==='num')return '<label class="fld qnum"><span>'+esc(it.ru)+(it.u?', '+esc(it.u):'')+'</span><input type="text" inputmode="decimal" data-qf="'+it.id+'" value="'+esc(val)+'"></label>';
+  return '<label class="fld'+(it.long?' qlong':'')+'"><span>'+esc(it.ru)+'</span>'+(it.long?'<textarea data-qf="'+it.id+'" rows="2">'+esc(val)+'</textarea>':'<input type="text" data-qf="'+it.id+'" value="'+esc(val)+'">')+'</label>';}
+function qcNextNo(k){const n=QC.list.filter(x=>x.f===k).map(x=>parseInt(x.no,10)||0);return String((n.length?Math.max(...n):0)+1);}
+function qcFormHtml(){const F=QC.form,def=QFD(F.f);const ro=RO('qc');const A=qcAuto(def,F.d,F.batch);
+  for(const [k,x] of Object.entries(A.pre)){if(k==='_batch'){if(!F.batch)F.batch=x;}else if(F.v[k]==null||F.v[k]==='')F.v[k]=x;}
+  const lastDrum=ls.get('p.drum','');
+  return '<div class="panel qform"><div class="panel-head"><h2>'+esc(def.ru)+'</h2><span class="muted" style="font-size:12px">'+esc(def.code)+(def.dep?' · отдел '+def.dep:'')+'</span></div>'+
+    '<div class="filters"><label class="fld"><span>Дата</span><input type="date" id="qc-d" value="'+esc(F.d)+'" max="'+todayStr()+'"></label>'+
+    (def.batch||def.k==='F02'?'<label class="fld"><span>Номер партии</span><input type="text" id="qc-batch" value="'+esc(F.batch||'')+'" placeholder="бочка-ДДММГГ, напр. '+esc((lastDrum||'15')+'-'+ddmmyy(F.d))+'"></label>':'')+
+    (def.num?'<label class="fld"><span>Номер записи</span><input type="text" id="qc-no" value="'+esc(F.no||'')+'" style="max-width:100px"></label>':'')+'</div>'+
+    (A.h?'<div class="qauto"><b>Данные из программы</b>'+A.h+'</div>':'')+
+    def.secs.map((s,i)=>'<div class="qsec"><h3>'+(i+1)+'. '+esc(s.ru)+'</h3>'+s.items.map(it=>qcItemHtml(it,F.v,s)).join('')+'</div>').join('')+
+    '<label class="fld"><span>Контроль выполнил(а)</span><input type="text" id="qc-who" value="'+esc(F.who||myName())+'"></label>'+
+    '<p class="err" id="qc-err" hidden></p><div class="actions" style="margin-top:10px">'+(ro?'':'<button type="button" class="primary" data-qc-save>Сохранить</button>')+'<button type="button" class="ghost" data-qc-print>🖨 Печать</button>'+(ro?'':'<button type="button" class="ghost" data-qc-blank>Пустой бланк</button>')+'<button type="button" class="ghost" data-qc-x>Закрыть</button>'+(F.id&&!ro?'<button type="button" class="ghost danger" data-qc-del>Удалить</button>':'')+'</div>'+
+    (F.f!=='F04'&&!ro?'<p class="muted" style="font-size:12px;margin:8px 0 0">Если где-то отмечено «Нет» — после сохранения можно сразу оформить карточку несоответствия.</p>':'')+'</div>';}
+function qcDecision(x){const v=x.v||{};return v.dec?(Array.isArray(v.dec)?v.dec.join(', '):v.dec):'';}
+function qcHasNo(F){return Object.entries(F.v).some(([k,x])=>x==='n'&&!/_n$/.test(k));}
+VIEWS.qc={controls(){subscribeQc();subscribeMats();},update(){
+  const el=$('qc-b');if(!el)return;
+  if(QC.form){if(!el.querySelector('.qform'))el.innerHTML=qcFormHtml();return;}
+  const ro=RO('qc');const gs=[...new Set(QF_DEFS.map(d=>d.g))];
+  let h=gs.map(g=>'<div class="panel" style="margin-bottom:12px"><h3 style="margin-bottom:8px">'+esc(g)+'</h3><div class="qcards">'+QF_DEFS.filter(d=>d.g===g).map(d=>{const n=QC.list.filter(x=>x.f===d.k&&x.d===todayStr()).length;return '<button type="button" class="qcard" data-qc-new="'+d.k+'"'+(ro?' disabled':'')+'><b>'+esc(d.ru)+'</b><small class="muted">'+esc(d.code)+(n?' · сегодня: '+n:'')+'</small></button>';}).join('')+'</div></div>').join('');
+  const q=(QC.q||'').trim().toLowerCase();
+  const L=QC.list.filter(x=>(!QC.ff||x.f===QC.ff)&&(!q||String(x.batch||'').toLowerCase().includes(q)||String(x.no||'').includes(q))).sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at))).slice(0,300);
+  h+='<div class="panel"><div class="panel-head"><h2>Заполненные формы</h2></div><div class="filters"><label class="fld"><span>Номер партии</span><input type="text" id="qc-q" value="'+esc(QC.q||'')+'" placeholder="например, 15-030325"></label><label class="fld"><span>Форма</span><select id="qc-ff"><option value="">Все</option>'+QF_DEFS.map(d=>opt(d.k,d.ru,QC.ff)).join('')+'</select></label></div>'+
+    (q?qcTrace(q):'')+
+    (L.length?'<div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Форма</th><th>Партия</th><th>Решение</th><th>Кто</th><th></th></tr></thead><tbody>'+L.map(x=>{const d=QFD(x.f)||{};const no=Object.entries(x.v||{}).some(([k,v])=>v==='n'&&!/_n$/.test(k));return '<tr><td>'+fmtDate(x.d)+'</td><td>'+esc(d.ru||x.f)+(x.no?' №'+esc(x.no):'')+'</td><td>'+esc(x.batch||'')+'</td><td>'+(no?'<span class="badge late">есть «Нет»</span> ':'')+esc(qcDecision(x))+'</td><td class="muted">'+esc(x.who||x.name||'')+'</td><td><button type="button" class="link" data-qc-open="'+esc(x.id)+'">Открыть</button> <button type="button" class="link" data-qc-pr="'+esc(x.id)+'">🖨</button></td></tr>';}).join('')+'</tbody></table></div>':'<p class="muted">'+(QC.loaded?'Пока ничего не заполнено.':'Загружаем…')+'</p>')+'</div>'+
+    '<p class="note">Формы заполняются прямо здесь. Данные этапов (смазка, заливка, сушка, резка, упаковка) за выбранный день подтягиваются сами. Номер партии связывает бочку акрила, замес, заливку и все проверки: впишите его в поиске, чтобы увидеть всю историю партии.</p>';
+  el.innerHTML=h;}};
+/* история партии: приход акрила → заливки → формы */
+function qcTrace(q){const casts=allOps().filter(o=>o.op==='cast'&&String(o.batch||'').toLowerCase().includes(q));const drum=q.split('-')[0];
+  const ins=(MT.ops||[]).filter(o=>o.type==='in'&&o.party&&String(o.party).toLowerCase()===drum);
+  if(!casts.length&&!ins.length)return '';
+  return '<div class="qauto" style="margin-bottom:10px"><b>История партии</b>'+(ins.length?'<p style="margin:4px 0">Бочка / партия «'+esc(drum)+'»: '+ins.map(o=>fmtDate(o.d)+' пришло '+esc((matById(o.mid)||{}).n||'')+' '+fmt(o.q)+' '+esc((matById(o.mid)||{}).u||'')+(o.note?' ('+esc(o.note)+')':'')).join('; ')+'</p>':'')+
+    (casts.length?'<p style="margin:4px 0">Заливки: '+casts.map(o=>fmtDate(o.d)+' '+esc(o.n)+' '+fmt(o.pcs||0)+' шт.'+(o.who?' ('+esc(o.who)+')':'')).join('; ')+'</p>':'')+'</div>';}
+function qcOpen(k,x){const def=QFD(k);QC.form=x?{...JSON.parse(JSON.stringify(x)),v:{...(x.v||{})}}:{f:k,d:todayStr(),batch:'',v:{},who:myName(),no:def.num?qcNextNo(k):''};const el=$('qc-b');if(el)el.innerHTML='';if(S.view!=='qc')go('qc');else VIEWS.qc.update();window.scrollTo(0,0);}
+function qcRead(){const F=QC.form;const el=$('qc-b');if(!F||!el)return;
+  el.querySelectorAll('[data-qf]').forEach(i=>{F.v[i.dataset.qf]=i.value.trim();});
+  const b=$('qc-batch');if(b)F.batch=b.value.trim();const d=$('qc-d');if(d)F.d=d.value||todayStr();const w=$('qc-who');if(w)F.who=w.value.trim();const n=$('qc-no');if(n)F.no=n.value.trim();}
+function qcPrintHtml(x,blank){const def=QFD(x.f);const v=blank?{}:(x.v||{});const B='<span class="dbox"></span>',BX='<span class="dbox" style="text-align:center;line-height:4.5mm;font-weight:700">✓</span>';
+  const sec=(s,i)=>{let h='<div style="margin-top:3mm;font-weight:700;font-size:10pt;color:var(--a)">'+(i+1)+'. '+esc(s.ru)+' / '+esc(s.en)+'</div>';
+    const yn=s.items.filter(it=>it.t==='yn');const oth=s.items.filter(it=>it.t!=='yn');
+    if(yn.length)h+='<table class="dt"><thead><tr><th style="text-align:left">Проверка / Check</th><th>'+esc(s.yes||'Да')+'</th><th>'+esc(s.no||'Нет')+'</th><th>Примечание / Remarks</th></tr></thead><tbody>'+yn.map((it,j)=>'<tr><td style="text-align:left">'+(j+1)+'. '+esc(it.ru)+'<br><small style="color:#666">'+esc(it.en)+'</small></td><td>'+(v[it.id]==='y'?BX:B)+'</td><td>'+(v[it.id]==='n'?BX:B)+'</td><td style="text-align:left">'+esc(v[it.id+'_n']||'')+'</td></tr>').join('')+'</tbody></table>';
+    if(oth.length)h+='<table class="dt"><tbody>'+oth.map(it=>{let val=v[it.id];
+      if(it.t==='pick')val=it.opts.map(o=>((it.multi?(Array.isArray(val)?val:[]).includes(o[0]):val===o[0])?BX:B)+' '+esc(o[0])+' <small style="color:#666">/ '+esc(o[1])+'</small>').join('<br>');
+      else val=val?esc(val)+(it.u?' '+esc(it.u):''):'<span style="display:inline-block;min-width:40mm;border-bottom:.25mm solid #999">&nbsp;</span>';
+      return '<tr><td style="text-align:left;width:42%">'+esc(it.ru)+(it.u&&it.t==='num'?', '+esc(it.u):'')+'<br><small style="color:#666">'+esc(it.en)+'</small></td><td style="text-align:left">'+val+'</td></tr>';}).join('')+'</tbody></table>';
+    return h;};
+  const A=!blank&&def.auto&&def.auto!=='in'&&def.auto!=='claim'?qcAuto(def,x.d,x.batch).h:'';
+  const hd='<table class="dt" style="margin-bottom:2mm"><tbody><tr><td style="text-align:left">Предприятие / Company: <b>HALTEMAN GROUP SRL</b></td><td style="text-align:left">Код / Code: <b>'+esc(def.code)+'</b> · Rev. 1</td></tr>'+
+    '<tr><td style="text-align:left">Дата / Date: <b>'+(blank?'____ / ____ / ______':fmtDate(x.d))+'</b></td><td style="text-align:left">'+[def.batch||def.k==='F02'?'Партия / Batch: <b>'+(blank?'________________':esc(x.batch||''))+'</b>':'',def.dep?'Отдел / Dept: <b>'+def.dep+'</b>':'',def.num?'№ <b>'+(blank?'_____':esc(x.no||''))+'</b>':''].filter(Boolean).join(' · ')+'</td></tr></tbody></table>';
+  return wrapDoc('qc','<div class="dbar"></div><div class="dtop"><div><div class="dtitle">'+esc(def.ru)+'</div><span class="dcopy">'+esc(def.en)+'</span></div><div class="dno" style="font-size:11pt">'+esc(def.code)+'</div></div>'+hd+
+    (A?'<div style="margin-top:2mm;font-weight:700">Данные этапа из программы / Production data</div>'+A.replace(/class="tbl-wrap"/g,'').replace(/<table>/g,'<table class="dt">'):'')+
+    def.secs.map(sec).join('')+'<div style="margin-top:4mm">Контроль выполнил / Inspection performed by: <b>'+(blank?'':esc(x.who||''))+'</b></div>'+dSign('ФИО / Full name','Подпись / Signature')+dFoot(def.code)).replace('<div class="doc"','<div class="doc" data-a4');}
+async function qcSave(){qcRead();const F=QC.form;const er=$('qc-err');const def=QFD(F.f);
+  if(def.batch&&F.f!=='F06'&&F.f!=='F04'&&!F.batch){er.textContent='Впишите номер партии.';er.hidden=false;return;}
+  const now=new Date().toISOString();const x={f:F.f,d:F.d,batch:F.batch||'',no:F.no||'',v:F.v,who:F.who||myName(),upd:now};
+  try{if(F.id)await db.doc('qc/'+F.id).update(x);else{const r=await db.collection('qc').add({...x,by:S.me||'',name:myName(),at:now});F.id=r.id;}
+    toast('Форма сохранена');
+    if(F.f!=='F04'&&qcHasNo(F)&&!RO('qc')&&confirm('В форме есть «Нет». Оформить карточку несоответствия?')){const bad=[];for(const s of def.secs)for(const it of s.items)if(it.t==='yn'&&F.v[it.id]==='n')bad.push(it.ru+(F.v[it.id+'_n']?' ('+F.v[it.id+'_n']+')':''));
+      const st={'F01':'Входной контроль сырья','F02':'Подготовка смеси','F03-1A':'Подготовка формы / смазка','F03-1B':'Подготовка формы / смазка','F03-1C':'Подготовка формы / смазка','F03-1D':'Подготовка мембраны','F03-2':'Формование','F03-3A':'Сушка','F03-3B':'Резка','F03-4':'Финальный контроль'}[F.f]||'';
+      QC.form={f:'F04',d:F.d,batch:F.batch,no:qcNextNo('F04'),who:myName(),v:{dept:def.dep,stage:st,x_dt:bad.join('; '),x_dq:F.v.x_dq||'',desc:'Из формы «'+def.ru+'» от '+fmtDate(F.d)+'. Не выполнено: '+bad.join('; ')}};$('qc-b').innerHTML='';VIEWS.qc.update();window.scrollTo(0,0);return;}
+    QC.form=null;VIEWS.qc.update();}catch(e){er.textContent=dbErr(e);er.hidden=false;}}
+document.addEventListener('click',async e=>{const t=e.target;let b;
+  if((b=t.closest('[data-qc-go]'))){qcOpen(b.dataset.qcGo);return;}
+  if(!t.closest('#qc-b'))return;
+  if((b=t.closest('[data-qc-new]'))){qcOpen(b.dataset.qcNew);return;}
+  if((b=t.closest('[data-qc-open]'))){const x=QC.list.find(z=>z.id===b.dataset.qcOpen);if(x)qcOpen(x.f,x);return;}
+  if((b=t.closest('[data-qc-pr]'))){const x=QC.list.find(z=>z.id===b.dataset.qcPr);if(x)doPrint([qcPrintHtml(x)],QFD(x.f).ru+' '+fmtDate(x.d));return;}
+  if((b=t.closest('[data-qyn] .chip'))){const box=b.parentElement;const cur=QC.form.v[box.dataset.qyn];const nv=cur===b.dataset.v?'':b.dataset.v;QC.form.v[box.dataset.qyn]=nv;box.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.v===nv)));return;}
+  if((b=t.closest('[data-qpk] .chip'))){const box=b.parentElement;const id=box.dataset.qpk;if(box.dataset.multi){const a=Array.isArray(QC.form.v[id])?QC.form.v[id]:[];const i=a.indexOf(b.dataset.v);if(i>=0)a.splice(i,1);else a.push(b.dataset.v);QC.form.v[id]=a;b.setAttribute('aria-pressed',String(i<0));}
+    else{const nv=QC.form.v[id]===b.dataset.v?'':b.dataset.v;QC.form.v[id]=nv;box.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.v===nv)));}return;}
+  if(t.closest('[data-qc-save]')){await qcSave();return;}
+  if(t.closest('[data-qc-print]')){qcRead();doPrint([qcPrintHtml(QC.form)],QFD(QC.form.f).ru);return;}
+  if(t.closest('[data-qc-blank]')){doPrint([qcPrintHtml(QC.form,true)],QFD(QC.form.f).ru+' — пустой бланк');return;}
+  if(t.closest('[data-qc-x]')){QC.form=null;VIEWS.qc.update();return;}
+  if(t.closest('[data-qc-del]')){if(!confirm('Удалить эту форму?'))return;try{await db.doc('qc/'+QC.form.id).delete();QC.form=null;VIEWS.qc.update();}catch(x){toast(dbErr(x));}return;}
+});
+document.addEventListener('change',e=>{const t=e.target;if(!t.closest||!t.closest('#qc-b'))return;
+  if(t.id==='qc-d'||t.id==='qc-batch'){qcRead();$('qc-b').innerHTML='';VIEWS.qc.update();return;}
+  if(t.id==='qc-ff'){QC.ff=t.value;VIEWS.qc.update();return;}
+  if(t.id==='qc-pin'){const o=(MT.ops||[]).find(z=>z.id===t.value);if(!o)return;qcRead();const m=matById(o.mid)||{};Object.assign(QC.form.v,{mat:m.n||'',qty:String(o.q).replace('.',','),unit:m.u||'',party:o.party||'',sup:o.note||QC.form.v.sup||''});QC.form.d=o.d;$('qc-b').innerHTML='';VIEWS.qc.update();return;}
+  if(t.id==='qc-pord'){const o=S.orders.find(z=>z.id===t.value);if(!o)return;qcRead();Object.assign(QC.form.v,{ord:String(o.no||''),cli:o.firm||o.obj||'',con:'',prod:(o.items||[]).map(i=>i.n+(i.s?' '+i.s:'')).join(', ')});$('qc-b').innerHTML='';VIEWS.qc.update();return;}});
+document.addEventListener('input',e=>{if(e.target.id==='qc-q'){QC.q=e.target.value;const p=e.target.selectionStart;VIEWS.qc.update();const i=$('qc-q');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(_){}}}});
 
 /* ================= Сообщения ================= */
 /* Общий чат (все, у кого есть доступ), группы (видят только участники) и личные чаты (видят только двое).
@@ -2984,8 +3206,8 @@ window.SKLAD_ME_CHANGED=()=>{const d=document.getElementById('mdrawer');if(d&&!d
 /* перерисовка меню без «прыжка»: без анимации и с той же прокруткой */
 function mdRedraw(d){const n=d.querySelector('.md');const y=n?n.scrollTop:0;d.innerHTML=drawerHtml();const n2=d.querySelector('.md');if(n2)n2.scrollTop=y;}
 /* ---------- Главная: плитки разделов с короткой сводкой ---------- */
-const HOME_INFO={mat:'сырьё и расходники, приход, закупки',tasks:'поручения сотрудникам: кому, что и к какому сроку',chat:'общий чат, «Заказы», группы и личные',office:'заказы и возвраты',p11:'камень: смазка, заливка, резка, упаковка, затирки',p9:'карнизы: заливка, шкурение, упаковка',store:'остатки, приход, журнал, план',ref:'товары, размеры, списки'};
-const HOME_ICO={mat:'🧱',tasks:'✅',chat:'💬',office:'📋',p11:'🏭',p9:'🏗️',store:'📦',ref:'📚'};
+const HOME_INFO={qc:'формы контроля качества по этапам, партии',mat:'сырьё и расходники, приход, закупки',tasks:'поручения сотрудникам: кому, что и к какому сроку',chat:'общий чат, «Заказы», группы и личные',office:'заказы и возвраты',p11:'камень: смазка, заливка, резка, упаковка, затирки',p9:'карнизы: заливка, шкурение, упаковка',store:'остатки, приход, журнал, план',ref:'товары, размеры, списки'};
+const HOME_ICO={qc:'🔎',mat:'🧱',tasks:'✅',chat:'💬',office:'📋',p11:'🏭',p9:'🏗️',store:'📦',ref:'📚'};
 function homeLine(g){
   if(g==='tasks'){const m=tkMineOpen();const nw=m.filter(x=>x.st==='new').length;const late=m.filter(x=>x.due&&x.due<todayStr()).length;
     return m.length?[nw?'<b class="hnew">новых: '+nw+'</b>':'','у меня открыто: '+m.length,late?'<b class="hnew" style="color:var(--danger,#c62828)">просрочено: '+late+'</b>':''].filter(Boolean).join(' · '):'у вас нет открытых задач';}
@@ -3101,7 +3323,7 @@ function orderEvents(docs,changes){
 
 /* ================= Печать бланков ================= */
 /* ---- печатные бланки A6 альбомные ---- */
-const PT={nar:['#C8551B','#FBE3D6'],wh:['#B07A12','#FBEFC9'],prod:['#4A4A4A','#E4E4E4'],act:['#2F7D4F','#D9F2D0'],ret:['#1E6FA8','#D3EAF8']};
+const PT={qc:['#2E6A6C','#DCEBEB'],nar:['#C8551B','#FBE3D6'],wh:['#B07A12','#FBEFC9'],prod:['#4A4A4A','#E4E4E4'],act:['#2F7D4F','#D9F2D0'],ret:['#1E6FA8','#D3EAF8']};
 const PCOL={nar:PT.nar[1],prod:PT.prod[1],act:PT.act[1],ret:PT.ret[1]};
 function dHead(t,title,copy,no,dateLabel,date){
   return '<div class="dbar"></div><div class="dtop"><div><div class="dtitle">'+esc(title)+'</div>'+(copy?'<span class="dcopy">экземпляр: '+esc(copy)+'</span>':'')+'</div>'+
@@ -3434,7 +3656,7 @@ function subscribe(){
     render();
   },e=>{S.err=e.code;render();});
   subscribeOrders();
-  subscribeMats();
+  subscribeMats();subscribeQc();
   if(tabOk('plan'))db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
   setTimeout(()=>{if(S.pending.size||!S.catalog)setSync(S.pending.size?'данные загружаются дольше обычного, проверьте интернет':'');setTimeout(()=>setSync(''),8000);},10000);
   // midnight rollover: start watching the new month

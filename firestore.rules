@@ -117,6 +117,10 @@ service cloud.firestore {
         || (canEdit('orders') && resource.data.get('order', '') != '')
         || (canEdit('returns') && resource.data.get('ret', '') != '');
     }
+    match /qc/{id} {
+      allow read: if canView('qc');
+      allow write: if canEdit('qc');
+    }
     match /config/mats {
       allow read: if matView();
       allow write: if canEdit('mstock');
