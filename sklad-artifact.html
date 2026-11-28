@@ -2148,7 +2148,7 @@ document.addEventListener('click',async e=>{
 /* ================= Материалы: сырьё для смесей и расходники — отдельный склад, минимальный запас, закупки ================= */
 /* config/mats: {list:[{id,n,u,g,min,test}], whs:[...]}; matops: {d,type:in|out|move|make,mid,q,wh,to,src:{mid,q},note,by,name,at}; buy: {mid?,n,u,q,st,at,by,name} */
 const MAT_WH0=['Склад материалов','Пр.11 · материалы','Пр.9 · материалы'];
-const MAT_G=['Сырьё для смесей','Расходные материалы'];
+const MAT_G=['Сырьё для смесей','Расходные материалы','Канцелярия'];
 const MAT_T={in:'Приход',out:'Расход',move:'Перемещение',make:'Изготовление'};
 const MT={cfg:null,ops:[],buy:[],sub:false,f:null,ef:null,wh:'',q:'',lowSeen:null};
 function matList(){return (MT.cfg&&MT.cfg.list)||[];}
@@ -2157,7 +2157,7 @@ function matById(id){return matList().find(m=>m.id===id);}
 function matTabs(){return ['mstock','mops','buy','prep11'].some(tabOk);}
 function subscribeMats(){
   if(MT.sub||!db||!matTabs())return;MT.sub=true;
-  const upd=()=>{if(['mstock','mops','buy','home'].includes(S.view))render();matBadge();};
+  const upd=()=>{if(['mstock','mops','buy','home'].includes(S.view))render();matBadge();buySyncSoon();};
   db.doc('config/mats').onSnapshot(s=>{MT.cfg=s.exists?s.data():{list:[],whs:MAT_WH0};upd();},e=>{MT.cfg=MT.cfg||{list:[],whs:MAT_WH0};upd();});
   db.collection('matops').onSnapshot(q=>{MT.ops=q.docs.map(d=>({id:d.id,...d.data()}));resolveNames(MT.ops.map(o=>o.by));MT.loaded=true;upd();},()=>{MT.loaded=true;upd();});
   if(tabOk('buy')||tabOk('mstock'))db.collection('buy').onSnapshot(q=>{MT.buy=q.docs.map(d=>({id:d.id,...d.data()}));upd();},()=>{});
@@ -2246,7 +2246,7 @@ async function mopsSave(){const f=mopsForm();const er=$('mo-err');const fail=t=>
   if(f.type==='in'){const bd=MT.buy.find(z=>z.mid===m.id);if(bd)db.doc('buy/'+bd.id).delete().catch(()=>{});}
   /* стало меньше минимума — сигнал в «Закупки» */
   const b1=matBal([...MT.ops,x]);const now=matLow(b1).filter(z=>!was.has(z.id));
-  if(now.length){for(const z of now)buyTask(z,r2(Math.max(0,Number(z.min)-matTotal(b1,z.id))),matTotal(b1,z.id));toast('⚠️ Пора закупить: '+now.map(z=>z.n).join(', '));pushSend({kind:'buy',title:'⚠️ Пора закупить',body:now.map(z=>z.n+' (осталось '+fmt(matTotal(b1,z.id))+' '+(z.u||'')+')').join(', ')});}
+  if(now.length){buySyncSoon();toast('⚠️ Пора закупить: '+now.map(z=>z.n).join(', '));pushSend({kind:'buy',title:'⚠️ Пора закупить',body:now.map(z=>z.n+' (осталось '+fmt(matTotal(b1,z.id))+' '+(z.u||'')+')').join(', ')});}
   else toast('Записано');
   if(m.test&&(f.type==='in'||f.type==='make')&&f.opyt){try{await opytTask(m,x,f.who);}catch(e){toast('Записано, но задачу поставить не удалось: '+dbErr(e));}}
   MT.f={...f,q:'',sq:'',note:'',party:'',opyt:true};VIEWS.mops.update();}
@@ -2263,7 +2263,7 @@ VIEWS.buy={controls(){subscribeMats();},update(){
   if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#buy-b input'))return;
   const ro=RO('buy');const b=matBal();const low=matLow(b);const byMid=new Map(MT.buy.filter(z=>z.mid).map(z=>[z.mid,z]));
   const man=MT.buy.filter(z=>!z.mid);
-  let h='';
+  let h=(TK.driver?'<p class="muted" style="margin:0 0 10px">🚚 Всё из этого списка само уходит задачей водителю: <b>'+esc(drvName())+'</b>.</p>':'<div class="banner" style="margin-bottom:12px">🚚 Водитель не выбран, поэтому задачи на закупку не ставятся. '+(tabOk('tasks')?'<button type="button" class="link" data-go="tasks">Выбрать водителя (Задачи → «🚚 Водитель»)</button>':'Попросите руководителя выбрать водителя в «Задачах».')+'</div>');
   h+='<div class="panel" style="margin-bottom:14px"><h3 style="margin-bottom:8px">Пора закупить '+(low.length?'<span class="badge late">'+low.length+'</span>':'')+'</h3>'+
     (low.length?'<div class="tbl-wrap"><table><thead><tr><th>Материал</th><th class="num">Осталось</th><th class="num">Мин. запас</th><th class="num">Купить</th><th>Ед.</th><th>Статус</th></tr></thead><tbody>'+
       low.map(m=>{const t=matTotal(b,m.id);const need=r2(Math.max(0,Number(m.min)-t));const z=byMid.get(m.id);
@@ -2301,7 +2301,7 @@ document.addEventListener('click',async e=>{const t=e.target;let b;
   if((b=t.closest('[data-mo-del]'))){const o=MT.ops.find(z=>z.id===b.dataset.moDel);if(!o||!confirm('Удалить запись «'+(MAT_T[o.type]||'')+' '+((matById(o.mid)||{}).n||'')+' '+fmt(o.q)+'»?'))return;try{await db.doc('matops/'+o.id).delete();toast('Запись удалена');}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-ord]'))){const m=matById(b.dataset.buyOrd);if(!m)return;const v=prompt('Сколько заказали ('+(m.u||'')+')?',String(b.dataset.q||'').replace('.',','));if(v===null)return;
     try{await db.doc('buy/'+m.id).set({mid:m.id,n:m.n,u:m.u||'',q:r2(parseQ(v)||0),st:'ordered',at:new Date().toISOString(),by:S.me||'',name:myName()});}catch(x){toast(dbErr(x));}return;}
-  if((b=t.closest('[data-buy-drv]'))){const m=matById(b.dataset.buyDrv);if(m)await buyTask(m,Number(b.dataset.q)||0,matTotal(matBal(),m.id));return;}
+  if((b=t.closest('[data-buy-drv]'))){const m=matById(b.dataset.buyDrv);if(m){const ok=await buyTask(m,Number(b.dataset.q)||0,matTotal(matBal(),m.id));if(ok===false&&TK.driver)toast('Задача водителю по этому материалу уже есть');}return;}
   if((b=t.closest('[data-buy-un]'))){try{await db.doc('buy/'+b.dataset.buyUn).delete();}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-in]'))){MT.f={...mopsForm(),type:'in',mid:b.dataset.buyIn,q:''};go('mops');return;}
   if((b=t.closest('[data-buy-mu]'))){try{await db.doc('buy/'+b.dataset.buyMu).update({st:'need'});}catch(x){toast(dbErr(x));}return;}
@@ -2312,7 +2312,7 @@ document.addEventListener('click',async e=>{const t=e.target;let b;
   if((b=t.closest('[data-buy-mo]'))){try{await db.doc('buy/'+b.dataset.buyMo).update({st:'ordered'});}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-done]'))){try{await db.doc('buy/'+b.dataset.buyDone).delete();toast('Отмечено как куплено');}catch(x){toast(dbErr(x));}return;}
   if(t.closest('[data-buy-add]')){const n=$('by-n').value.trim();if(!n){toast('Впишите, что купить');return;}
-    try{const bq=r2(parseQ($('by-q').value)||0),bu=$('by-u').value.trim();const r=await db.collection('buy').add({n,q:bq,u:bu,st:'need',at:new Date().toISOString(),by:S.me||'',name:myName()});buyTask({id:r.id,n,u:bu},bq);document.activeElement.blur();VIEWS.buy.update();}catch(x){toast(dbErr(x));}return;}
+    try{const bq=r2(parseQ($('by-q').value)||0),bu=$('by-u').value.trim();await db.collection('buy').add({n,q:bq,u:bu,st:'need',at:new Date().toISOString(),by:S.me||'',name:myName()});buySyncSoon();document.activeElement.blur();VIEWS.buy.update();}catch(x){toast(dbErr(x));}return;}
 });
 document.addEventListener('input',e=>{const t=e.target;
   if(t.id==='mt-q'){MT.q=t.value;const p=t.selectionStart;t.blur();VIEWS.mstock.update();const i=$('mt-q');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(_){}}return;}
@@ -2710,13 +2710,24 @@ function drvHtml(){const ps=tkPeople();return '<div class="panel" style="margin:
 document.addEventListener('click',async e=>{if(e.target.closest('[data-drv]')){await loadPeople();TK.drvForm=!TK.drvForm;VIEWS.tasks.update();return;}
   if(e.target.closest('[data-drv-x]')){TK.drvForm=false;VIEWS.tasks.update();return;}
   if(e.target.closest('[data-drv-save]')){const v=$('drv-sel').value;try{await rawdb.doc('config/driver').set({v,upd:new Date().toISOString(),by:S.me});TK.driver=v;TK.drvForm=false;toast(v?'Водитель: '+drvName(v):'Водитель не выбран');VIEWS.tasks.update();}catch(x){toast(dbErr(x));}}});
-async function autoTask(kind,key,t,d,due,ord){
-  const drv=TK.driver;if(!drv){toast('Задачу водителю не поставили: водитель не выбран (Задачи → «🚚 Водитель»)');return;}
-  try{const ex=await rawdb.collection('tasks').where('akey','==',kind+':'+key).get();if(ex.docs.some(x=>x.data().st!=='done'))return;}catch(_){}
+/* задача с постоянным номером: одна на одно событие, сколько бы людей ни открыло программу */
+async function autoTask(kind,key,t,d,due,ord,quiet){
+  const drv=TK.driver;if(!drv){if(!quiet)toast('Задачу водителю не поставили: водитель не выбран (Задачи → «🚚 Водитель»)');return false;}
+  const id=(kind+'_'+key).replace(/[^\wа-яё-]/gi,'_').slice(0,140);
+  try{const ex=await rawdb.doc('tasks/'+id).get();if(ex.exists)return false;}catch(_){return false;}
   await loadPeople();const isN=drv.indexOf('n:')===0;const to=isN?'':drv;const toName=drvName(drv);const now=new Date().toISOString();
   const x={t,d,to,toName,watch:tkWatch(to,toName),due:due||'',ord:ord||null,upd:now,st:'new',by:S.me,at:now,cm:[],auto:kind,akey:kind+':'+key};
-  try{const r=await rawdb.collection('tasks').add(x);tkNotify(x,r.id,true);toast('Задача водителю ('+toName+'): '+t);}catch(err){toast('Задачу водителю поставить не удалось: '+dbErr(err));}}
-function buyTask(m,q,left){return autoTask('buy',m.id||m.n,'Купить: '+m.n+(q?' — '+fmt(q)+' '+(m.u||''):''),'Материал в «Закупках»'+(left!=null?': осталось '+fmt(left)+' '+(m.u||'')+', минимум '+fmt(m.min||0):'')+'. Когда купите — отметьте задачу выполненной, а склад внесёт приход.','');}
+  try{await rawdb.doc('tasks/'+id).set(x);tkNotify(x,id,true);if(!quiet)toast('Задача водителю ('+toName+'): '+t);return true;}catch(err){if(!quiet)toast('Задачу водителю поставить не удалось: '+dbErr(err));return false;}}
+/* цикл закупки материала: новый после каждого прихода */
+function buyCycle(mid){return 'c'+MT.ops.filter(o=>o.mid===mid&&o.type==='in').length;}
+function buyTask(m,q,left,quiet){const manual=String(m.id||'').indexOf('m_')===0;return autoTask('buy',(m.id||m.n)+(manual?'':'_'+buyCycle(m.id)),'Купить: '+m.n+(q?' — '+fmt(q)+' '+(m.u||''):''),(manual?'Вписано в «Закупки» вручную':'Материал в «Закупках»'+(left!=null?': осталось '+fmt(left)+' '+(m.u||'')+', минимум '+fmt(m.min||0):''))+'. Когда купите — отметьте задачу выполненной, а склад внесёт приход.','',null,quiet);}
+/* всё, что в «Закупках», само уходит водителю */
+let bsT=0,bsBusy=false;
+function buySyncSoon(){clearTimeout(bsT);bsT=setTimeout(buySync,2500);}
+async function buySync(){if(bsBusy||!TK.driver||!MT.cfg||!MT.loaded||!rawdb)return;if(RO('buy')&&RO('mops')&&RO('tasks'))return;bsBusy=true;let n=0;
+  try{const b=matBal();for(const m of matLow(b)){const left=matTotal(b,m.id);const z=MT.buy.find(y=>y.mid===m.id);if(await buyTask(m,z&&z.q?z.q:r2(Math.max(0,Number(m.min)-left)),left,true))n++;}
+    for(const z of MT.buy.filter(z=>!z.mid))if(await buyTask({id:'m_'+z.id,n:z.n,u:z.u},z.q,null,true))n++;}
+  finally{bsBusy=false;}if(n)toast('Водителю поставлено задач на закупку: '+n);}
 function dlvTask(o){if(!o||o.recv!=='Доставка')return;
   return autoTask('dlv',o.id,'Доставка: заказ №'+o.no+(o.obj?' · '+o.obj:''),[o.addr?'Адрес: '+o.addr:'',o.cli||o.firm?'Клиент: '+(o.cli||o.firm):'','Выдать до '+fmtDate(o.due),(o.items||[]).map(i=>i.n+(i.s?' '+i.s:'')+' — '+fmt(i.q)+' '+unit(i.c)).join('; '),o.note?'Примечание: '+o.note:''].filter(Boolean).join('\n'),o.due||'',{id:o.id,no:String(o.no||''),obj:o.obj||''});}
 
@@ -3293,7 +3304,7 @@ function subscribeTasks(){
   if(!rawdb||!S.me||TK.unsub)return;
   const on=q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));TK.list=l;resolveNames(l.flatMap(x=>[x.to,x.by,...(x.cm||[]).map(c=>c.uid)]).filter(Boolean));tkBadge();if(S.view==='tasks')VIEWS.tasks.update();if(S.view==='home')VIEWS.home.update();};
   const err=e=>{try{console.error('tasks',e);}catch(_){}if(tkAll()&&!TK.fallback){TK.fallback=true;TK.unsub=null;TK.mine=true;subscribeTasks();}};
-  rawdb.doc('config/driver').onSnapshot(d=>{TK.driver=d.exists?(d.data().v||''):'';},()=>{});
+  rawdb.doc('config/driver').onSnapshot(d=>{TK.driver=d.exists?(d.data().v||''):'';try{buySyncSoon();}catch(_){}if(S.view==='buy')render();},()=>{});
   rawdb.doc('config/taskSees').onSnapshot(d=>{TK.sees=d.exists?(d.data().m||{}):{};if(S.view==='tasks')VIEWS.tasks.update();},()=>{});
   if(TK.mine||!tkAll()){/* свои + поставленные мной + задачи сотрудников, которых мне разрешено видеть */
     const parts={};const merge=()=>{const m=new Map();for(const k in parts)for(const x of parts[k])m.set(x.id,x);const l=[...m.values()];on({forEach:f=>l.forEach(x=>f({id:x.id,data:()=>x}))});};

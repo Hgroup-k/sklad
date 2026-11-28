@@ -77,7 +77,7 @@ service cloud.firestore {
       }
     }
     match /tasks/{id} {
-      allow read: if signedIn() && (canView('tasks') || resource.data.to == me() || resource.data.by == me()
+      allow read: if signedIn() && (resource == null || canView('tasks') || resource.data.to == me() || resource.data.by == me()
         || me() in resource.data.get('watch', []));
       allow create: if (canEdit('tasks') || (canEdit('mops') && request.resource.data.get('auto', '') == 'opyt')
           || ((canEdit('mops') || canEdit('buy')) && request.resource.data.get('auto', '') == 'buy')
