@@ -140,8 +140,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 .md-h{margin:14px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .md-sub{padding-left:30px;font-size:15px}
 .md-sub.cur{font-weight:700;color:var(--accent)}
-.md-arr{margin-left:auto;color:var(--muted);transition:transform .15s}
-.md-item[aria-expanded="true"] .md-arr{transform:rotate(90deg)}
+.md-arr{display:inline-block;margin-left:auto;color:var(--muted);transition:transform .15s}
+.md-item[aria-expanded="true"] .md-arr,.md-exp[aria-expanded="true"] .md-arr{transform:rotate(90deg)}
+.md-row{display:flex;align-items:center}
+.md-row .md-item{flex:1}
+.md-exp{background:none;border:0;padding:8px 16px;font-size:22px;cursor:pointer;color:var(--muted);border-radius:8px}
 .md-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .md-out{background:none;border:1px solid var(--line);border-radius:18px;padding:7px 12px;font-size:14px;color:var(--danger,#c62828);cursor:pointer}
 .ctrx{margin-top:6px;padding:6px 8px;border-left:3px solid var(--accent);background:rgba(127,127,127,.08);border-radius:6px;font-size:14px}
@@ -2630,7 +2633,7 @@ function drawerHtml(){const me=window.SKLAD_ME;const p=me?me.p:{};const cur=(TAB
   return '<div class="md-bg" data-md-x></div><nav class="md"><div class="md-me"><div class="md-top">'+(me?me.ava(64):'')+'<button type="button" class="md-out" data-md-out>🚪 Выйти</button></div>'+'<b>'+esc(p.name||window.SKLAD_ME_NAME||'')+'</b>'+(p.pos?'<small>'+esc(p.pos)+'</small>':'')+(p.full?'<small>'+esc(p.full)+'</small>':'')+'</div>'+
     '<button type="button" class="md-item" data-md-set>⚙️ Настройки профиля</button>'+(me&&me.access?'<button type="button" class="md-item" data-md-acc>🔑 Доступ</button>':'')+
     '<div class="md-h">Категории</div>'+gs.map(([g,l])=>{const tabs=TABS.filter(t=>t[2]===g&&tabOk(t[0]));const one=tabs.length===1;const op=MD.open===g||(MD.open===null&&g===cur);
-      return '<button type="button" class="md-item'+(g===cur?' on':'')+'" '+(one?'data-md-go="'+tabs[0][0]+'"':'data-md-g="'+g+'" aria-expanded="'+op+'"')+'>'+(HOME_ICO[g]||(g==='home'?'🏠':'•'))+' '+esc(l)+(one?'':'<span class="md-arr">›</span>')+'</button>'+
+      return '<div class="md-row"><button type="button" class="md-item'+(g===cur?' on':'')+'" data-md-go="'+tabs[0][0]+'">'+(HOME_ICO[g]||(g==='home'?'🏠':'•'))+' '+esc(l)+'</button>'+(one?'':'<button type="button" class="md-exp" data-md-g="'+g+'" aria-expanded="'+op+'" title="Показать подпункты"><span class="md-arr">›</span></button>')+'</div>'+
         (!one&&op?tabs.map(t=>'<button type="button" class="md-item md-sub'+(t[0]===S.view?' cur':'')+'" data-md-go="'+t[0]+'">'+esc(t[1])+'</button>').join(''):'');}).join('')+
     '</nav>';}
 function openDrawer(){let d=document.getElementById('mdrawer');if(!d){d=document.createElement('div');d.id='mdrawer';document.body.appendChild(d);}MD.open=null;d.innerHTML=drawerHtml();d.hidden=false;document.body.style.overflow='hidden';}
