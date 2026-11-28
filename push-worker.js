@@ -110,11 +110,17 @@ async function notify(tok,me,q){
     go='orders';
     const acc=await getDoc(tok,'access/main');if(!acc)return 0;
     const ok=e=>{e=lower(e);if(lower(acc.owner)===e||(acc.editors||[]).map(lower).includes(e)||(acc.viewers||[]).map(lower).includes(e))return true;
-      const k=Object.keys(acc.perms||{}).find(x=>lower(x)===e);if(!k)return false;const p=acc.perms[k]||{};return ['orders','porders','porders9'].some(s=>p[s]&&p[s]!=='none');};
+      const k=Object.keys(acc.perms||{}).find(x=>lower(x)===e);if(!k)return false;const p=acc.perms[k]||{};return ['orders','porders','porders9','sorders'].some(s=>p[s]&&p[s]!=='none');};
+    targets=(await listCol(tok,'push')).filter(d=>ok(d.email));
+  }else if(q.kind==='buy'){
+    go='buy';
+    const acc=await getDoc(tok,'access/main');if(!acc)return 0;
+    const ok=e=>{e=lower(e);if(lower(acc.owner)===e||(acc.editors||[]).map(lower).includes(e))return true;
+      const k=Object.keys(acc.perms||{}).find(x=>lower(x)===e);if(!k)return false;const p=acc.perms[k]||{};return ['buy','mstock'].some(s=>p[s]&&p[s]!=='none');};
     targets=(await listCol(tok,'push')).filter(d=>ok(d.email));
   }else return 0;
   let n=0;
-  for(const t of targets){if(t.id===me.user_id)continue;for(const sub of t.subs||[]){try{const st=await sendPush(sub,{title,body,go,tag:q.kind==='msg'?'chat-'+q.chat:'order-'+(q.order||'')});if(st<300)n++;}catch(e){}}}
+  for(const t of targets){if(t.id===me.user_id)continue;for(const sub of t.subs||[]){try{const st=await sendPush(sub,{title,body,go,tag:q.kind==='msg'?'chat-'+q.chat:q.kind==='buy'?'buy':'order-'+(q.order||'')});if(st<300)n++;}catch(e){}}}
   return n;
 }
 

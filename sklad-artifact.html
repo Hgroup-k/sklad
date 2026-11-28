@@ -265,6 +265,8 @@ details.tk-done>summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
 .cfile b{word-break:break-all}
 .cedopt{font-size:12px;display:flex;gap:4px;align-items:center}
 .cimg{max-width:100%;max-height:320px;border-radius:8px;display:block;cursor:pointer}
+tr.mlow td{background:rgba(198,40,40,.07)}
+.tab.hasdot::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger,#c62828);margin-left:5px;vertical-align:top}
 img.cimg[width]{width:auto;height:auto}
 .cvbox{width:300px;max-width:100%;height:240px;max-height:none;background:#000;object-fit:contain}
 .cmsg audio{max-width:240px}
@@ -458,6 +460,12 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
   <section class="view" id="v-demold9" hidden><div id="demold9-b"></div></section>
   <section class="view" id="v-sand9" hidden><div id="sand9-b"></div></section>
   <section class="view" id="v-pack9" hidden><div id="pack9-b"></div></section>
+  <section class="view" id="v-wh11" hidden><div class="filters" id="wh11-f"></div><div id="wh11-b"></div></section>
+  <section class="view" id="v-wh9" hidden><div class="filters" id="wh9-f"></div><div id="wh9-b"></div></section>
+  <section class="view" id="v-sorders" hidden><div id="sorders-b"></div></section>
+  <section class="view" id="v-mstock" hidden><div id="mstock-b"></div></section>
+  <section class="view" id="v-mops" hidden><div id="mops-b"></div></section>
+  <section class="view" id="v-buy" hidden><div id="buy-b"></div></section>
 </main>
 <div id="toast" hidden></div>
 <div id="print-bar" hidden><div><b id="print-name"></b><br><span class="muted" style="font-size:13px">Если окно печати не открылось, скачайте файл и откройте его: печать запустится сама. Формат <span id="print-fmt">A6, альбомный</span>.</span></div><div class="actions"><button type="button" class="ghost" id="print-again">Печать ещё раз</button><button type="button" class="ghost" id="print-dl">Скачать для печати</button><button type="button" class="link" id="print-close">Закрыть</button></div></div>
@@ -495,11 +503,11 @@ const GROUPS={prod:'Произведено',in:'Прочий приход',ship:
 const MONTHS=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 const START_Y=2026, START_M=1;
 const TABS=[['home','Главная','home'],['tasks','Задачи','tasks'],['orders','Заказы','office'],['returns','Возвраты','office'],
-  ['porders','Заказы в работе','p11'],['grease11','Смазка форм','p11'],['cast11','Заливка','p11'],['dry11','Сушка','p11'],['demold11','Распалубка','p11'],['cut11','Резка','p11'],['pack11','Упаковка','p11'],['grout','Затирки и колер','p11'],
-  ['porders9','Заказы в работе','p9'],['cast9','Заливка','p9'],['dry9','Сушка','p9'],['demold9','Распалубка','p9'],['sand9','Шкурение','p9'],['pack9','Упаковка','p9'],
-  ['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
-const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks','Задачи'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['ref','Справочник']];
-const REPORT_TABS=new Set(['dry11','dry9','stock','period','sizes','months']);
+  ['porders','Заказы в работе','p11'],['grease11','Смазка форм','p11'],['cast11','Заливка','p11'],['dry11','Сушка','p11'],['demold11','Распалубка','p11'],['cut11','Резка','p11'],['pack11','Упаковка','p11'],['grout','Затирки и колер','p11'],['wh11','Склад','p11'],
+  ['porders9','Заказы в работе','p9'],['cast9','Заливка','p9'],['dry9','Сушка','p9'],['demold9','Распалубка','p9'],['sand9','Шкурение','p9'],['pack9','Упаковка','p9'],['wh9','Склад','p9'],
+  ['sorders','Заказы','store'],['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['mstock','Остатки','mat'],['mops','Приход и расход','mat'],['buy','Закупки','mat'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
+const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks','Задачи'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['mat','Материалы'],['ref','Справочник']];
+const REPORT_TABS=new Set(['dry11','dry9','stock','wh11','wh9','period','sizes','months']);
 window.SKLAD_TABS=TABS.filter(t=>t[0]!=='chat'&&t[0]!=='home'&&t[0]!=='tasks').map(([k,l,g])=>({k,l,g:(TGROUPS.find(x=>x[0]===g)||[])[1]||'',ed:!REPORT_TABS.has(k)}));
 /* общие чаты: «Редактирует» = пишет, «Просмотр» = только читает, «Нет доступа» = не состоит */
 window.SKLAD_TABS.unshift({k:'tasks',l:'Задачи всех сотрудников',g:'Администратор (особые права)',ed:true},{k:'chatmod',l:'Удалять и менять сообщения без следов',g:'Администратор (особые права)',ed:true},{k:'chatall',l:'Общий чат',g:'Сообщения',ed:true,chat:true},{k:'chatord',l:'Чат «Заказы»',g:'Сообщения',ed:true,chat:true});
@@ -530,16 +538,18 @@ const S={
   f:{
     journal:{from:monthStart(),to:todayStr(),op:'',c:'',wh:'',q:''},
     stock:{date:todayStr(),c:'',wh:'',sort:'',st:'',sb:'',by:'wh',zero:false,q:''},
+    wh11:{date:todayStr(),c:'',wh:'',sort:'',st:'',sb:'',by:'st',zero:false,q:''},
+    wh9:{date:todayStr(),c:'',wh:'',sort:'',st:'',sb:'',by:'st',zero:false,q:''},
     period:{from:monthStart(),to:todayStr(),c:'',wh:'',sort:'',st:'',sb:'',size:true,zero:false},
     sizes:{c:'Плитка',ind:'bal',from:monthStart(),to:todayStr(),wh:'',sort:'',st:'',sb:'',zero:false},
     months:{y:String(new Date().getFullYear()),c:'Плитка',ind:'prod',wh:'',s:'',sb:''},
     plan:{mode:'all',c:'',only:false,noRes:false}
   }
 };
-const form={op:ls.get('op','prod'),c:ls.get('c',''),n:'',s:'',q:'',wh:WH.includes(ls.get('wh',''))?ls.get('wh',''):WH[0],to:'',sort:'',st:'',tost:'',sb:ls.get('sb',''),amo:'',note:'',d:todayStr()};
+const form={op:ls.get('op','prod'),c:ls.get('c',''),n:'',s:'',q:'',wh:WH_OUT.includes(ls.get('wh',''))?ls.get('wh',''):WH_OUT[0],to:'',sort:'',st:'',tost:'',sb:ls.get('sb',''),amo:'',note:'',d:todayStr()};
 let db=null,user=null,dl=null;
 
-const SECS=Object.fromEntries(TABS.filter(([k])=>!REPORT_TABS.has(k)&&k!=='chat'&&k!=='home').map(([k,l,g])=>[k,(g==='p11'?'Пр.11 · ':g==='p9'?'Пр.9 · ':'')+l]));
+const SECS=Object.fromEntries(TABS.filter(([k])=>!REPORT_TABS.has(k)&&k!=='chat'&&k!=='home').map(([k,l,g])=>[k,(g==='p11'?'Пр.11 · ':g==='p9'?'Пр.9 · ':g==='mat'?'Материалы · ':g==='store'&&k==='sorders'?'Склад · ':'')+l]));
 const TABKEYS=TABS.map(t=>t[0]);
 function RO(sec){return S.readOnly||(!S.can.full&&!S.can[sec]);}
 /* старые права по разделам (stock = все складские вкладки) переводятся в права по вкладкам */
@@ -578,6 +588,7 @@ function buildTabs(){
   $('groups').innerHTML=gs.length>1?gs.map(([g,l])=>'<button type="button" class="grp" data-grp="'+g+'" aria-current="'+(g===cur)+'">'+l+'</button>').join(''):'';
   const ts=TABS.filter(([k,,g])=>g===cur&&tabOk(k));
   $('tabs').innerHTML=ts.length>1?ts.map(([k,l])=>'<button type="button" class="tab" data-go="'+k+'">'+l+'</button>').join(''):'';$('tabs').hidden=ts.length<2;
+  try{matBadge();}catch(e){}
 }
 function go(v){
   if(!TABS.some(t=>t[0]===v&&tabOk(t[0]))){const f=TABS.find(t=>tabOk(t[0]));v=f?f[0]:'input';}
@@ -626,9 +637,9 @@ function renderForm(){
   $('f-q').value=form.q;$('f-q').disabled=ro;
   const mv=form.op==='move';
   $('f-wh-l').textContent=mv?'Откуда (склад)':'Склад';
-  chipRow($('f-wh'),WH,form.wh,null,ro);
+  chipRow($('f-wh'),WH_OUT.includes(form.wh)||!form.wh?WH_OUT:[...WH_OUT,form.wh],form.wh,null,ro);
   $('f-to-wrap').hidden=!mv;$('f-tost-wrap').hidden=!mv;
-  chipRow($('f-to'),WH,form.to,null,ro);
+  chipRow($('f-to'),WH_OUT.includes(form.to)||!form.to?WH_OUT:[...WH_OUT,form.to],form.to,null,ro);
   const optional=!form.c||!REQ.has(form.c);
   $('f-sort-opt').textContent=optional?'необязательно':'';
   $('f-st-opt').textContent=optional?'необязательно':'';
@@ -864,20 +875,20 @@ document.addEventListener('click',async e=>{
 });
 
 /* Остатки */
-VIEWS.stock={
+function stockView(K,FW){return {
   controls(){
-    const f=S.f.stock;
-    $('stock-f').innerHTML=dateField('stock-date','На дату',f.date)+selField('stock-c','Категория',catOptions(true),f.c)+dimFilters('stock',f)+
-      selField('stock-by','Колонки',[['wh','по складам'],['st','по состоянию'],['sort','по сорту'],['sb','по С/Б'],['none','только итог']],f.by)+
-      textField('stock-q','Поиск',f.q)+checkField('stock-zero','Показывать нулевые',f.zero)+
-      '<label class="fld"><span>&nbsp;</span><button type="button" class="ghost" id="stock-csv">Скачать CSV</button></label>';
-    bindFilters('stock','stock-f');
-    $('stock-csv').onclick=()=>{const t=this.table();const rows=[['Категория','Наименование','Размер','Ед.',...t.cols.map(c=>c||'не указано'),'Итого']];for(const r of t.rows)rows.push([r.c,r.n,r.s,unit(r.c),...t.cols.map(c=>String(r3(r.v[c]||0)).replace('.',',')),String(r3(r.t)).replace('.',',')]);exportCsv('Остатки на '+f.date+'.csv',rows);};
+    const f=S.f[K];
+    $(K+'-f').innerHTML=dateField(K+'-date','На дату',f.date)+selField(K+'-c','Категория',catOptions(true),f.c)+dimFilters(K,f,FW?{noWh:true}:undefined)+
+      selField(K+'-by','Колонки',[['wh','по складам'],['st','по состоянию'],['sort','по сорту'],['sb','по С/Б'],['none','только итог']],f.by)+
+      textField(K+'-q','Поиск',f.q)+checkField(K+'-zero','Показывать нулевые',f.zero)+
+      '<label class="fld"><span>&nbsp;</span><button type="button" class="ghost" id="'+K+'-csv">Скачать CSV</button></label>';
+    bindFilters(K,K+'-f');
+    $(K+'-csv').onclick=()=>{const t=this.table();const rows=[['Категория','Наименование','Размер','Ед.',...t.cols.map(c=>c||'не указано'),'Итого']];for(const r of t.rows)rows.push([r.c,r.n,r.s,unit(r.c),...t.cols.map(c=>String(r3(r.v[c]||0)).replace('.',',')),String(r3(r.t)).replace('.',',')]);exportCsv((FW?FW+' — остатки на ':'Остатки на ')+f.date+'.csv',rows);};
   },
   table(){
-    const f=S.f.stock,flt={c:f.c,wh:f.wh,sort:f.sort,st:f.st,sb:f.sb};
+    const f=S.f[K],flt={c:f.c,wh:FW||f.wh,sort:f.sort,st:f.st,sb:f.sb};
     const by=f.by;
-    const base={wh:WH,st:STATES,sort:SORTS,sb:SBS,none:[]}[by]||[];
+    const base={wh:FW?[FW]:WH,st:STATES,sort:SORTS,sb:SBS,none:[]}[by]||[];
     const colSet=new Set(base);
     const map=new Map();
     const keyOf=(c,n,s)=>c+'\u0001'+n+'\u0001'+s;
@@ -900,9 +911,9 @@ VIEWS.stock={
     return {rows,cols};
   },
   update(){
-    if(!S.catalog){$('stock-b').innerHTML=noData();return;}
+    if(!S.catalog){$(K+'-b').innerHTML=noData();return;}
     const {rows,cols}=this.table();
-    if(!rows.length){$('stock-b').innerHTML='<div class="panel empty">'+(S.pending.size?'Загружаем…':'Остатков нет. Внесите переучёт на вкладке «Ввод».')+'</div>';return;}
+    if(!rows.length){$(K+'-b').innerHTML='<div class="panel empty">'+(S.pending.size?'Загружаем…':'Остатков нет. Внесите переучёт на вкладке «Ввод».')+'</div>';return;}
     let h='<div class="tbl-wrap sticky-col"><table><thead><tr><th>Наименование</th><th>Размер</th>'+cols.map(c=>'<th class="num">'+esc(c||'не указано')+'</th>').join('')+'<th class="num">Итого</th><th>Ед.</th></tr></thead><tbody>';
     let lastC=null,sub=null;
     const flush=()=>{if(sub&&lastC)h+='<tr class="tot"><td>Итого '+esc(lastC.toLowerCase())+'</td><td></td>'+cols.map(c=>numCell(sub.v[c])).join('')+numCell(sub.t)+'<td class="muted">'+esc(unit(lastC))+'</td></tr>';};
@@ -913,9 +924,12 @@ VIEWS.stock={
     }
     flush();
     h+='</tbody></table></div><p class="note">Остаток = все приходы минус все расходы по дату включительно. Отрицательные числа значат, что ушло больше, чем было внесено.</p>';
-    $('stock-b').innerHTML=h;
+    $(K+'-b').innerHTML=h;
   }
-};
+};}
+VIEWS.stock=stockView('stock');
+VIEWS.wh11=stockView('wh11',W11.fin);
+VIEWS.wh9=stockView('wh9',W9.fin);
 const r3=x=>Math.round((x||0)*1000)/1000;
 function orderIndex(c,n){const i=cat(c).names.indexOf(n);return i<0?9999:i;}
 function sizeIndex(c,s){const i=cat(c).sizes.indexOf(s);return i<0?9999:i;}
@@ -2020,7 +2034,8 @@ function availFinished(it){return FINISHED().reduce((a,w)=>a+balanceOf({c:it.c,n
 /* строки заказа делятся по производствам: карнизы — Пр.9, всё остальное (плитка, клинкер, затирки, колер) — Пр.11 */
 const prodOf=c=>c==='Карниз'?'p9':'p11';
 const PNAME={p11:'Производство 11',p9:'Производство 9'};
-function prodLines(o,p){return (o.items||[]).map((it,i)=>({it,i,rest:r2((Number(it.q)||0)-issuedQ(o,i))})).filter(l=>prodOf(l.it.c)===p);}
+/* если склад передал заказ — производству только то, чего не хватило на складе */
+function prodLines(o,p){const sk=o.sk&&o.sk.lines;return (o.items||[]).map((it,i)=>{let rest=r2((Number(it.q)||0)-issuedQ(o,i));if(sk)rest=r2(Math.min(rest,Number(sk[String(i)])||0));return {it,i,rest};}).filter(l=>prodOf(l.it.c)===p);}
 function prodSt(o,p){if(!o.prod&&o.stage==='work')return {work:o.work||{}};return (o.prod&&o.prod[p])||{};}
 function myName(){return S.myName||window.SKLAD_ME_NAME||S.names[S.me]||'';}
 function pordersView(p){return {controls(){},update(){
@@ -2032,8 +2047,8 @@ function pordersView(p){return {controls(){},update(){
   if(!list.length)h='<div class="panel empty">'+(S.ordersLoaded?'Новых заказов и заказов в работе для '+(p==='p9'?'производства 9':'производства 11')+' нет.':'Загружаем…')+'</div>';
   for(const o of list){const ps=prodSt(o,p);const inWork=!!ps.work;const ds=dueState(o);
     h+='<div class="panel" style="margin-bottom:12px"><div class="panel-head"><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj||'')+(isNow(o)?NOWB:'')+(o.urgent?URG:'')+'</h2><span class="bdg"><span class="badge '+(inWork?'part':'new')+'">'+(inWork?'В работе':'Новый')+'</span>'+(ds?'<span class="badge '+ds.k+'">'+esc(ds.t)+'</span>':'')+'</span></div>'+
-      '<p class="muted" style="margin:0 0 8px">Выдать до '+fmtDate(o.due)+(o.by?' · дал в работу: '+esc(o.by):'')+(inWork&&ps.work.name?' · принял: '+esc(ps.work.name)+' '+fmtDate(ps.work.d):'')+'</p><div class="tbl-wrap"><table><thead><tr><th>Товар</th><th>Размер</th><th class="num">Нужно</th><th class="num">Есть готового</th><th>Что делать</th></tr></thead><tbody>';
-    for(const l of prodLines(o,p)){const it=l.it,rest=l.rest;if(rest<=1e-9)continue;const av=r2(availFinished(it));
+      '<p class="muted" style="margin:0 0 8px">Выдать до '+fmtDate(o.due)+(o.sk?' · <b>склад передал '+fmtDate(String(o.sk.at||'').slice(0,10))+': только то, чего нет на складе</b>':'')+(o.by?' · дал в работу: '+esc(o.by):'')+(inWork&&ps.work.name?' · принял: '+esc(ps.work.name)+' '+fmtDate(ps.work.d):'')+'</p><div class="tbl-wrap"><table><thead><tr><th>Товар</th><th>Размер</th><th class="num">Нужно</th><th class="num">Есть готового</th><th>Что делать</th></tr></thead><tbody>';
+    for(const l of prodLines(o,p)){const it=l.it,rest=l.rest;if(rest<=1e-9)continue;const av=r2(o.sk?balanceOf({c:it.c,n:it.n,s:it.s||'',wh:p==='p9'?W9.fin:W11.fin}):availFinished(it));
       const act=av>=rest-1e-9?'<b>Собрать со склада</b>':av>0?'Собрать '+fmt(av)+', <b>произвести '+fmt(r2(rest-av))+'</b>':'<b>Произвести '+fmt(rest)+'</b>';
       h+='<tr><td>'+esc(it.n)+(it.ex?EXB:'')+' <span class="muted">'+esc(it.c)+'</span></td><td>'+esc(it.s||'')+'</td><td class="num">'+fmt(rest)+' '+esc(unit(it.c))+'</td><td class="num">'+fmt(av)+'</td><td>'+act+'</td></tr>';}
     h+='</tbody></table></div>'+(ro?'':'<div class="actions" style="margin-top:10px">'+(!inWork?'<button type="button" class="primary" data-pwork="'+esc(o.id)+'" data-p="'+p+'">Взять в работу</button>':'<button type="button" class="primary" data-pready="'+esc(o.id)+'" data-p="'+p+'">Готов</button><button type="button" class="ghost" data-punwork="'+esc(o.id)+'" data-p="'+p+'">Вернуть в новые</button>')+'<button type="button" class="ghost" data-print-o="'+esc(o.id)+'" data-p="'+p+'">Печать наряда</button>'+(chatLv('orders')!=='none'?'<button type="button" class="ghost" data-ask-o="'+esc(o.id)+'">💬 Спросить по заказу</button>':'')+'</div>')+'</div>';}
@@ -2062,6 +2077,212 @@ document.addEventListener('click',async e=>{
   const u=e.target.closest('[data-punwork]');if(u){if(!u.classList.contains('confirm')){u.classList.add('confirm');u.textContent='Точно вернуть?';return;}await setProd(u.dataset.punwork,u.dataset.p||'p11','unwork');return;}
   const pr=e.target.closest('[data-print-o]');if(pr){const o=S.orders.find(x=>x.id===pr.dataset.printO);if(!o)return;const pages=orderPages(o,'prod',0,pr.dataset.p);if(pages.length)doPrint(pages,'Наряд в производство — заказ №'+o.no);}
 });
+
+/* ================= Склад: заказы — что есть на складе, чего не хватает, передача в производство ================= */
+function storeAlloc(){
+  const d=todayStr();const st=new Set(STORE);const left=new Map();
+  for(const o of allOps()){if(o.d>d)continue;for(const e of effects(o)){if(!st.has(e.wh))continue;const k=e.c+'\u0001'+e.n+'\u0001'+e.s;left.set(k,(left.get(k)||0)+e.q);}}
+  const os=S.orders.filter(o=>{const g=orderGroup(o);return g==='new'||g==='work'||g==='ready';}).map(o=>({o,lines:(o.items||[]).map((it,i)=>({it,i,rest:r2((Number(it.q)||0)-issuedQ(o,i))})).filter(l=>l.rest>1e-9)})).filter(x=>x.lines.length)
+    .sort((a,b)=>(isNow(b.o)?1:0)-(isNow(a.o)?1:0)||(b.o.urgent?1:0)-(a.o.urgent?1:0)||(a.o.due||'9').localeCompare(b.o.due||'9')||String(a.o.no).localeCompare(String(b.o.no),'ru',{numeric:true}));
+  for(const x of os)for(const l of x.lines){const k=l.it.c+'\u0001'+l.it.n+'\u0001'+(l.it.s||'');const av=Math.max(0,left.get(k)||0);l.have=r2(Math.min(av,l.rest));l.make=r2(l.rest-l.have);left.set(k,av-l.have);}
+  return os;}
+const SOV={f:'open'};
+VIEWS.sorders={controls(){},update(){
+  const el=$('sorders-b');if(!el)return;const ro=RO('sorders');
+  const all=storeAlloc();
+  const list=all.filter(x=>SOV.f==='all'||(SOV.f==='need'?x.lines.some(l=>l.make>1e-9)&&!x.o.sk:true));
+  let h='<div class="chips" style="margin-bottom:12px">'+[['open','Все открытые'],['need','Нужно передать в производство']].map(([k,l])=>'<button type="button" class="chip" data-sof="'+k+'" aria-pressed="'+(SOV.f===k)+'">'+l+'</button>').join('')+'</div>';
+  if(!list.length)h+='<div class="panel empty">'+(S.ordersLoaded?'Открытых заказов нет.':'Загружаем заказы…')+'</div>';
+  for(const x of list){const o=x.o;const need=x.lines.filter(l=>l.make>1e-9);const ds=dueState(o);const g=orderGroup(o);
+    h+='<div class="panel" style="margin-bottom:12px"><div class="panel-head"><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj||'')+(isNow(o)?NOWB:'')+(o.urgent?URG:'')+'</h2><span class="bdg">'+
+      (need.length?'<span class="badge late">не хватает</span>':'<span class="badge ok">всё есть на складе</span>')+(ds?'<span class="badge '+ds.k+'">'+esc(ds.t)+'</span>':'')+'</span></div>'+
+      '<p class="muted" style="margin:0 0 8px">Выдать до '+fmtDate(o.due)+(g==='work'?' · в работе на производстве':g==='ready'?' · производство: готово':'')+(o.sk?' · <b>передано в производство '+fmtDate(String(o.sk.at||'').slice(0,10))+(o.sk.name?' ('+esc(o.sk.name)+')':'')+'</b>':'')+'</p>'+
+      '<div class="tbl-wrap"><table><thead><tr><th>Товар</th><th>Размер</th><th class="num">Осталось выдать</th><th class="num">Есть на складе</th><th class="num">Не хватает</th><th>Ед.</th></tr></thead><tbody>'+
+      x.lines.map(l=>'<tr><td>'+esc(fullName(l.it))+(l.it.ex?EXB:'')+' <span class="muted">'+esc(l.it.c)+'</span></td><td>'+esc(l.it.s||'')+'</td>'+numCell(l.rest)+numCell(l.have)+numCell(l.make,l.make>0?'b neg':'')+'<td class="muted">'+esc(unit(l.it.c))+'</td></tr>').join('')+'</tbody></table></div>'+
+      '<div class="actions" style="margin-top:10px">'+(!ro&&need.length?'<button type="button" class="primary" data-sk="'+esc(o.id)+'">'+(o.sk?'Передать в производство ещё раз':'Передать в производство')+'</button>':'')+
+      (tabOk('orders')?'<button type="button" class="ghost" data-plan-order="'+esc(o.id)+'">Открыть заказ</button>':'')+'</div></div>';}
+  h+='<p class="note">Заказы идут по сроку выдачи, «Выдать сейчас» и срочные — первыми. «Есть на складе» — товар на складах плитки, карнизов и колера/затирок; он сначала закрывает самые ранние заказы. «Передать в производство» отправляет производству только то, чего не хватает.</p>';
+  el.innerHTML=h;
+}};
+document.addEventListener('click',async e=>{
+  const f=e.target.closest('[data-sof]');if(f){SOV.f=f.dataset.sof;VIEWS.sorders.update();return;}
+  const b=e.target.closest('[data-sk]');if(!b)return;
+  const x=storeAlloc().find(z=>z.o.id===b.dataset.sk);if(!x)return;const lines={};for(const l of x.lines)if(l.make>1e-9)lines[String(l.i)]=l.make;
+  if(!Object.keys(lines).length){toast('Всё есть на складе, производству передавать нечего');return;}
+  try{await db.doc('orders/'+x.o.id).update({sk:{at:new Date().toISOString(),by:S.me||'',name:myName(),lines}});toast('Заказ №'+x.o.no+' передан в производство: только то, чего не хватает');
+    pushSend({kind:'order',order:x.o.id,title:'Склад передал в производство',body:'Заказ №'+x.o.no+' '+(x.o.obj||'')+': позиций '+Object.keys(lines).length});}
+  catch(x2){toast(dbErr(x2));}
+});
+/* ================= Материалы: сырьё для смесей и расходники — отдельный склад, минимальный запас, закупки ================= */
+/* config/mats: {list:[{id,n,u,g,min,test}], whs:[...]}; matops: {d,type:in|out|move|make,mid,q,wh,to,src:{mid,q},note,by,name,at}; buy: {mid?,n,u,q,st,at,by,name} */
+const MAT_WH0=['Склад материалов','Пр.11 · материалы','Пр.9 · материалы'];
+const MAT_G=['Сырьё для смесей','Расходные материалы'];
+const MAT_T={in:'Приход',out:'Расход',move:'Перемещение',make:'Изготовление'};
+const MT={cfg:null,ops:[],buy:[],sub:false,f:null,ef:null,wh:'',q:'',lowSeen:null};
+function matList(){return (MT.cfg&&MT.cfg.list)||[];}
+function matWhs(){const w=MT.cfg&&MT.cfg.whs;return Array.isArray(w)&&w.length?w:MAT_WH0;}
+function matById(id){return matList().find(m=>m.id===id);}
+function matTabs(){return ['mstock','mops','buy'].some(tabOk);}
+function subscribeMats(){
+  if(MT.sub||!db||!matTabs())return;MT.sub=true;
+  const upd=()=>{if(['mstock','mops','buy','home'].includes(S.view))render();matBadge();};
+  db.doc('config/mats').onSnapshot(s=>{MT.cfg=s.exists?s.data():{list:[],whs:MAT_WH0};upd();},e=>{MT.cfg=MT.cfg||{list:[],whs:MAT_WH0};upd();});
+  db.collection('matops').onSnapshot(q=>{MT.ops=q.docs.map(d=>({id:d.id,...d.data()}));resolveNames(MT.ops.map(o=>o.by));MT.loaded=true;upd();},()=>{MT.loaded=true;upd();});
+  if(tabOk('buy')||tabOk('mstock'))db.collection('buy').onSnapshot(q=>{MT.buy=q.docs.map(d=>({id:d.id,...d.data()}));upd();},()=>{});
+}
+/* остатки: материал → склад → количество */
+function matBal(ops){const b={};const add=(mid,wh,q)=>{if(!mid||!wh)return;const m=b[mid]||(b[mid]={});m[wh]=(m[wh]||0)+q;};
+  for(const o of ops||MT.ops){const q=Number(o.q)||0;
+    if(o.type==='in')add(o.mid,o.wh,q);else if(o.type==='out')add(o.mid,o.wh,-q);
+    else if(o.type==='move'){add(o.mid,o.wh,-q);add(o.mid,o.to,q);}
+    else if(o.type==='make'){add(o.mid,o.wh,q);if(o.src&&o.src.mid)add(o.src.mid,o.wh,-(Number(o.src.q)||0));}}
+  return b;}
+function matTotal(b,mid){return r2(Object.values(b[mid]||{}).reduce((a,x)=>a+x,0));}
+function matLow(b){b=b||matBal();return matList().filter(m=>Number(m.min)>0&&matTotal(b,m.id)<Number(m.min)-1e-9);}
+function matBadge(){try{const n=(MT.cfg&&tabOk('buy'))?matLow().length:0;document.querySelectorAll('[data-go="buy"]').forEach(t=>{t.classList.toggle('hasdot',n>0);});}catch(e){}}
+
+VIEWS.mstock={controls(){subscribeMats();},update(){
+  const el=$('mstock-b');if(!el)return;if(!MT.cfg){el.innerHTML='<div class="panel empty">Загружаем…</div>';return;}
+  if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#mstock-b .mform'))return;
+  const ro=RO('mstock');const b=matBal();const whs=matWhs();const wsel=MT.wh&&whs.includes(MT.wh)?[MT.wh]:whs;const q=(MT.q||'').toLowerCase();
+  const low=new Set(matLow(b).map(m=>m.id));
+  let h='<div class="filters"><label class="fld"><span>Склад</span><select id="mt-wh"><option value="">Все склады</option>'+whs.map(w=>opt(w,w,MT.wh)).join('')+'</select></label><label class="fld"><span>Поиск</span><input type="text" id="mt-q" value="'+esc(MT.q||'')+'"></label>'+
+    (ro?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" data-mt-new>＋ Материал</button></label><label class="fld"><span>&nbsp;</span><button type="button" class="ghost" data-mt-whs>Склады материалов</button></label>')+'</div>';
+  if(MT.ef)h+=matFormHtml();
+  if(MT.whf)h+='<div class="panel mform" style="margin-bottom:12px"><h3>Склады материалов</h3><label class="fld"><span>По одному складу в строке</span><textarea id="mt-whs" style="min-height:100px">'+esc(whs.join('\n'))+'</textarea></label><div class="actions"><button type="button" class="primary" data-mt-whs-save>Сохранить</button><button type="button" class="ghost" data-mt-whs-x>Отмена</button></div></div>';
+  const L=matList().filter(m=>!q||(m.n+' '+(m.g||'')).toLowerCase().includes(q));
+  if(!L.length)h+='<div class="panel empty">'+(matList().length?'Ничего не найдено.':'Материалов пока нет. Нажмите «＋ Материал» и добавьте то, что вы закупаете: акрил, колер, цемент, песок, перчатки…')+'</div>';
+  else{const gs=[...new Set([...MAT_G,...L.map(m=>m.g||'Другое')])].filter(g=>L.some(m=>(m.g||'Другое')===g));
+    h+='<div class="tbl-wrap sticky-col"><table><thead><tr><th>Материал</th>'+wsel.map(w=>'<th class="num">'+esc(w)+'</th>').join('')+(wsel.length>1?'<th class="num">Итого</th>':'')+'<th class="num">Мин. запас</th><th>Ед.</th><th></th></tr></thead><tbody>';
+    for(const g of gs){h+='<tr class="cat"><td colspan="'+(wsel.length+5)+'">'+esc(g)+'</td></tr>';
+      for(const m of L.filter(m=>(m.g||'Другое')===g)){const t=matTotal(b,m.id);const lw=low.has(m.id);
+        h+='<tr'+(lw?' class="mlow"':'')+'><td>'+(lw?'⚠️ ':'')+esc(m.n)+(m.test?' <span class="muted" title="При приходе ставится задача «сделать опыты»">🧪</span>':'')+'</td>'+wsel.map(w=>numCell((b[m.id]||{})[w])).join('')+(wsel.length>1?numCell(t,'b'):'')+'<td class="num">'+(Number(m.min)>0?fmt(m.min):'–')+'</td><td class="muted">'+esc(m.u||'')+'</td><td>'+(ro?'':'<button type="button" class="link" data-mt-ed="'+esc(m.id)+'">✏️</button>')+'</td></tr>';}}
+    h+='</tbody></table></div>';}
+  h+='<p class="note">Это склад материалов, отдельно от готовой продукции. «Мин. запас» — сколько должно быть всегда (запас на месяц). Когда остаток на всех складах вместе становится меньше, материал помечается ⚠️ и сам попадает в «Закупки». 🧪 — при приходе или изготовлении ставится задача «сделать опыты».</p>';
+  el.innerHTML=h;}};
+function matFormHtml(){const f=MT.ef;const gs=[...new Set([...MAT_G,...matList().map(m=>m.g).filter(Boolean)])];
+  return '<div class="panel mform" style="margin-bottom:12px"><h3>'+(f.id?'Изменить материал':'Новый материал')+'</h3><div class="filters">'+
+    '<label class="fld"><span>Название</span><input type="text" id="mf-n" value="'+esc(f.n||'')+'" placeholder="например, Акрил"></label>'+
+    '<label class="fld"><span>Ед. изм.</span><input type="text" id="mf-u" value="'+esc(f.u||'кг')+'" list="mf-ul" style="max-width:110px"><datalist id="mf-ul"><option>кг</option><option>л</option><option>шт.</option><option>пар</option><option>уп.</option><option>мешок</option></datalist></label>'+
+    '<label class="fld"><span>Группа</span><input type="text" id="mf-g" value="'+esc(f.g||MAT_G[0])+'" list="mf-gl"><datalist id="mf-gl">'+gs.map(g=>'<option>'+esc(g)+'</option>').join('')+'</datalist></label>'+
+    '<label class="fld"><span>Мин. запас (на месяц)</span><input type="text" inputmode="decimal" id="mf-min" value="'+esc(f.min!=null?String(f.min).replace('.',','):'')+'" style="max-width:130px"></label></div>'+
+    '<label class="check"><input type="checkbox" id="mf-test"'+(f.test?' checked':'')+'> 🧪 При приходе новой партии или изготовлении из него — ставить задачу «сделать опыты»</label>'+
+    '<p class="err" id="mf-err" hidden></p><div class="actions" style="margin-top:10px"><button type="button" class="primary" data-mf-save>Сохранить</button><button type="button" class="ghost" data-mf-x>Отмена</button>'+(f.id?'<button type="button" class="ghost danger" data-mf-del>Удалить материал</button>':'')+'</div></div>';}
+async function matSaveCfg(patch){const cfg={list:matList(),whs:matWhs(),...patch};await db.doc('config/mats').set(cfg);MT.cfg=cfg;}
+
+/* --- Приход / расход / перемещение / изготовление --- */
+function opytWho(){const ps=tkPeople();const j=ps.find(p=>/жен/i.test(p.n));return j?j.v:(ps[0]||{}).v||'';}
+function mopsForm(){const f=MT.f||(MT.f={type:'in',d:todayStr(),mid:'',q:'',wh:matWhs()[0],to:'',smid:'',sq:'',note:'',opyt:true,who:''});return f;}
+VIEWS.mops={controls(){subscribeMats();loadPeople().then(()=>{if(S.view==='mops')VIEWS.mops.update();});},update(){
+  const el=$('mops-b');if(!el)return;if(!MT.cfg){el.innerHTML='<div class="panel empty">Загружаем…</div>';return;}
+  const ro=RO('mops');const f=mopsForm();const L=matList();const whs=matWhs();
+  const fe=$('mops-form');const busy=fe&&document.activeElement&&fe.contains(document.activeElement)&&document.activeElement.tagName!=='BUTTON';
+  if(!fe){el.innerHTML='<div id="mops-form"></div><div id="mops-j"></div>';}
+  if(!busy&&!ro){const m=matById(f.mid);const ps=tkPeople();if(!f.who)f.who=opytWho();
+    const msel=(id,v)=>'<select id="'+id+'"><option value="">— выберите —</option>'+MAT_G.concat([...new Set(L.map(x=>x.g||'Другое'))].filter(g=>!MAT_G.includes(g))).map(g=>{const gl=L.filter(x=>(x.g||'Другое')===g);return gl.length?'<optgroup label="'+esc(g)+'">'+gl.map(x=>opt(x.id,x.n+(x.u?' ('+x.u+')':''),v)).join('')+'</optgroup>':'';}).join('')+'</select>';
+    const b=matBal();const have=f.mid&&f.wh?r2((b[f.mid]||{})[f.wh]||0):null;
+    const showOpyt=m&&m.test&&(f.type==='in'||f.type==='make');
+    $('mops-form').innerHTML='<div class="panel" style="margin-bottom:14px"><div class="chips ops" style="margin-bottom:12px">'+Object.entries(MAT_T).map(([k,l])=>'<button type="button" class="chip" data-mo-t="'+k+'" aria-pressed="'+(f.type===k)+'">'+l+'</button>').join('')+'</div>'+
+      '<div class="filters">'+
+      '<label class="fld"><span>'+(f.type==='make'?'Что получили':'Материал')+'</span>'+msel('mo-mid',f.mid)+'</label>'+
+      '<label class="fld"><span>Количество'+(m&&m.u?', '+esc(m.u):'')+'</span><input type="text" inputmode="decimal" id="mo-q" value="'+esc(f.q)+'" style="max-width:130px"></label>'+
+      '<label class="fld"><span>'+(f.type==='move'?'Откуда':'Склад')+'</span><select id="mo-wh">'+whs.map(w=>opt(w,w,f.wh)).join('')+'</select></label>'+
+      (f.type==='move'?'<label class="fld"><span>Куда</span><select id="mo-to"><option value="">—</option>'+whs.filter(w=>w!==f.wh).map(w=>opt(w,w,f.to)).join('')+'</select></label>':'')+
+      (f.type==='make'?'<label class="fld"><span>Из чего сделали</span>'+msel('mo-smid',f.smid)+'</label><label class="fld"><span>Сколько ушло'+(matById(f.smid)&&matById(f.smid).u?', '+esc(matById(f.smid).u):'')+'</span><input type="text" inputmode="decimal" id="mo-sq" value="'+esc(f.sq)+'" style="max-width:130px"></label>':'')+
+      '<label class="fld"><span>Дата</span><input type="date" id="mo-d" value="'+esc(f.d)+'" max="'+todayStr()+'"></label>'+
+      '<label class="fld" style="flex:1;min-width:180px"><span>Примечание</span><input type="text" id="mo-note" value="'+esc(f.note)+'" placeholder="поставщик, партия…"></label></div>'+
+      (have!=null&&f.type!=='in'?'<p class="muted" style="margin:0 0 8px">Сейчас на «'+esc(f.wh)+'»: '+fmt(have)+' '+esc((m&&m.u)||'')+'</p>':'')+
+      (showOpyt?'<div class="panel" style="background:var(--surface2,rgba(127,127,127,.08));margin:6px 0 10px;padding:10px 12px"><label class="check"><input type="checkbox" id="mo-opyt"'+(f.opyt?' checked':'')+'> 🧪 Поставить задачу «Сделать опыты»</label>'+(f.opyt?'<label class="fld" style="margin-top:6px"><span>Кому</span><select id="mo-who">'+ps.map(p=>opt(p.v,p.n,f.who)).join('')+'</select></label>':'')+'</div>':'')+
+      (L.length?'':'<p class="muted">Сначала добавьте материалы в разделе «Остатки» материалов (кнопка «＋ Материал»).</p>')+
+      '<p class="err" id="mo-err" hidden></p><button type="button" class="primary" data-mo-save>Записать</button></div>';}
+  else if(ro)$('mops-form').innerHTML='';
+  const J=[...MT.ops].sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at))).slice(0,300);
+  const nm=id=>{const m=matById(id);return m?m.n:'(удалён)';};const un=id=>(matById(id)||{}).u||'';
+  $('mops-j').innerHTML=J.length?'<div class="panel"><h3 style="margin-bottom:8px">Журнал материалов</h3><div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Что</th><th>Материал</th><th class="num">Кол-во</th><th>Склад</th><th>Кто, примечание</th><th></th></tr></thead><tbody>'+
+    J.map(o=>'<tr><td>'+fmtDate(o.d)+'</td><td>'+esc(MAT_T[o.type]||o.type)+'</td><td>'+esc(nm(o.mid))+(o.type==='make'&&o.src?'<br><small class="muted">из: '+esc(nm(o.src.mid))+' − '+fmt(o.src.q)+' '+esc(un(o.src.mid))+'</small>':'')+'</td><td class="num'+(o.type==='out'?' neg':'')+'">'+(o.type==='out'?'−':'')+fmt(o.q)+' <span class="muted">'+esc(un(o.mid))+'</span></td><td>'+esc(o.wh||'')+(o.type==='move'?' → '+esc(o.to||''):'')+'</td><td>'+esc(o.name||S.names[o.by]||'')+(o.note?'<br><small class="muted">'+esc(o.note)+'</small>':'')+'</td><td>'+(ro?'':'<button type="button" class="link" data-mo-del="'+esc(o.id)+'" title="Удалить запись">✕</button>')+'</td></tr>').join('')+'</tbody></table></div></div>':
+    '<div class="panel empty">'+(MT.loaded?'Записей пока нет.':'Загружаем…')+'</div>';
+}};
+async function mopsSave(){const f=mopsForm();const er=$('mo-err');const fail=t=>{er.textContent=t;er.hidden=false;};
+  const m=matById(f.mid);if(!m)return fail('Выберите материал.');const q=parseQ(f.q);if(!(q>0))return fail('Впишите количество.');
+  if(!f.wh)return fail('Выберите склад.');if(f.type==='move'&&(!f.to||f.to===f.wh))return fail('Выберите, куда переместить.');
+  let src=null;if(f.type==='make'){const sm=matById(f.smid);const sq=parseQ(f.sq);if(!sm)return fail('Выберите, из чего сделали.');if(!(sq>0))return fail('Впишите, сколько ушло.');if(sm.id===m.id)return fail('Материал и сырьё должны быть разными.');src={mid:sm.id,q:r2(sq)};}
+  const b0=matBal();const was=new Set(matLow(b0).map(x=>x.id));
+  const x={d:f.d||todayStr(),type:f.type,mid:m.id,q:r2(q),wh:f.wh,...(f.type==='move'?{to:f.to}:{}),...(src?{src}:{}),note:(f.note||'').trim(),by:S.me||'',name:myName(),at:new Date().toISOString()};
+  try{await db.collection('matops').add(x);}catch(e){return fail(dbErr(e));}
+  /* приход закрывает строку в «Закупках» */
+  if(f.type==='in'){const bd=MT.buy.find(z=>z.mid===m.id);if(bd)db.doc('buy/'+bd.id).delete().catch(()=>{});}
+  /* стало меньше минимума — сигнал в «Закупки» */
+  const b1=matBal([...MT.ops,x]);const now=matLow(b1).filter(z=>!was.has(z.id));
+  if(now.length){toast('⚠️ Пора закупить: '+now.map(z=>z.n).join(', '));pushSend({kind:'buy',title:'⚠️ Пора закупить',body:now.map(z=>z.n+' (осталось '+fmt(matTotal(b1,z.id))+' '+(z.u||'')+')').join(', ')});}
+  else toast('Записано');
+  if(m.test&&(f.type==='in'||f.type==='make')&&f.opyt){try{await opytTask(m,x,f.who);}catch(e){toast('Записано, но задачу поставить не удалось: '+dbErr(e));}}
+  MT.f={...f,q:'',sq:'',note:'',opyt:true};VIEWS.mops.update();}
+async function opytTask(m,x,who){
+  await loadPeople();const isN=String(who||'').indexOf('n:')===0;const to=isN?'':(who||'');const toName=isN?who.slice(2):((CH.people||[]).find(p=>p.uid===to)||{}).name||'';
+  const now=new Date().toISOString();
+  const t={t:'Сделать опыты: '+m.n+(x.type==='make'?' (новый замес)':' (новая партия)'),d:(x.type==='make'?'Изготовлено '+fmt(x.q)+' '+(m.u||'')+' «'+m.n+'»'+(x.src?' из «'+((matById(x.src.mid)||{}).n||'')+'»':''):'Пришло '+fmt(x.q)+' '+(m.u||'')+' «'+m.n+'»')+', склад: '+x.wh+(x.note?'. '+x.note:'')+'. Проверить на пробных образцах, результат записать в комментарий.',
+    to,toName,watch:tkWatch(to,toName),due:'',ord:null,upd:now,st:'new',by:S.me,at:now,cm:[],auto:'opyt'};
+  const r=await rawdb.collection('tasks').add(t);tkNotify(t,r.id,true);toast('Записано. Задача «Сделать опыты» поставлена'+(toName?': '+toName:''));}
+
+/* --- Закупки: всё, что ниже минимума, + добавленное вручную --- */
+VIEWS.buy={controls(){subscribeMats();},update(){
+  const el=$('buy-b');if(!el)return;if(!MT.cfg){el.innerHTML='<div class="panel empty">Загружаем…</div>';return;}
+  if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#buy-b input'))return;
+  const ro=RO('buy');const b=matBal();const low=matLow(b);const byMid=new Map(MT.buy.filter(z=>z.mid).map(z=>[z.mid,z]));
+  const man=MT.buy.filter(z=>!z.mid);
+  let h='';
+  h+='<div class="panel" style="margin-bottom:14px"><h3 style="margin-bottom:8px">Пора закупить '+(low.length?'<span class="badge late">'+low.length+'</span>':'')+'</h3>'+
+    (low.length?'<div class="tbl-wrap"><table><thead><tr><th>Материал</th><th class="num">Осталось</th><th class="num">Мин. запас</th><th class="num">Купить</th><th>Ед.</th><th>Статус</th></tr></thead><tbody>'+
+      low.map(m=>{const t=matTotal(b,m.id);const need=r2(Math.max(0,Number(m.min)-t));const z=byMid.get(m.id);
+        return '<tr class="mlow"><td>⚠️ '+esc(m.n)+'</td>'+numCell(t)+'<td class="num">'+fmt(m.min)+'</td><td class="num"><b>'+fmt(z&&z.q?z.q:need)+'</b></td><td class="muted">'+esc(m.u||'')+'</td><td>'+
+        (z&&z.st==='ordered'?'<span class="badge part">заказано '+fmtDate(String(z.at||'').slice(0,10))+(z.name?' · '+esc(z.name):'')+'</span>'+(ro?'':' <button type="button" class="link" data-buy-un="'+esc(z.id)+'">отменить</button>'):
+          (ro?'<span class="badge new">нужно купить</span>':'<button type="button" class="ghost" data-buy-ord="'+esc(m.id)+'" data-q="'+need+'">Заказано</button>'))+
+        (tabOk('mops')&&!RO('mops')?' <button type="button" class="link" data-buy-in="'+esc(m.id)+'">Пришло → приход</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>':
+      '<p class="muted" style="margin:0">Всё в норме: всех материалов не меньше минимального запаса.'+(matList().some(m=>Number(m.min)>0)?'':' Минимальный запас задаётся в «Остатках» материалов (кнопка ✏️ у материала).')+'</p>')+'</div>';
+  h+='<div class="panel"><h3 style="margin-bottom:8px">Ещё купить (вписано вручную)</h3>'+
+    (man.length?'<div class="tbl-wrap"><table><tbody>'+man.map(z=>'<tr><td>'+esc(z.n)+'</td><td class="num">'+(z.q?fmt(z.q):'')+' <span class="muted">'+esc(z.u||'')+'</span></td><td class="muted">'+esc(z.name||'')+' '+fmtDate(String(z.at||'').slice(0,10))+'</td><td>'+(z.st==='ordered'?'<span class="badge part">заказано</span>':'')+'</td><td>'+(ro?'':(z.st!=='ordered'?'<button type="button" class="link" data-buy-mo="'+esc(z.id)+'">заказано</button> ':'')+'<button type="button" class="link" data-buy-done="'+esc(z.id)+'">✓ куплено</button>')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0 0 8px">Пусто.</p>')+
+    (ro?'':'<div class="filters" style="margin-top:10px"><label class="fld" style="flex:1;min-width:180px"><span>Что купить</span><input type="text" id="by-n" placeholder="например, перчатки"></label><label class="fld"><span>Сколько</span><input type="text" id="by-q" inputmode="decimal" style="max-width:100px"></label><label class="fld"><span>Ед.</span><input type="text" id="by-u" style="max-width:80px" value="шт."></label><label class="fld"><span>&nbsp;</span><button type="button" class="primary" data-buy-add>Добавить</button></label></div>')+'</div>';
+  h+='<p class="note">Материал попадает сюда сам, когда его остаток (на всех складах материалов вместе) меньше минимального запаса. Когда товар пришёл, внесите «Приход» — строка исчезнет сама.</p>';
+  el.innerHTML=h;}};
+
+document.addEventListener('click',async e=>{const t=e.target;let b;
+  if(!t.closest('#mstock-b,#mops-b,#buy-b'))return;
+  if(t.closest('[data-mt-new]')){MT.ef={u:'кг',g:MAT_G[0]};MT.whf=false;VIEWS.mstock.update();setTimeout(()=>{const i=$('mf-n');if(i)i.focus();},30);return;}
+  if((b=t.closest('[data-mt-ed]'))){const m=matById(b.dataset.mtEd);if(m){MT.ef={...m};MT.whf=false;VIEWS.mstock.update();window.scrollTo(0,0);}return;}
+  if(t.closest('[data-mf-x]')){MT.ef=null;document.activeElement.blur();VIEWS.mstock.update();return;}
+  if(t.closest('[data-mt-whs]')){MT.whf=!MT.whf;MT.ef=null;VIEWS.mstock.update();return;}
+  if(t.closest('[data-mt-whs-x]')){MT.whf=false;document.activeElement.blur();VIEWS.mstock.update();return;}
+  if(t.closest('[data-mt-whs-save]')){const w=[...new Set($('mt-whs').value.split('\n').map(x=>x.trim()).filter(Boolean))];if(!w.length){toast('Нужен хотя бы один склад');return;}
+    try{await matSaveCfg({whs:w});MT.whf=false;document.activeElement.blur();toast('Склады сохранены');VIEWS.mstock.update();}catch(x){toast(dbErr(x));}return;}
+  if(t.closest('[data-mf-save]')){const er=$('mf-err');const n=$('mf-n').value.trim();if(!n){er.textContent='Впишите название.';er.hidden=false;return;}
+    const minv=$('mf-min').value.trim();const mn=minv?parseQ(minv):0;if(minv&&!(mn>=0)){er.textContent='Мин. запас — число.';er.hidden=false;return;}
+    const L=[...matList()];if(L.some(m=>m.n.toLowerCase()===n.toLowerCase()&&m.id!==MT.ef.id)){er.textContent='Такой материал уже есть.';er.hidden=false;return;}
+    const m={id:MT.ef.id||('m'+Date.now().toString(36)),n,u:$('mf-u').value.trim(),g:$('mf-g').value.trim()||MAT_G[0],min:r2(mn||0),test:$('mf-test').checked};
+    const i=L.findIndex(z=>z.id===m.id);if(i>=0)L[i]=m;else L.push(m);
+    try{await matSaveCfg({list:L});MT.ef=null;document.activeElement.blur();toast('Материал сохранён');VIEWS.mstock.update();}catch(x){er.textContent=dbErr(x);er.hidden=false;}return;}
+  if(t.closest('[data-mf-del]')){const id=MT.ef.id;const used=MT.ops.some(o=>o.mid===id||(o.src&&o.src.mid===id));
+    if(!confirm(used?'По этому материалу есть записи в журнале. Удалить его из списка? Записи останутся в журнале.':'Удалить материал из списка?'))return;
+    try{await matSaveCfg({list:matList().filter(m=>m.id!==id)});MT.ef=null;VIEWS.mstock.update();}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-mo-t]'))){mopsForm().type=b.dataset.moT;VIEWS.mops.update();return;}
+  if(t.closest('[data-mo-save]')){await mopsSave();return;}
+  if((b=t.closest('[data-mo-del]'))){const o=MT.ops.find(z=>z.id===b.dataset.moDel);if(!o||!confirm('Удалить запись «'+(MAT_T[o.type]||'')+' '+((matById(o.mid)||{}).n||'')+' '+fmt(o.q)+'»?'))return;try{await db.doc('matops/'+o.id).delete();toast('Запись удалена');}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-ord]'))){const m=matById(b.dataset.buyOrd);if(!m)return;const v=prompt('Сколько заказали ('+(m.u||'')+')?',String(b.dataset.q||'').replace('.',','));if(v===null)return;
+    try{await db.doc('buy/'+m.id).set({mid:m.id,n:m.n,u:m.u||'',q:r2(parseQ(v)||0),st:'ordered',at:new Date().toISOString(),by:S.me||'',name:myName()});}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-un]'))){try{await db.doc('buy/'+b.dataset.buyUn).delete();}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-in]'))){MT.f={...mopsForm(),type:'in',mid:b.dataset.buyIn,q:''};go('mops');return;}
+  if((b=t.closest('[data-buy-mo]'))){try{await db.doc('buy/'+b.dataset.buyMo).update({st:'ordered'});}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-done]'))){try{await db.doc('buy/'+b.dataset.buyDone).delete();toast('Отмечено как куплено');}catch(x){toast(dbErr(x));}return;}
+  if(t.closest('[data-buy-add]')){const n=$('by-n').value.trim();if(!n){toast('Впишите, что купить');return;}
+    try{await db.collection('buy').add({n,q:r2(parseQ($('by-q').value)||0),u:$('by-u').value.trim(),st:'need',at:new Date().toISOString(),by:S.me||'',name:myName()});document.activeElement.blur();VIEWS.buy.update();}catch(x){toast(dbErr(x));}return;}
+});
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.id==='mt-q'){MT.q=t.value;const p=t.selectionStart;t.blur();VIEWS.mstock.update();const i=$('mt-q');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(_){}}return;}
+  const k={'mo-mid':'mid','mo-q':'q','mo-wh':'wh','mo-to':'to','mo-smid':'smid','mo-sq':'sq','mo-d':'d','mo-note':'note','mo-who':'who'}[t.id];
+  if(k){const f=mopsForm();f[k]=t.value;if(t.tagName==='SELECT'){t.blur();VIEWS.mops.update();}}
+  if(t.id==='mo-opyt'){mopsForm().opyt=t.checked;t.blur();VIEWS.mops.update();}});
+document.addEventListener('change',e=>{const t=e.target;if(t.id==='mt-wh'){MT.wh=t.value;t.blur();VIEWS.mstock.update();}
+  if(t.id==='mo-opyt'){mopsForm().opyt=t.checked;t.blur();VIEWS.mops.update();}
+  if(t.tagName==='SELECT'&&/^mo-/.test(t.id||'')){const k={'mo-mid':'mid','mo-wh':'wh','mo-to':'to','mo-smid':'smid','mo-who':'who'}[t.id];if(k){mopsForm()[k]=t.value;t.blur();VIEWS.mops.update();}}});
 
 /* ================= Сообщения ================= */
 /* Общий чат (все, у кого есть доступ), группы (видят только участники) и личные чаты (видят только двое).
@@ -2396,7 +2617,7 @@ async function chatSend(msg,to){
   else pushSend({kind:'msg',chat:id,title:(FIXED[id]||chatName(CH.list.find(x=>x.id===id))),body:last.t});
 }
 /* документы: файл режется на части по ~600 КБ и хранится в базе (chats/{id}/files), без платного хранилища */
-const FCHUNK=600000,FMAX=50*1048576;
+const FCHUNK=600000,FMAX=200*1048576;
 function b64(u8){let s='';for(let i=0;i<u8.length;i+=32768)s+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));return btoa(s);}
 async function putParts(chat,u8){const fid=Date.now().toString(36)+Math.random().toString(36).slice(2,8);const n=Math.max(1,Math.ceil(u8.length/FCHUNK));
   for(let i=0;i<n;i++){await rawdb.doc('chats/'+chat+'/files/'+fid+'_'+i).set({uid:S.me,i,d:b64(u8.subarray(i*FCHUNK,(i+1)*FCHUNK))});if(n>2)toast('Отправляем файл… '+Math.round((i+1)/n*100)+'%');}
@@ -2404,7 +2625,7 @@ async function putParts(chat,u8){const fid=Date.now().toString(36)+Math.random()
 async function getParts(chat,m){const ps=await Promise.all([...Array(m.n||1).keys()].map(i=>rawdb.doc('chats/'+chat+'/files/'+m.fid+'_'+i).get()));
   return ps.map(p=>{if(!p.exists)throw {code:'not-found'};const s=atob(p.data().d);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;});}
 function delParts(chat,m){for(let i=0;i<(m.n||1);i++)rawdb.doc('chats/'+chat+'/files/'+m.fid+'_'+i).delete().catch(()=>{});}
-async function sendFile(f){if(f.size>FMAX){toast('Файл «'+(f.name||'')+'» больше 50 МБ, такой отправить нельзя.');return;}
+async function sendFile(f){if(f.size>FMAX){toast('Файл «'+(f.name||'')+'» больше 200 МБ, такой отправить нельзя.');return;}
   toast('Отправляем файл…');const u8=new Uint8Array(await f.arrayBuffer());const {fid,n}=await putParts(CH.sel,u8);
   await chatSend({kind:'file',file:{name:f.name||'файл',size:f.size,mime:f.type||'application/octet-stream',fid,n}});toast('Файл отправлен');}
 async function downloadFile(m){toast('Скачиваем…');try{const parts=await getParts(CH.sel,m);const url=URL.createObjectURL(new Blob(parts,{type:m.mime||'application/octet-stream'}));
@@ -2721,8 +2942,8 @@ window.SKLAD_ME_CHANGED=()=>{const d=document.getElementById('mdrawer');if(d&&!d
 /* перерисовка меню без «прыжка»: без анимации и с той же прокруткой */
 function mdRedraw(d){const n=d.querySelector('.md');const y=n?n.scrollTop:0;d.innerHTML=drawerHtml();const n2=d.querySelector('.md');if(n2)n2.scrollTop=y;}
 /* ---------- Главная: плитки разделов с короткой сводкой ---------- */
-const HOME_INFO={tasks:'поручения сотрудникам: кому, что и к какому сроку',chat:'общий чат, «Заказы», группы и личные',office:'заказы и возвраты',p11:'камень: смазка, заливка, резка, упаковка, затирки',p9:'карнизы: заливка, шкурение, упаковка',store:'остатки, приход, журнал, план',ref:'товары, размеры, списки'};
-const HOME_ICO={tasks:'✅',chat:'💬',office:'📋',p11:'🏭',p9:'🏗️',store:'📦',ref:'📚'};
+const HOME_INFO={mat:'сырьё и расходники, приход, закупки',tasks:'поручения сотрудникам: кому, что и к какому сроку',chat:'общий чат, «Заказы», группы и личные',office:'заказы и возвраты',p11:'камень: смазка, заливка, резка, упаковка, затирки',p9:'карнизы: заливка, шкурение, упаковка',store:'остатки, приход, журнал, план',ref:'товары, размеры, списки'};
+const HOME_ICO={mat:'🧱',tasks:'✅',chat:'💬',office:'📋',p11:'🏭',p9:'🏗️',store:'📦',ref:'📚'};
 function homeLine(g){
   if(g==='tasks'){const m=tkMineOpen();const nw=m.filter(x=>x.st==='new').length;const late=m.filter(x=>x.due&&x.due<todayStr()).length;
     return m.length?[nw?'<b class="hnew">новых: '+nw+'</b>':'','у меня открыто: '+m.length,late?'<b class="hnew" style="color:var(--danger,#c62828)">просрочено: '+late+'</b>':''].filter(Boolean).join(' · '):'у вас нет открытых задач';}
@@ -2731,6 +2952,8 @@ function homeLine(g){
     return [nw?'<b class="hnew">новых: '+nw+'</b>':'',wk?'в работе: '+wk:'',rd?'готовы: '+rd:''].filter(Boolean).join(' · ')||'активных заказов нет';}
   if((g==='p11'||g==='p9')&&tabOk(g==='p9'?'porders9':'porders')){const n=S.orders.filter(o=>{const x=orderGroup(o);if(x!=='new'&&x!=='work')return false;const ps=prodSt(o,g);return !ps.ready&&prodLines(o,g).some(l=>l.rest>1e-9);}).length;
     return n?'<b class="hnew">заказов для производства: '+n+'</b>':'заказов для производства нет';}
+  if(g==='store'&&tabOk('sorders')){const n=storeAlloc().filter(x=>!x.o.sk&&x.lines.some(l=>l.make>1e-9)).length;return n?'<b class="hnew">не хватает на складе для заказов: '+n+'</b>':'';}
+  if(g==='mat'&&MT.cfg){const n=matLow().length;return n?'<b class="hnew" style="color:var(--danger,#c62828)">⚠️ пора закупить: '+n+'</b>':'запасы материалов в норме';}
   return '';
 }
 VIEWS.home={controls(){},update(){
@@ -2757,7 +2980,7 @@ async function sendOne(f,asDoc){
   if(asDoc)return sendFile(f);
   if(/^image\//.test(f.type))return chatSend({kind:'img',data:await imgToData(f)});
   if(/^video\//.test(f.type)&&f.size<=650000)return chatSend({kind:'video',data:await fileToData(f)});
-  if(/^video\//.test(f.type)){if(f.size>FMAX){toast('Видео «'+(f.name||'')+'» больше 50 МБ, такое отправить нельзя.');return;}toast('Отправляем видео…');const {fid,n}=await putParts(CH.sel,new Uint8Array(await f.arrayBuffer()));return chatSend({kind:'video',file:{fid,n,mime:f.type,size:f.size,name:f.name||'видео'}});}
+  if(/^video\//.test(f.type)){if(f.size>FMAX){toast('Видео «'+(f.name||'')+'» больше 200 МБ, такое отправить нельзя.');return;}toast('Отправляем видео…');const {fid,n}=await putParts(CH.sel,new Uint8Array(await f.arrayBuffer()));return chatSend({kind:'video',file:{fid,n,mime:f.type,size:f.size,name:f.name||'видео'}});}
   return sendFile(f);}
 /* ---------- рисование на фото ---------- */
 function openDraw(src,chat){closeDraw();const v=document.createElement('div');v.id='pdraw';
@@ -2940,7 +3163,7 @@ function wirePrintBar(){
 
 /* ---- подписки на заказы и возвраты ---- */
 function subscribeOrders(){
-  if(!(tabOk('orders')||tabOk('porders')||tabOk('grout')))S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;
+  if(!(tabOk('orders')||tabOk('porders')||tabOk('porders9')||tabOk('grout')||tabOk('sorders')))S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;
     try{const ch=s.docChanges?s.docChanges().map(c=>({type:c.type,local:c.doc.metadata&&c.doc.metadata.hasPendingWrites,o:{id:c.doc.id,...c.doc.data()}})):[];orderEvents(S.orders,ch);}catch(e){}try{nowBar();}catch(e){}render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
   if(!tabOk('returns'))S.returnsLoaded=true;else db.collection('returns').onSnapshot(s=>{S.returns=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.returnsLoaded=true;render();},e=>{S.returnsLoaded=true;S.err=e&&e.code;render();});
   db.doc('config/lists').onSnapshot(s=>{S.lists=s.exists?s.data():null;},()=>{});
@@ -3169,6 +3392,7 @@ function subscribe(){
     render();
   },e=>{S.err=e.code;render();});
   subscribeOrders();
+  subscribeMats();
   if(tabOk('plan'))db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
   setTimeout(()=>{if(S.pending.size||!S.catalog)setSync(S.pending.size?'данные загружаются дольше обычного, проверьте интернет':'');setTimeout(()=>setSync(''),8000);},10000);
   // midnight rollover: start watching the new month

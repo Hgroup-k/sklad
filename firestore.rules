@@ -19,7 +19,9 @@ service cloud.firestore {
       || canView('sizes') || canView('months') || canView('orders') || canView('returns') || canView('plan')
       || canView('porders') || canView('cast11') || canView('dry11') || canView('demold11') || canView('cut11')
       || canView('pack11') || canView('grout') || canView('cast9') || canView('dry9') || canView('demold9')
-      || canView('sand9') || canView('pack9') || canView('grease11') || canView('porders9'); }
+      || canView('sand9') || canView('pack9') || canView('grease11') || canView('porders9')
+      || canView('wh11') || canView('wh9') || canView('sorders'); }
+    function matView() { return canView('mstock') || canView('mops') || canView('buy'); }
     function opsEdit() { return canEdit('input') || canEdit('journal') || canEdit('stock'); }
     function prodEdit() { return canEdit('grease11') || canEdit('cast11') || canEdit('demold11') || canEdit('cut11') || canEdit('pack11')
       || canEdit('grout') || canEdit('cast9') || canEdit('demold9') || canEdit('sand9') || canEdit('pack9'); }
@@ -77,7 +79,8 @@ service cloud.firestore {
     match /tasks/{id} {
       allow read: if signedIn() && (canView('tasks') || resource.data.to == me() || resource.data.by == me()
         || me() in resource.data.get('watch', []));
-      allow create: if canEdit('tasks') && request.resource.data.by == me();
+      allow create: if (canEdit('tasks') || (canEdit('mops') && request.resource.data.get('auto', '') == 'opyt'))
+        && request.resource.data.by == me();
       allow update: if canEdit('tasks') || (signedIn() && resource.data.to == me()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'cm', 'upd']));
       allow delete: if canEdit('tasks');
@@ -90,10 +93,12 @@ service cloud.firestore {
       allow write: if anyAccess() && request.auth.uid == uid;
     }
     match /orders/{id} {
-      allow read: if canView('orders') || canView('porders') || canView('porders9') || canView('grout');
+      allow read: if canView('orders') || canView('porders') || canView('porders9') || canView('grout') || canView('sorders');
       allow write: if canEdit('orders');
       allow update: if (canEdit('porders') || canEdit('porders9'))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage', 'work', 'ready', 'prod']);
+      allow update: if canEdit('sorders')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sk']);
     }
     match /returns/{id} {
       allow read: if canView('returns');
@@ -111,6 +116,19 @@ service cloud.firestore {
       allow delete: if opsEdit()
         || (canEdit('orders') && resource.data.get('order', '') != '')
         || (canEdit('returns') && resource.data.get('ret', '') != '');
+    }
+    match /config/mats {
+      allow read: if matView();
+      allow write: if canEdit('mstock');
+    }
+    match /matops/{id} {
+      allow read: if matView();
+      allow create: if canEdit('mops') && request.resource.data.by == me();
+      allow update, delete: if canEdit('mops');
+    }
+    match /buy/{id} {
+      allow read: if matView();
+      allow write: if canEdit('buy') || canEdit('mops');
     }
     match /config/plan {
       allow read: if canView('plan');
