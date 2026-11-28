@@ -2404,6 +2404,8 @@ const QF_DEFS=[
   {ru:'Решение',en:'Decision',items:[QP('dec','Решение','Decision',[['Жалоба подтверждена','Confirmed'],['Жалоба не подтверждена','Not confirmed'],['Иное решение','Other decision']]),QT('just','Обоснование','Justification',true)]},
   {ru:'Ответ клиенту',en:'Response to the customer',items:[QP('inf','Клиент проинформирован','Customer informed',[['да','yes'],['нет','no']])]}]}
 ];
+/* «Что и сколько» — в каждой форме этапа, заполняется само из записей этапа */
+for(const d of QF_DEFS)if(!['F01','F04','F05','F06'].includes(d.k))d.secs.unshift({ru:'Что и сколько',en:'What and how much',items:[QT('what','Что и сколько (изделия / материалы, количество)','What and how much (products / materials, quantity)',true)]});
 const QFD=k=>QF_DEFS.find(x=>x.k===k);
 const QC={list:[],sub:false,form:null,q:'',ff:''};
 function subscribeQc(){if(QC.sub||!db||!tabOk('qc'))return;QC.sub=true;
@@ -2423,6 +2425,7 @@ function qcAuto(def,d,batch){const T=(head,rows)=>rows.length?'<div class="tbl-w
       const M=kind==='lub'?{w:by(/вод/i),soap:by(/мыл/i),oil:by(/масл/i),oilm:nm(/масл/i),vol:x.out?String(x.out).replace('.',','):undefined}:kind==='dust'?{ox:nm(/оксид|пигмент/i),oxq:by(/оксид|пигмент/i),fr:nm(/крошк/i),frq:by(/крошк/i),pos:x.batch}:
         {r_cem:by(/цемент/i),r_sand:by(/песок/i),r_marb:by(/мук/i),r_acr:by(/акрил/i),r_wat:by(/вод/i),r_thk:by(/загуст/i),r_pig:by(/оксид|пигмент/i),r_pigc:nm(/оксид|пигмент/i),vats:x.out?String(x.out).replace('.',','):undefined};
       for(const k in M)if(M[k]!=null)pre[k]=M[k];}
+    if(L.length)pre.what=L.map(x=>(PREP_K[kind]||[''])[0]+' партия '+x.batch+(x.out?': получилось '+fmt(x.out)+' '+(x.u||''):'')+'; из: '+(x.lines||[]).map(l=>((matById(l.mid)||{}).n||'?')+' '+fmt(l.q)+' '+((matById(l.mid)||{}).u||'')).join(', ')).join('\n');
     if(kind!=='mix')return {h:T2,pre};
     const cs=qcOps(d,o=>o.op==='cast');const parts=[...new Set(cs.map(o=>o.batch).filter(Boolean))];
     const acr=(MT.ops||[]).filter(o=>o.type==='in'&&o.party&&/акрил/i.test((matById(o.mid)||{}).n||'')).slice(-5).map(o=>o.party);
@@ -2431,19 +2434,24 @@ function qcAuto(def,d,batch){const T=(head,rows)=>rows.length?'<div class="tbl-w
   if(def.auto==='grease'){const L=qcOps(d,o=>o.op==='grease');h=T(['Форма','Посыпка','Штук','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.pcs||o.q),W(o)]));
     const lp=PR.list.filter(x=>x.kind==='lub'&&x.d<=d).sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at)))[0];const dp=PR.list.filter(x=>x.kind==='dust'&&x.d<=d).sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at)))[0];
     if(lp){pre.lubb=lp.batch;pre.agent='Смазочный состав партии '+lp.batch;}if(dp)pre.dustb=dp.batch;
-    const ps=[...new Set(L.map(o=>o.s).filter(Boolean))];if(ps.length)pre.pos=ps.join(', ');return {h,pre};}
+    const ps=[...new Set(L.map(o=>o.s).filter(Boolean))];if(ps.length)pre.pos=ps.join(', ');
+    if(L.length)pre.what='Смазано форм: '+L.map(o=>o.n+(o.s?' ('+o.s+')':'')+' — '+fmt(o.pcs||o.q)+' шт.').join('; ')+'. Всего: '+fmt(L.reduce((a,o)=>a+(Number(o.pcs||o.q)||0),0))+' шт.';return {h,pre};}
   if(def.auto==='cast'){let L=qcOps(d,o=>o.op==='cast');if(batch&&L.some(o=>o.batch===batch))L=L.filter(o=>o.batch===batch);
     h=T(['Вид','Холстов / шт.','м²','Формы','Партия','Кто'],L.map(o=>[esc(o.n),fmt(o.pcs||0),fmt(o.q),esc((o.form||'')+(o.pos?' · '+o.pos:'')),esc(o.batch||''),W(o)]));
-    const ps=[...new Set(L.map(o=>o.batch).filter(Boolean))];if(ps.length===1&&!batch)pre._batch=ps[0];return {h,pre};}
+    const ps=[...new Set(L.map(o=>o.batch).filter(Boolean))];if(ps.length===1&&!batch)pre._batch=ps[0];
+    if(L.length)pre.what='Залито: '+L.map(o=>o.n+' — '+fmt(o.pcs||0)+' холст. ('+fmt(o.q)+' м²)').join('; ')+'. Всего: '+fmt(L.reduce((a,o)=>a+(Number(o.pcs)||0),0))+' холст., '+fmt(L.reduce((a,o)=>a+(Number(o.q)||0),0))+' м²';return {h,pre};}
   if(def.auto==='dry'){const L=qcOps(d,o=>o.step==='Распалубка'||o.step==='Снятие');
     h=T(['Вид','Сняли, шт.','Сохло дней','Кто'],L.map(o=>{const dd=qcDryDays(o);return [esc(o.n),fmt(o.pcs||o.q),dd==null?'—':String(dd),W(o)];}));
+    if(L.length)pre.what='Снято с форм: '+L.map(o=>o.n+' — '+fmt(o.pcs||0)+' холст. ('+fmt(o.q)+' м²)').join('; ');
     const ds=[...new Set(L.map(qcDryDays).filter(x=>x!=null))];if(ds.length)pre.dtime=ds.map(x=>x+' дн.').join(', ');
     const cd=L.map(o=>{const c=allOps().filter(c=>c.op==='cast'&&c.n===o.n&&c.d<=o.d).sort((a,b)=>a.d.localeCompare(b.d)).pop();return c&&c.batch;}).filter(Boolean);if(cd.length&&!batch)pre._batch=[...new Set(cd)].join(', ');
     return {h,pre};}
   if(def.auto==='cut'){const L=qcOps(d,o=>o.op==='cut');
-    h=T(['Вид','Размер','Холстов','Годно','Брак, м²','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.pcs||0),fmt(o.q)+' '+esc(unit(o.c)),fmt(o.brak||0),W(o)]));return {h,pre};}
+    h=T(['Вид','Размер','Холстов','Годно','Брак, м²','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.pcs||0),fmt(o.q)+' '+esc(unit(o.c)),fmt(o.brak||0),W(o)]));
+    if(L.length)pre.what='Порезано: '+L.map(o=>o.n+' '+(o.s||'')+' — из '+fmt(o.pcs||0)+' холст. годно '+fmt(o.q)+' '+unit(o.c)+(Number(o.brak)?', брак '+fmt(o.brak)+' м²':'')).join('; ');return {h,pre};}
   if(def.auto==='pack'){const L=qcOps(d,o=>o.step==='Упаковка');const C=qcOps(d,o=>o.op==='cut');
     h=T(['Вид','Размер','Упаковано','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.q)+' '+esc(unit(o.c)),W(o)]));
+    if(L.length)pre.what='Упаковано: '+L.map(o=>o.n+' '+(o.s||'')+' — '+fmt(o.q)+' '+unit(o.c)).join('; ');
     const g=L.reduce((a,o)=>a+(Number(o.q)||0),0),b=C.reduce((a,o)=>a+(Number(o.brak)||0),0);if(g)pre.good=String(r2(g)).replace('.',',');if(b)pre.bad=String(r2(b)).replace('.',',');return {h,pre};}
   if(def.auto==='claim'){h=tabOk('orders')?'<label class="fld"><span>Заполнить по заказу</span><select id="qc-pord"><option value="">— выберите заказ —</option>'+[...S.orders].sort((a,b)=>String(b.no).localeCompare(String(a.no),'ru',{numeric:true})).slice(0,200).map(o=>opt(o.id,'№'+o.no+' · '+(o.obj||'')+' · '+(o.firm||''),'')).join('')+'</select></label>':'';return {h,pre};}
   return {h:'',pre};}
