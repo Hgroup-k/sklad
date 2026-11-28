@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 11:52';</script>
-<script src="firebase-config.js?v=615e75d8"></script>
-<script src="shim.js?v=615e75d8"></script>
+<script>window.SKLAD_VERSION='28.11 11:56';</script>
+<script src="firebase-config.js?v=c7d9c41e"></script>
+<script src="shim.js?v=c7d9c41e"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -321,6 +321,14 @@ tr.mlow td{background:rgba(198,40,40,.07)}
 .qlong textarea{width:100%}
 .qauto{background:rgba(46,106,108,.07);border-radius:8px;padding:10px 12px;margin:10px 0}
 .qauto>b{display:block;margin-bottom:6px}
+.rtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px}
+.rtile .rnum{font-size:20px;margin:4px 0}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+#scanov{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+#scanov[hidden]{display:none}
+.scbox{background:var(--surface,#fff);border-radius:12px;padding:12px;width:100%;max-width:480px;position:relative}
+.schead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#scvid{width:100%;max-height:60vh;background:#000;border-radius:8px;display:block}
 .tab.hasdot::after{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--danger,#c62828);margin-left:5px;vertical-align:top}
 img.cimg[width]{width:auto;height:auto}
 .cvbox{width:300px;max-width:100%;height:240px;max-height:none;background:#000;object-fit:contain}
@@ -453,7 +461,7 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
         </div>
         <form id="f" novalidate autocomplete="off">
           <div class="ops" id="f-op"></div>
-          <div class="fld"><span>Категория</span><div class="chips" id="f-c"></div></div>
+          <div class="fld"><span>Категория <button type="button" class="link" data-scan-in style="margin-left:8px">📷 Сканировать</button></span><div class="chips" id="f-c"></div></div>
           <div class="row2">
             <label class="fld"><span>Наименование</span><select id="f-n"></select><input id="f-nx" type="text" placeholder="Впишите вид" hidden></label>
             <label class="fld"><span>Количество <em id="f-unit"></em></span><input id="f-q" inputmode="decimal" placeholder="0"></label>
@@ -522,6 +530,8 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
   <section class="view" id="v-mops" hidden><div id="mops-b"></div></section>
   <section class="view" id="v-buy" hidden><div id="buy-b"></div></section>
   <section class="view" id="v-qc" hidden><div id="qc-b"></div></section>
+  <section class="view" id="v-report" hidden><div id="report-b"></div></section>
+  <section class="view" id="v-clients" hidden><div id="clients-b"></div></section>
 </main>
 <div id="toast" hidden></div>
 <div id="print-bar" hidden><div><b id="print-name"></b><br><span class="muted" style="font-size:13px">Если окно печати не открылось, скачайте файл и откройте его: печать запустится сама. Формат <span id="print-fmt">A6, альбомный</span>.</span></div><div class="actions"><button type="button" class="ghost" id="print-again">Печать ещё раз</button><button type="button" class="ghost" id="print-dl">Скачать для печати</button><button type="button" class="link" id="print-close">Закрыть</button></div></div>
@@ -558,12 +568,12 @@ const REQ=new Set(['Плитка','Клинкер','Сетка']);
 const GROUPS={prod:'Произведено',in:'Прочий приход',ship:'Отгрузка',out:'Прочий расход'};
 const MONTHS=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 const START_Y=2026, START_M=1;
-const TABS=[['home','Главная','home'],['tasks','Задачи','tasks'],['orders','Заказы','office'],['returns','Возвраты','office'],
+const TABS=[['home','Главная','home'],['tasks','Задачи','tasks'],['orders','Заказы','office'],['returns','Возвраты','office'],['clients','Клиенты и долги','office'],
   ['porders','Заказы в работе','p11'],['grease11','Смазка форм','p11'],['cast11','Заливка','p11'],['dry11','Сушка','p11'],['demold11','Распалубка','p11'],['cut11','Резка','p11'],['pack11','Упаковка','p11'],['grout','Затирки и колер','p11'],['wh11','Склад','p11'],
   ['porders9','Заказы в работе','p9'],['cast9','Заливка','p9'],['dry9','Сушка','p9'],['demold9','Распалубка','p9'],['sand9','Шкурение','p9'],['pack9','Упаковка','p9'],['wh9','Склад','p9'],
-  ['sorders','Заказы','store'],['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['mstock','Остатки','mat'],['mops','Приход и расход','mat'],['buy','Закупки','mat'],['qc','Формы качества','qc'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
+  ['sorders','Заказы','store'],['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['report','Сводка','store'],['mstock','Остатки','mat'],['mops','Приход и расход','mat'],['buy','Закупки','mat'],['qc','Формы качества','qc'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
 const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks','Задачи'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['mat','Материалы'],['qc','Качество'],['ref','Справочник']];
-const REPORT_TABS=new Set(['dry11','dry9','stock','wh11','wh9','period','sizes','months']);
+const REPORT_TABS=new Set(['report','dry11','dry9','stock','wh11','wh9','period','sizes','months']);
 window.SKLAD_TABS=TABS.filter(t=>t[0]!=='chat'&&t[0]!=='home'&&t[0]!=='tasks').map(([k,l,g])=>({k,l,g:(TGROUPS.find(x=>x[0]===g)||[])[1]||'',ed:!REPORT_TABS.has(k)}));
 /* общие чаты: «Редактирует» = пишет, «Просмотр» = только читает, «Нет доступа» = не состоит */
 window.SKLAD_TABS.unshift({k:'tasks',l:'Задачи всех сотрудников',g:'Администратор (особые права)',ed:true},{k:'chatmod',l:'Удалять и менять сообщения без следов',g:'Администратор (особые права)',ed:true},{k:'chatall',l:'Общий чат',g:'Сообщения',ed:true,chat:true},{k:'chatord',l:'Чат «Заказы»',g:'Сообщения',ed:true,chat:true});
@@ -1277,7 +1287,7 @@ VIEWS.catalog={
         listPanel('forms','Формы','Строка: название формы, двоеточие и буквы видов камня. Например «Скала: R» или «Травертин: TR, TB».',formsList().map(f=>f.n+': '+(f.p||[]).join(', ')))+
         listPanel('pos','Посыпки','По одной посыпке в строке.',posList())+'</div>'+posMapPanel()+
       '<h2 class="refh" id="ref-p9">Производство 9</h2><div class="cat-grid">'+listPanel('w9','Рабочие','По одному имени в строке.',workersOf('w9'))+'</div>'+
-      '<h2 class="refh" id="ref-st">Склад</h2>'+backupPanel());wireStaff();wireLists();
+      '<h2 class="refh" id="ref-st">Склад</h2>'+backupPanel()+labelsPanel());wireStaff();wireLists();
     const sv=$('cat-save');
     if(sv)sv.onclick=async()=>{
       const next={order:cats(),cats:{}};
@@ -1513,6 +1523,7 @@ function renderOrderEditor(){
     fld('Срочность',chipsHtml('urgent',['Срочный заказ'],d.urgent?'Срочный заказ':''))+
     fld('Выдача',chipsHtml('now',['⚡ Выдать сейчас'],d.now?'⚡ Выдать сейчас':''))+
     fld('Название объекта',inp('obj',d.obj))+
+    '<div class="row2">'+fld('Клиент <i class="opt">для карточки клиента и долгов</i>',inp('cli',d.cli,' list="cli-list"')+'<datalist id="cli-list">'+cliAll().map(c=>'<option value="'+esc(c.n)+'">').join('')+'</datalist>')+fld('Сумма заказа, лей <i class="opt">если известна</i>',inp('total',d.total!=null&&d.total!==''?String(d.total).replace('.',','):'',' inputmode="decimal"'))+'</div>'+
     fld('Оформил',chipsHtml('by',staff(),d.by))+
     '<div class="row2">'+fld('Оплата',chipsHtml('pay',PAY,d.pay))+fld('Способ выдачи',chipsHtml('recv',RECV,d.recv))+'</div>'+
     (d.recv==='Доставка'?fld('Адрес доставки',inp('addr',d.addr)):'')+
@@ -1561,7 +1572,7 @@ async function saveOrder(ev){
   const clean=items.map(it=>({c:it.c,n:it.n,s:it.s||'',q:r2(parseQ(it.q)),pcs:it.pcs||0,...(it.ex?{ex:true}:{})}));
   if(d.id){const o=curOrder();if(o){const bad=clean.findIndex((it,i)=>it.q<issuedQ(o,i)-1e-9);if(bad>=0){oErr('Строка '+(bad+1)+': уже выдано '+fmt(issuedQ(o,bad))+', заказать меньше нельзя.');return;}}}
   if(!db){oErr('Нет связи с базой. Обновите страницу.');return;}
-  const data={no:String(d.no),d:d.d,due:d.due,urgent:!!d.urgent,now:!!d.now,...(d.now&&!d.nowAt?{nowAt:new Date().toISOString(),nowBy:myName()}:{}),obj:d.obj,by:d.by,pay:d.pay,recv:d.recv,addr:d.recv==='Доставка'?d.addr:'',whole:d.whole||'',inv:d.inv,firm:d.firm||'',note:d.note||'',items:clean};
+  const data={no:String(d.no),d:d.d,due:d.due,urgent:!!d.urgent,now:!!d.now,...(d.now&&!d.nowAt?{nowAt:new Date().toISOString(),nowBy:myName()}:{}),obj:d.obj,cli:(d.cli||'').trim(),...(String(d.total||'').trim()!==''&&parseQ(d.total)>=0?{total:r2(parseQ(d.total))}:{}),by:d.by,pay:d.pay,recv:d.recv,addr:d.recv==='Доставка'?d.addr:'',whole:d.whole||'',inv:d.inv,firm:d.firm||'',note:d.note||'',items:clean};
   oSaving=true;$('o-save').disabled=true;
   try{
     ls.set('o.by',d.by);
@@ -1577,7 +1588,7 @@ function renderOrderDetail(){
   const o=curOrder();if(!o){if(OV.pending===OV.sel){$('orders-d').innerHTML='<div class="panel empty">Сохраняем…</div>';return;}OV.mode='list';renderOrderEmpty();return;}
   const [st,cls]=orderStatus(o);const ro=RO('orders');
   const left=(o.items||[]).some((it,i)=>issuedQ(o,i)<(Number(it.q)||0)-1e-9);
-  const info=[['Дата',fmtDate(o.d)],['Выдать до',fmtDate(o.due)],o.work&&o.work.d?['В работе с',fmtDate(o.work.d)]:null,o.ready?['Готов с',fmtDate(o.ready.d)]:null,['Оформил',o.by],['Оплата',o.pay],['Способ выдачи',o.recv+(o.whole?', '+o.whole.toLowerCase():'')],o.recv==='Доставка'?['Адрес',o.addr]:null,['Накладная',o.inv],o.firm?['Фирма',o.firm]:null,o.note?['Примечание',o.note]:null].filter(Boolean);
+  const info=[o.cli?['Клиент',o.cli]:null,['Дата',fmtDate(o.d)],['Выдать до',fmtDate(o.due)],o.work&&o.work.d?['В работе с',fmtDate(o.work.d)]:null,o.ready?['Готов с',fmtDate(o.ready.d)]:null,['Оформил',o.by],['Оплата',o.pay],['Способ выдачи',o.recv+(o.whole?', '+o.whole.toLowerCase():'')],o.recv==='Доставка'?['Адрес',o.addr]:null,['Накладная',o.inv],o.firm?['Фирма',o.firm]:null,o.note?['Примечание',o.note]:null].filter(Boolean);
   let h='<div class="panel"><div class="panel-head"><div><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj)+(isNow(o)?NOWB:'')+(o.urgent?URG:'')+'</h2></div><span class="bdg"><span class="badge '+cls+'">'+esc(st)+'</span>'+dueBadge(o)+'</span></div>'+
     (OV.justCreated===o.id?'<div class="banner">Заказ сохранён. <button type="button" class="link" data-print="nar">Напечатать наряды</button> для офиса, склада и производства.</div>':'')+
     (OV.issuedNow!=null&&(o.iss||[])[OV.issuedNow]?'<div class="banner">Выдача записана, товар списан со склада. <button type="button" class="primary" style="margin-left:8px;padding:6px 14px;font-size:14px" data-print="act" data-k="'+OV.issuedNow+'">Печать акта выдачи</button></div>':'')+
@@ -1597,7 +1608,7 @@ function renderOrderDetail(){
       (!RO('returns')&&(o.iss||[]).length?'<button type="button" class="ghost" id="o-ret">Оформить возврат</button>':'')+
       (!ro&&!(o.iss||[]).length?'<button type="button" class="ghost del" id="o-del">'+(o.cancel?'Удалить':'Отменить заказ')+'</button>':'')+
       (!ro&&o.cancel?'<button type="button" class="ghost" id="o-uncancel">Вернуть в работу</button>':'')+
-    '</div>';
+    '</div>'+(tabOk('orders')?payPanel(o,ro):'');
   const iss=o.iss||[];
   if(iss.length){
     h+='<h3 style="margin:18px 0 8px">Выдачи</h3><div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Склад</th><th>Что выдано</th><th></th></tr></thead><tbody>';
@@ -2243,7 +2254,7 @@ VIEWS.mops={controls(){subscribeMats();loadPeople().then(()=>{if(S.view==='mops'
     const showOpyt=m&&m.test&&(f.type==='in'||f.type==='make');
     $('mops-form').innerHTML='<div class="panel" style="margin-bottom:14px"><div class="chips ops" style="margin-bottom:12px">'+Object.entries(MAT_T).map(([k,l])=>'<button type="button" class="chip" data-mo-t="'+k+'" aria-pressed="'+(f.type===k)+'">'+l+'</button>').join('')+'</div>'+
       '<div class="filters">'+
-      '<label class="fld"><span>'+(f.type==='make'?'Что получили':'Материал')+'</span>'+msel('mo-mid',f.mid)+'</label>'+
+      '<label class="fld"><span>'+(f.type==='make'?'Что получили':'Материал')+' <button type="button" class="link" data-scan-mat>📷</button></span>'+msel('mo-mid',f.mid)+'</label>'+
       '<label class="fld"><span>Количество'+(m&&m.u?', '+esc(m.u):'')+'</span><input type="text" inputmode="decimal" id="mo-q" value="'+esc(f.q)+'" style="max-width:130px"></label>'+
       '<label class="fld"><span>'+(f.type==='move'?'Откуда':'Склад')+'</span><select id="mo-wh">'+whs.map(w=>opt(w,w,f.wh)).join('')+'</select></label>'+
       (f.type==='move'?'<label class="fld"><span>Куда</span><select id="mo-to"><option value="">—</option>'+whs.filter(w=>w!==f.wh).map(w=>opt(w,w,f.to)).join('')+'</select></label>':'')+
@@ -2547,6 +2558,169 @@ document.addEventListener('change',e=>{const t=e.target;if(!t.closest||!t.closes
   if(t.id==='qc-pin'){const o=(MT.ops||[]).find(z=>z.id===t.value);if(!o)return;qcRead();const m=matById(o.mid)||{};Object.assign(QC.form.v,{mat:m.n||'',qty:String(o.q).replace('.',','),unit:m.u||'',party:o.party||'',sup:o.note||QC.form.v.sup||''});QC.form.d=o.d;$('qc-b').innerHTML='';VIEWS.qc.update();return;}
   if(t.id==='qc-pord'){const o=S.orders.find(z=>z.id===t.value);if(!o)return;qcRead();Object.assign(QC.form.v,{ord:String(o.no||''),cli:o.firm||o.obj||'',con:'',prod:(o.items||[]).map(i=>i.n+(i.s?' '+i.s:'')).join(', ')});$('qc-b').innerHTML='';VIEWS.qc.update();return;}});
 document.addEventListener('input',e=>{if(e.target.id==='qc-q'){QC.q=e.target.value;const p=e.target.selectionStart;VIEWS.qc.update();const i=$('qc-q');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(_){}}}});
+
+/* ================= Сводка: выпущено, продано, списано за неделю / месяц; что расходуется быстрее ================= */
+const RP={p:'week',from:'',to:''};
+function rpRange(){const t=todayStr();const D=s=>new Date(s+'T12:00:00');const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  if(RP.p==='week'){const d=D(t);const wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd);return [iso(d),t];}
+  if(RP.p==='7'){const d=D(t);d.setDate(d.getDate()-6);return [iso(d),t];}
+  if(RP.p==='month')return [t.slice(0,8)+'01',t];
+  if(RP.p==='30'){const d=D(t);d.setDate(d.getDate()-29);return [iso(d),t];}
+  if(RP.p==='pmonth'){const d=D(t.slice(0,8)+'01');d.setDate(0);return [iso(d).slice(0,8)+'01',iso(d)];}
+  return [RP.from||t.slice(0,8)+'01',RP.to||t];}
+function rpPrev(a,b){const D=s=>new Date(s+'T12:00:00');const n=Math.round((D(b)-D(a))/864e5)+1;const e=D(a);e.setDate(e.getDate()-1);const s=new Date(e);s.setDate(s.getDate()-n+1);const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());return [iso(s),iso(e),n];}
+function rpCalc(a,b){const fin=new Set([W11.fin,W9.fin]);const all=new Set(FINISHED());const R={made:new Map(),sold:new Map(),scrap:new Map(),scrapWhy:new Map()};
+  const add=(m,k,q)=>m.set(k,(m.get(k)||0)+q);
+  for(const o of allOps()){if(o.d<a||o.d>b)continue;
+    for(const e of effects(o)){const k=e.c+'\u0001'+e.n+'\u0001'+e.s;
+      if(e.q>0&&fin.has(e.wh)&&!(o.op==='move'&&all.has(o.wh))&&o.op!=='inv'&&o.op!=='ret')add(R.made,k,e.q);
+      if(e.g==='ship')add(R.sold,k,-e.q);
+      if(o.op==='scrap'&&e.q<0){add(R.scrap,k,-e.q);add(R.scrapWhy,o.step||o.note||'списание',-e.q);}}
+    if(o.op==='cut'&&Number(o.brak)>0){add(R.scrap,o.c+'\u0001'+o.n+'\u0001холст',Number(o.brak));add(R.scrapWhy,'Брак при резке',Number(o.brak));}}
+  return R;}
+function rpByUnit(m){const u={};for(const [k,q] of m){const c=k.split('\u0001')[0];const un=unit(c);u[un]=(u[un]||0)+q;}return u;}
+function rpUnits(u){const ks=Object.keys(u).filter(k=>Math.abs(u[k])>1e-9);return ks.length?ks.map(k=>'<b>'+fmt(u[k])+'</b> '+esc(k)).join(' · '):'<span class="muted">0</span>';}
+function rpDelta(cur,prev){const parts=[];for(const k of new Set([...Object.keys(cur),...Object.keys(prev)])){const c=cur[k]||0,p=prev[k]||0;if(!p&&!c)continue;const d=p?Math.round((c-p)/p*100):null;parts.push((d==null?'новое':(d>=0?'▲ +':'▼ ')+d+'%')+' '+esc(k));}return parts.length?'<small class="muted">к прошлому периоду: '+parts.join(', ')+'</small>':'';}
+function rpTop(m,n){return [...m].filter(([,q])=>q>1e-9).sort((x,y)=>y[1]-x[1]).slice(0,n);}
+VIEWS.report={controls(){subscribeMats();},update(){
+  const el=$('report-b');if(!el)return;if(!S.catalog){el.innerHTML=noData();return;}
+  const [a,b]=rpRange();const [pa,pb,n]=rpPrev(a,b);const R=rpCalc(a,b),P=rpCalc(pa,pb);
+  let h='<div class="chips" style="margin-bottom:10px">'+[['week','Эта неделя'],['7','7 дней'],['month','Этот месяц'],['30','30 дней'],['pmonth','Прошлый месяц'],['own','Свои даты']].map(([k,l])=>'<button type="button" class="chip" data-rp="'+k+'" aria-pressed="'+(RP.p===k)+'">'+l+'</button>').join('')+'</div>'+
+    (RP.p==='own'?'<div class="filters"><label class="fld"><span>С даты</span><input type="date" id="rp-from" value="'+esc(a)+'"></label><label class="fld"><span>По дату</span><input type="date" id="rp-to" value="'+esc(b)+'"></label></div>':'')+
+    '<p class="muted" style="margin:0 0 10px">'+fmtDate(a)+' — '+fmtDate(b)+' ('+n+' дн.), сравнение с '+fmtDate(pa)+' — '+fmtDate(pb)+'</p>'+
+    '<div class="rtiles">'+[['🏭 Выпущено',R.made,P.made],['📦 Продано (выдано)',R.sold,P.sold],['🗑 Списано и брак',R.scrap,P.scrap]].map(([t,m,pm])=>'<div class="panel rtile"><small class="muted">'+t+'</small><div class="rnum">'+rpUnits(rpByUnit(m))+'</div>'+rpDelta(rpByUnit(m),rpByUnit(pm))+'</div>').join('')+'</div>';
+  const top=(title,m)=>{const L=rpTop(m,10);return '<div class="panel"><h3 style="margin-bottom:8px">'+title+'</h3>'+(L.length?'<div class="tbl-wrap"><table><tbody>'+L.map(([k,q],i)=>{const [c,nm,s]=k.split('\u0001');return '<tr><td class="muted">'+(i+1)+'</td><td>'+esc(nm)+(s&&s!=='холст'?' · '+esc(s):'')+' <span class="muted">'+esc(c)+'</span></td>'+numCell(q,'b')+'<td class="muted">'+esc(unit(c))+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="muted" style="margin:0">Нет данных.</p>')+'</div>';};
+  h+='<div class="rgrid">'+top('Больше всего продано',R.sold)+top('Больше всего выпущено',R.made)+
+    '<div class="panel"><h3 style="margin-bottom:8px">Списано и брак: причины</h3>'+(R.scrapWhy.size?'<div class="tbl-wrap"><table><tbody>'+rpTop(R.scrapWhy,10).map(([k,q])=>'<tr><td>'+esc(k)+'</td>'+numCell(q,'b')+'</tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0">Списаний не было.</p>')+'</div></div>';
+  if(MT.cfg&&matList().length){const used={};for(const o of MT.ops){if(o.d<a||o.d>b)continue;if(o.type==='out')used[o.mid]=(used[o.mid]||0)+(Number(o.q)||0);if(o.type==='make'&&o.src)used[o.src.mid]=(used[o.src.mid]||0)+(Number(o.src.q)||0);}
+    const bal=matBal();const L=matList().map(m=>{const u=r2(used[m.id]||0);const per=u/n;const left=matTotal(bal,m.id);return {m,u,per,left,days:per>0?Math.floor(left/per):null};}).filter(x=>x.u>0).sort((x,y)=>(x.days??1e9)-(y.days??1e9));
+    h+='<div class="panel" style="margin-top:12px"><h3 style="margin-bottom:8px">Материалы: что расходуется быстрее всего</h3>'+(L.length?'<div class="tbl-wrap"><table><thead><tr><th>Материал</th><th class="num">Ушло за период</th><th class="num">В день</th><th class="num">Остаток</th><th class="num">Хватит на</th></tr></thead><tbody>'+
+      L.map(x=>'<tr'+(x.days!=null&&x.days<30?' class="mlow"':'')+'><td>'+esc(x.m.n)+'</td><td class="num">'+fmt(x.u)+' '+esc(x.m.u||'')+'</td><td class="num">'+fmt(x.per)+'</td><td class="num">'+fmt(x.left)+'</td><td class="num"><b>'+(x.days==null?'—':x.days+' дн.')+'</b></td></tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0">За период расхода материалов не записано.</p>')+'</div>';}
+  h+='<p class="note">«Выпущено» — что пришло на склады производств 11 и 9 после упаковки и по нарядам. «Продано» — выдано клиентам по заказам и отгрузки. «Списано» — списания и брак при резке. Строки с красным фоном — материала хватит меньше чем на месяц.</p>';
+  el.innerHTML=h;}};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-rp]');if(!b)return;RP.p=b.dataset.rp;VIEWS.report.update();});
+document.addEventListener('change',e=>{if(e.target.id==='rp-from'){RP.from=e.target.value;VIEWS.report.update();}if(e.target.id==='rp-to'){RP.to=e.target.value;VIEWS.report.update();}});
+
+/* ================= Полная резервная копия файлом: раз в день ================= */
+async function fullBackupData(){
+  const strip=o=>{const c={...o};delete c.m;return c;};const ops={};for(const m in S.monthOps)if(S.monthOps[m].length)ops[m]=S.monthOps[m].map(strip);
+  const col=async p=>{try{const q=await rawdb.collection(p).get();return q.docs.map(d=>({id:d.id,...d.data()}));}catch(e){return null;}};
+  const doc=async p=>{try{const s=await rawdb.doc(p).get();return s.exists?s.data():null;}catch(e){return null;}};
+  const [tasks,matops,buy,qc,clients,mats,taskSees]=await Promise.all([col('tasks'),col('matops'),col('buy'),col('qc'),col('clients'),doc('config/mats'),doc('config/taskSees')]);
+  return {v:2,at:new Date().toISOString(),catalog:S.catalog,plan:S.plan||null,lists:S.lists||null,orders:S.orders.map(o=>({...o})),returns:S.returns.map(r=>({...r})),ops,tasks,matops,buy,qc,clients,mats,taskSees};}
+async function fileBackup(manual){if(!dl||!rawdb)return;try{const snap=await fullBackupData();const t=new Date();
+  await dl.save({filename:'Общий учёт копия '+t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate())+'.json',data:JSON.stringify(snap)});ls.set('bk.file',todayStr());if(manual)toast('Копия скачана в папку «Загрузки»');if(S.view==='home')VIEWS.home.update();}
+  catch(e){if(manual)toast('Не удалось сохранить копию');}}
+/* на компьютере владельца — сама, раз в день; на телефоне — кнопка на Главной */
+function fileBackupAuto(){if(!S.can||!S.can.full||ls.get('bk.file','')===todayStr())return;
+  if(!bkReady()){setTimeout(fileBackupAuto,5000);return;}
+  if(window.matchMedia&&matchMedia('(pointer:fine)').matches&&window.innerWidth>900)fileBackup(false);}
+document.addEventListener('click',e=>{if(e.target.closest('[data-bkfile]')){fileBackup(true);}});
+/* ================= Клиенты и оплаты ================= */
+/* clients/{id} = {n, phone, email, addr, firm, note}; в заказе: cli (имя клиента), total (сумма), pays:[{d,sum,how,note,by,at}] */
+const CL={list:[],sub:false,sel:null,form:null,q:'',f:'all'};
+function subscribeClients(){if(CL.sub||!db||!(tabOk('clients')||tabOk('orders')))return;CL.sub=true;
+  db.collection('clients').onSnapshot(s=>{CL.list=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.n).localeCompare(String(b.n),'ru'));if(S.view==='clients')VIEWS.clients.update();},()=>{});}
+const cliKey=s=>String(s||'').trim().toLowerCase();
+function orderCli(o){return o.cli||o.firm||o.obj||'';}
+function paidSum(o){return r2((o.pays||[]).reduce((a,p)=>a+(Number(p.sum)||0),0));}
+function payState(o){const t=Number(o.total)||0,p=paidSum(o);if(o.cancel)return null;if(!t&&!p)return null;if(t&&p>=t-0.005)return ['оплачен','ok'];if(p>0)return ['частично','part'];return ['долг','late'];}
+function debtOf(o){if(o.cancel)return 0;const t=Number(o.total)||0;return t?Math.max(0,r2(t-paidSum(o))):0;}
+const money=x=>fmt(x)+' лей';
+function cliOrders(c){const ks=new Set([cliKey(c.n),cliKey(c.firm)].filter(Boolean));return S.orders.filter(o=>ks.has(cliKey(o.cli))||ks.has(cliKey(o.firm))||ks.has(cliKey(o.obj)));}
+function payPanel(o,ro){const st=payState(o);const t=Number(o.total)||0;const p=paidSum(o);
+  return '<div class="panel" style="margin-top:12px"><div class="panel-head"><h3>💰 Оплата</h3>'+(st?'<span class="badge '+st[1]+'">'+st[0]+'</span>':'')+'</div>'+
+    '<p style="margin:0 0 8px">Сумма заказа: <b>'+(t?money(t):'не указана')+'</b> · оплачено: <b>'+money(p)+'</b>'+(t?' · долг: <b class="'+(debtOf(o)>0?'warn':'')+'">'+money(debtOf(o))+'</b>':'')+'</p>'+
+    ((o.pays||[]).length?'<div class="tbl-wrap"><table><tbody>'+(o.pays||[]).map((x,i)=>'<tr><td>'+fmtDate(x.d)+'</td><td class="num"><b>'+money(x.sum)+'</b></td><td>'+esc(x.how||'')+'</td><td class="muted">'+esc(x.note||'')+' '+esc(x.by||'')+'</td><td>'+(ro?'':'<button type="button" class="link" data-pay-del="'+i+'" data-o="'+esc(o.id)+'">✕</button>')+'</td></tr>').join('')+'</tbody></table></div>':'')+
+    (ro?'':'<div class="filters" style="margin-top:8px"><label class="fld"><span>Сумма заказа, лей</span><input type="text" inputmode="decimal" id="pay-total" value="'+esc(t?String(t).replace('.',','):'')+'" style="max-width:130px"></label><label class="fld"><span>&nbsp;</span><button type="button" class="ghost" data-pay-total="'+esc(o.id)+'">Сохранить сумму</button></label></div>'+
+      '<div class="filters"><label class="fld"><span>Оплата, лей</span><input type="text" inputmode="decimal" id="pay-sum" style="max-width:120px"></label><label class="fld"><span>Как</span><select id="pay-how">'+PAY.map(x=>opt(x,x,o.pay||'')).join('')+'</select></label><label class="fld"><span>Дата</span><input type="date" id="pay-d" value="'+todayStr()+'" max="'+todayStr()+'"></label><label class="fld"><span>Примечание</span><input type="text" id="pay-note"></label><label class="fld"><span>&nbsp;</span><button type="button" class="primary" data-pay-add="'+esc(o.id)+'">+ Оплата</button></label></div>')+'</div>';}
+document.addEventListener('click',async e=>{const t=e.target;let b;
+  if((b=t.closest('[data-pay-total]'))){const v=parseQ($('pay-total').value);if(!(v>=0)){toast('Впишите сумму числом');return;}try{await db.doc('orders/'+b.dataset.payTotal).update({total:r2(v)});toast('Сумма сохранена');}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-pay-add]'))){const o=S.orders.find(z=>z.id===b.dataset.payAdd);if(!o)return;const v=parseQ($('pay-sum').value);if(!(v>0)){toast('Впишите сумму оплаты');return;}
+    const p={d:$('pay-d').value||todayStr(),sum:r2(v),how:$('pay-how').value,note:$('pay-note').value.trim(),by:myName(),at:new Date().toISOString()};
+    try{await db.doc('orders/'+o.id).update({pays:[...(o.pays||[]),p]});toast('Оплата записана');}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-pay-del]'))){const o=S.orders.find(z=>z.id===b.dataset.o);if(!o||!confirm('Удалить эту оплату?'))return;const a=[...(o.pays||[])];a.splice(Number(b.dataset.payDel),1);try{await db.doc('orders/'+o.id).update({pays:a});}catch(x){toast(dbErr(x));}return;}
+});
+/* клиенты: из справочника клиентов и из названий в заказах */
+function cliAll(){const m=new Map();for(const c of CL.list)m.set(cliKey(c.n),{...c});
+  for(const o of S.orders){const n=orderCli(o);const k=cliKey(n);if(!k)continue;if(![...m.values()].some(c=>cliKey(c.n)===k||cliKey(c.firm)===k))m.set(k,{n,auto:true});}
+  return [...m.values()].sort((a,b)=>String(a.n).localeCompare(String(b.n),'ru'));}
+VIEWS.clients={controls(){subscribeClients();},update(){
+  const el=$('clients-b');if(!el)return;if(el.querySelector('.clform')&&document.activeElement&&el.contains(document.activeElement))return;
+  const ro=RO('clients');
+  if(CL.form){const f=CL.form;el.innerHTML='<div class="panel clform"><div class="panel-head"><h2>'+(f.id?'Клиент':'Новый клиент')+'</h2></div><div class="filters">'+
+    [['n','Имя / название'],['phone','Телефон'],['email','Почта'],['firm','Фирма'],['addr','Адрес']].map(([k,l])=>'<label class="fld"><span>'+l+'</span><input type="text" data-cf="'+k+'" value="'+esc(f[k]||'')+'"></label>').join('')+
+    '</div><label class="fld"><span>Заметки</span><textarea data-cf="note" rows="2" style="width:100%">'+esc(f.note||'')+'</textarea></label><p class="err" id="cl-err" hidden></p><div class="actions"><button type="button" class="primary" data-cl-save>Сохранить</button><button type="button" class="ghost" data-cl-x>Отмена</button>'+(f.id?'<button type="button" class="ghost danger" data-cl-del>Удалить</button>':'')+'</div></div>';return;}
+  const all=cliAll();const q=cliKey(CL.q);
+  const rows=all.map(c=>{const os=cliOrders(c);const debt=r2(os.reduce((a,o)=>a+debtOf(o),0));const tot=r2(os.reduce((a,o)=>a+(o.cancel?0:(Number(o.total)||0)),0));return {c,os,debt,tot};})
+    .filter(r=>(!q||(r.c.n+' '+(r.c.phone||'')+' '+(r.c.firm||'')).toLowerCase().includes(q))&&(CL.f!=='debt'||r.debt>0));
+  const sumDebt=r2(all.reduce((a,c)=>a+cliOrders(c).reduce((x,o)=>x+debtOf(o),0),0));
+  let h='<div class="filters"><label class="fld"><span>Поиск</span><input type="text" id="cl-q" value="'+esc(CL.q)+'" placeholder="имя, телефон, фирма"></label><div class="fld"><span>Показать</span><div class="chips">'+[['all','Все клиенты'],['debt','Должники']].map(([k,l])=>'<button type="button" class="chip" data-clf="'+k+'" aria-pressed="'+(CL.f===k)+'">'+l+'</button>').join('')+'</div></div>'+
+    (ro?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" data-cl-new>+ Клиент</button></label>')+'</div>'+
+    (sumDebt>0?'<p class="warn" style="margin:0 0 10px">Всего долгов: <b>'+money(sumDebt)+'</b></p>':'');
+  const sel=CL.sel&&rows.find(r=>cliKey(r.c.n)===CL.sel);
+  if(sel){const c=sel.c;h+='<div class="panel" style="margin-bottom:12px"><div class="panel-head"><h2>'+esc(c.n)+'</h2><span>'+(ro?'':'<button type="button" class="link" data-cl-ed="'+esc(c.id||'')+'" data-n="'+esc(c.n)+'">✏️ Изменить</button> ')+'<button type="button" class="link" data-cl-sel="">✕</button></span></div>'+
+    '<dl class="info"><dt>Телефон</dt><dd>'+(c.phone?'<a href="tel:'+esc(c.phone.replace(/[^\d+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</dd><dt>Фирма</dt><dd>'+esc(c.firm||'—')+'</dd><dt>Адрес</dt><dd>'+esc(c.addr||'—')+'</dd><dt>Почта</dt><dd>'+esc(c.email||'—')+'</dd><dt>Заказов</dt><dd>'+sel.os.length+'</dd><dt>На сумму</dt><dd>'+money(sel.tot)+'</dd><dt>Долг</dt><dd><b class="'+(sel.debt>0?'warn':'')+'">'+money(sel.debt)+'</b></dd></dl>'+(c.note?'<p class="muted">'+esc(c.note)+'</p>':'')+
+    (c.auto?'<p class="muted" style="font-size:13px">Этого клиента нет в справочнике: он взят из заказов. Нажмите «Изменить», чтобы добавить телефон.</p>':'')+
+    '<div class="tbl-wrap"><table><thead><tr><th>Заказ</th><th>Дата</th><th>Статус</th><th class="num">Сумма</th><th class="num">Оплачено</th><th>Оплата</th></tr></thead><tbody>'+sel.os.sort((a,b)=>String(b.d).localeCompare(String(a.d))).map(o=>{const ps=payState(o);return '<tr><td><button type="button" class="link" data-plan-order="'+esc(o.id)+'">№'+esc(o.no)+'</button> '+esc(o.obj||'')+'</td><td>'+fmtDate(o.d)+'</td><td>'+esc(o.cancel?'отменён':orderStatus(o)[0])+'</td><td class="num">'+(o.total?fmt(o.total):'—')+'</td><td class="num">'+fmt(paidSum(o))+'</td><td>'+(ps?'<span class="badge '+ps[1]+'">'+ps[0]+'</span>':'')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
+  h+=rows.length?'<div class="tbl-wrap"><table><thead><tr><th>Клиент</th><th>Телефон</th><th class="num">Заказов</th><th class="num">Сумма</th><th class="num">Долг</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><button type="button" class="link" data-cl-sel="'+esc(cliKey(r.c.n))+'">'+esc(r.c.n)+'</button>'+(r.c.firm&&r.c.firm!==r.c.n?' <span class="muted">'+esc(r.c.firm)+'</span>':'')+'</td><td>'+esc(r.c.phone||'')+'</td><td class="num">'+r.os.length+'</td><td class="num">'+(r.tot?fmt(r.tot):'—')+'</td><td class="num'+(r.debt>0?' neg b':'')+'">'+(r.debt?fmt(r.debt):'–')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="panel empty">'+(CL.f==='debt'?'Должников нет.':'Клиентов пока нет.')+'</div>';
+  h+='<p class="note">Клиенты берутся из справочника и из поля «Клиент» (или фирмы, объекта) в заказах. Долг — сумма заказа минус оплаты. Сумму и оплаты вносят в карточке заказа (блок «💰 Оплата»).</p>';
+  el.innerHTML=h;}};
+document.addEventListener('click',async e=>{const t=e.target;if(!t.closest('#clients-b'))return;let b;
+  if((b=t.closest('[data-clf]'))){CL.f=b.dataset.clf;VIEWS.clients.update();return;}
+  if((b=t.closest('[data-cl-sel]'))){CL.sel=b.dataset.clSel||null;VIEWS.clients.update();window.scrollTo(0,0);return;}
+  if(t.closest('[data-cl-new]')){CL.form={};VIEWS.clients.update();return;}
+  if((b=t.closest('[data-cl-ed]'))){const c=CL.list.find(z=>z.id===b.dataset.clEd)||{n:b.dataset.n};CL.form={...c};VIEWS.clients.update();return;}
+  if(t.closest('[data-cl-x]')){CL.form=null;document.activeElement.blur();VIEWS.clients.update();return;}
+  if(t.closest('[data-cl-save]')){const f={...CL.form};document.querySelectorAll('[data-cf]').forEach(i=>f[i.dataset.cf]=i.value.trim());if(!f.n){const er=$('cl-err');er.textContent='Впишите имя клиента.';er.hidden=false;return;}
+    const x={n:f.n,phone:f.phone||'',email:f.email||'',firm:f.firm||'',addr:f.addr||'',note:f.note||'',upd:new Date().toISOString()};
+    try{if(f.id)await db.doc('clients/'+f.id).update(x);else await db.collection('clients').add({...x,at:x.upd,by:S.me||''});CL.form=null;CL.sel=cliKey(f.n);document.activeElement.blur();toast('Клиент сохранён');VIEWS.clients.update();}catch(x2){toast(dbErr(x2));}return;}
+  if(t.closest('[data-cl-del]')){if(!confirm('Удалить клиента из справочника? Заказы останутся.'))return;try{await db.doc('clients/'+CL.form.id).delete();CL.form=null;CL.sel=null;VIEWS.clients.update();}catch(x){toast(dbErr(x));}return;}
+});
+document.addEventListener('input',e=>{if(e.target.id==='cl-q'){CL.q=e.target.value;const p=e.target.selectionStart;VIEWS.clients.update();const i=$('cl-q');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(_){}}}});
+/* ================= Сканер штрихкодов и QR камерой телефона; этикетки с QR ================= */
+/* коды программы: «SK|категория|вид|размер» — товар, «MT|id» — материал; чужие штрихкоды привязываются к товару (config/lists.bc) */
+function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s);});}
+const SC={stream:null,timer:0,cb:null,zx:null};
+async function scanStart(cb,title){SC.cb=cb;
+  let ov=$('scanov');if(!ov){ov=document.createElement('div');ov.id='scanov';document.body.appendChild(ov);}
+  ov.innerHTML='<div class="scbox"><div class="schead"><b>'+esc(title||'Наведите камеру на код')+'</b><button type="button" class="link" data-scan-x>Закрыть</button></div><video id="scvid" playsinline muted></video><div class="scframe"></div><p class="muted" id="scmsg" style="margin:8px 0 0">Штрихкод или QR-код. Держите ровно, на расстоянии 15–25 см.</p><label class="fld" style="margin-top:8px"><span>Или впишите код вручную</span><input type="text" id="scman" inputmode="text"></label></div>';ov.hidden=false;
+  try{SC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});}catch(e){$('scmsg').textContent='Нет доступа к камере. Разрешите камеру в настройках браузера или впишите код вручную.';return;}
+  const v=$('scvid');v.srcObject=SC.stream;await v.play().catch(()=>{});
+  if('BarcodeDetector' in window){let det;try{det=new BarcodeDetector();}catch(e){}
+    if(det){const tick=async()=>{if(!SC.stream)return;try{const r=await det.detect(v);if(r&&r.length){scanHit(r[0].rawValue);return;}}catch(e){}SC.timer=setTimeout(tick,250);};tick();return;}}
+  try{if(!window.ZXing)await loadScript('https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js');
+    SC.zx=new ZXing.BrowserMultiFormatReader();SC.zx.decodeFromVideoElementContinuously(v,(res)=>{if(res&&SC.stream)scanHit(res.getText());});}
+  catch(e){$('scmsg').textContent='Сканер не загрузился. Впишите код вручную.';}}
+function scanStop(){clearTimeout(SC.timer);try{SC.zx&&SC.zx.reset();}catch(e){}SC.zx=null;if(SC.stream){SC.stream.getTracks().forEach(t=>t.stop());SC.stream=null;}const ov=$('scanov');if(ov)ov.hidden=true;}
+function scanHit(code){code=String(code||'').trim();if(!code)return;try{navigator.vibrate&&navigator.vibrate(80);}catch(e){}const cb=SC.cb;scanStop();if(cb)cb(code);}
+document.addEventListener('click',e=>{if(e.target.closest('[data-scan-x]'))scanStop();});
+document.addEventListener('keydown',e=>{if(e.target.id==='scman'&&e.key==='Enter'){e.preventDefault();scanHit(e.target.value);}});
+/* что значит код */
+function codeToItem(code){if(code.indexOf('SK|')===0){const [,c,n,s]=code.split('|');return {c,n,s:s||''};}
+  const bc=(S.lists&&S.lists.bc)||{};if(bc[code]){const [c,n,s]=bc[code].split('|');return {c,n,s:s||''};}return null;}
+function codeToMat(code){if(code.indexOf('MT|')===0)return matById(code.slice(3));const m=matList().find(x=>x.bc===code);return m||null;}
+/* ввод на складе: скан заполняет категорию, вид и размер */
+function scanForInput(){scanStart(code=>{const it=codeToItem(code);
+  if(!it){if(!RO('catalog')&&form.c&&form.n&&confirm('Код «'+code+'» не знаком. Привязать его к товару «'+form.n+(form.s?' '+form.s:'')+'»?')){const bc={...((S.lists&&S.lists.bc)||{}),[code]:form.c+'|'+form.n+'|'+(form.s||'')};saveLists({bc});}else toast('Код «'+code+'» не найден. Выберите товар вручную, потом отсканируйте ещё раз — программа предложит привязать код.');return;}
+  if(!cats().includes(it.c)){toast('Нет категории «'+it.c+'»');return;}setCat(it.c);form.n=it.n;form.s=it.s;form.x=!cat(it.c).names.includes(it.n);renderForm();toast('Найдено: '+it.n+(it.s?' '+it.s:''));const q=$('f-q');if(q)q.focus();},'Сканируйте товар');}
+function scanForMat(){scanStart(code=>{const m=codeToMat(code);const f=mopsForm();
+  if(!m){if(f.mid&&!RO('mstock')&&confirm('Код «'+code+'» не знаком. Привязать его к материалу «'+(matById(f.mid)||{}).n+'»?')){const L=matList().map(x=>x.id===f.mid?{...x,bc:code}:x);matSaveCfg({list:L}).then(()=>toast('Код привязан'));}else toast('Код «'+code+'» не найден. Выберите материал вручную и отсканируйте ещё раз, чтобы привязать код.');return;}
+  f.mid=m.id;VIEWS.mops.update();toast('Найдено: '+m.n);const q=$('mo-q');if(q)q.focus();},'Сканируйте материал');}
+document.addEventListener('click',e=>{if(e.target.closest('[data-scan-in]'))scanForInput();if(e.target.closest('[data-scan-mat]'))scanForMat();});
+/* этикетки с QR для печати */
+async function qrSvg(text){if(!window.qrcode)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js');const q=qrcode(0,'M');q.addData(unescape(encodeURIComponent(text)));q.make();return q.createSvgTag({cellSize:3,margin:0,scalable:true});}
+async function printLabels(items,title){if(!items.length){toast('Нечего печатать');return;}toast('Готовим этикетки…');
+  const cells=[];for(const x of items)cells.push('<div style="border:.3mm dashed #999;padding:2mm;display:flex;gap:2mm;align-items:center;break-inside:avoid;height:30mm;box-sizing:border-box"><div style="width:24mm;height:24mm;flex:none">'+(await qrSvg(x.code)).replace('<svg','<svg style="width:24mm;height:24mm"')+'</div><div style="font-size:9pt;line-height:1.25"><b style="font-size:10.5pt">'+esc(x.t1)+'</b><br>'+esc(x.t2||'')+'<br><small style="color:#666">'+esc(x.t3||'')+'</small></div></div>');
+  const pg=wrapDoc('prod','<div class="dtitle" style="font-size:12pt;margin-bottom:2mm">'+esc(title)+'</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2mm">'+cells.join('')+'</div>').replace('<div class="doc"','<div class="doc" data-a4');
+  doPrint([pg],title);}
+function labelsPanel(){return '<div class="panel" style="margin-top:14px"><h3>🏷 Этикетки с QR-кодом</h3><p class="muted" style="margin:0 0 10px;font-size:13px">Напечатайте этикетки на коробки и полки. Потом в «Вводе и перемещениях» и в «Приходе материалов» нажмите «📷 Сканировать» — товар выберется сам. Заводские штрихкоды тоже можно сканировать: при первом скане программа предложит привязать код к товару.</p>'+
+  '<div class="filters"><label class="fld"><span>Что печатать</span><select id="lb-c">'+cats().map(c=>opt(c,c,'')).join('')+(matList().length?'<option value="__mat">Материалы</option>':'')+'</select></label><label class="fld"><span>Копий каждой</span><input type="text" id="lb-n" value="1" inputmode="numeric" style="max-width:80px"></label><label class="fld"><span>&nbsp;</span><button type="button" class="ghost" data-lb-print>Печать этикеток</button></label></div></div>';}
+document.addEventListener('click',async e=>{if(!e.target.closest('[data-lb-print]'))return;const c=$('lb-c').value;const n=Math.max(1,Math.min(20,parseInt($('lb-n').value,10)||1));const out=[];
+  if(c==='__mat'){for(const m of matList())for(let i=0;i<n;i++)out.push({code:'MT|'+m.id,t1:m.n,t2:m.g||'',t3:m.u||''});}
+  else{const sz=cat(c).sizes.length?cat(c).sizes:[''];for(const nm of cat(c).names)for(const s of sz)for(let i=0;i<n;i++)out.push({code:'SK|'+c+'|'+nm+'|'+s,t1:nm,t2:s,t3:c});}
+  if(out.length>300){toast('Слишком много этикеток ('+out.length+'). Уменьшите число копий.');return;}
+  await printLabels(out,'Этикетки — '+(c==='__mat'?'материалы':c));});
 
 /* ================= Сообщения ================= */
 /* Общий чат (все, у кого есть доступ), группы (видят только участники) и личные чаты (видят только двое).
@@ -3213,10 +3387,11 @@ function homeLine(g){
     return m.length?[nw?'<b class="hnew">новых: '+nw+'</b>':'','у меня открыто: '+m.length,late?'<b class="hnew" style="color:var(--danger,#c62828)">просрочено: '+late+'</b>':''].filter(Boolean).join(' · '):'у вас нет открытых задач';}
   if(g==='chat'){const n=CH.list.filter(chatUnread).length;return n?'<b class="hnew">непрочитанных чатов: '+n+'</b>':'новых сообщений нет';}
   if(g==='office'&&tabOk('orders')){let nw=0,wk=0,rd=0;for(const o of S.orders){const x=orderGroup(o);if(x==='new')nw++;else if(x==='work')wk++;else if(x==='ready')rd++;}
-    return [nw?'<b class="hnew">новых: '+nw+'</b>':'',wk?'в работе: '+wk:'',rd?'готовы: '+rd:''].filter(Boolean).join(' · ')||'активных заказов нет';}
+    return [nw?'<b class="hnew">новых: '+nw+'</b>':'',wk?'в работе: '+wk:'',rd?'готовы: '+rd:'',(()=>{const d=r2(S.orders.reduce((x,o)=>x+debtOf(o),0));return d>0?'<b class="hnew" style="color:var(--danger,#c62828)">долги: '+money(d)+'</b>':'';})()].filter(Boolean).join(' · ')||'активных заказов нет';}
   if((g==='p11'||g==='p9')&&tabOk(g==='p9'?'porders9':'porders')){const n=S.orders.filter(o=>{const x=orderGroup(o);if(x!=='new'&&x!=='work')return false;const ps=prodSt(o,g);return !ps.ready&&prodLines(o,g).some(l=>l.rest>1e-9);}).length;
     return n?'<b class="hnew">заказов для производства: '+n+'</b>':'заказов для производства нет';}
   if(g==='store'&&tabOk('sorders')){const n=storeAlloc().filter(x=>!x.o.sk&&x.lines.some(l=>l.make>1e-9)).length;return n?'<b class="hnew">не хватает на складе для заказов: '+n+'</b>':'';}
+  if(g==='ref'&&S.can&&S.can.full&&ls.get('bk.file','')!==todayStr())return '<span class="hnew">💾 копия за сегодня ещё не скачана</span>';
   if(g==='mat'&&MT.cfg){const n=matLow().length;return n?'<b class="hnew" style="color:var(--danger,#c62828)">⚠️ пора закупить: '+n+'</b>':'запасы материалов в норме';}
   return '';
 }
@@ -3473,7 +3648,8 @@ function fmtStamp(iso){const d=new Date(iso);return pad(d.getDate())+'.'+pad(d.g
 function backupPanel(){
   if(!S.can.full)return '';
   const list=(S.bk&&S.bk.list)||[];
-  let h='<div class="panel" style="margin-top:14px"><div class="panel-head" style="margin-bottom:8px"><h3>Резервные копии</h3>'+(!S.can.full?'':'<button type="button" class="ghost" id="bk-now">Сделать копию сейчас</button>')+'</div>'+
+  let h='<div class="panel" style="margin-top:14px"><div class="panel-head" style="margin-bottom:8px"><h3>Резервные копии</h3>'+(!S.can.full?'':'<span><button type="button" class="ghost" data-bkfile>💾 Скачать полную копию файлом</button> <button type="button" class="ghost" id="bk-now">Сделать копию сейчас</button></span>')+'</div>'+
+    '<p class="note" style="margin:0 0 8px">Полная копия файлом (заказы, журнал, задачи, материалы, формы качества, клиенты) на компьютере владельца скачивается сама раз в день в папку «Загрузки». Последняя: '+(ls.get('bk.file','')?fmtDate(ls.get('bk.file','')):'ещё не было')+'.</p>'+
     '<p class="note" style="margin:0 0 10px">Копия всех данных (заказы, возвраты, журнал, справочники, план) делается сама через несколько секунд после каждого изменения. Хранятся 5 последних: новая заменяет самую старую. Любую копию можно скачать файлом на компьютер или восстановить.</p>';
   if(!list.length)h+='<div class="muted">Копий пока нет. Первая появится после ближайшего изменения.</div>';
   else{h+='<div class="tbl-wrap"><table><thead><tr><th>Когда</th><th class="num">Заказов</th><th class="num">Возвратов</th><th class="num">Записей журнала</th><th></th></tr></thead><tbody>';
@@ -3656,7 +3832,7 @@ function subscribe(){
     render();
   },e=>{S.err=e.code;render();});
   subscribeOrders();
-  subscribeMats();subscribeQc();
+  subscribeMats();subscribeQc();subscribeClients();setTimeout(fileBackupAuto,15000);
   if(tabOk('plan'))db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
   setTimeout(()=>{if(S.pending.size||!S.catalog)setSync(S.pending.size?'данные загружаются дольше обычного, проверьте интернет':'');setTimeout(()=>setSync(''),8000);},10000);
   // midnight rollover: start watching the new month

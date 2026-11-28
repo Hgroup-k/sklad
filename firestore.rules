@@ -121,6 +121,10 @@ service cloud.firestore {
       allow read: if canView('qc');
       allow write: if canEdit('qc');
     }
+    match /clients/{id} {
+      allow read: if canView('clients') || canView('orders');
+      allow write: if canEdit('clients') || canEdit('orders');
+    }
     match /config/mats {
       allow read: if matView();
       allow write: if canEdit('mstock');
