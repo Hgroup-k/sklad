@@ -279,6 +279,8 @@ tr.mlow td{background:rgba(198,40,40,.07)}
 .qlong textarea{width:100%}
 .qauto{background:rgba(46,106,108,.07);border-radius:8px;padding:10px 12px;margin:10px 0}
 .qauto>b{display:block;margin-bottom:6px}
+.prline{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+.prline select{max-width:260px}
 .rtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px}
 .rtile .rnum{font-size:20px;margin:4px 0}
 .rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
@@ -488,6 +490,7 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
   <section class="view" id="v-mops" hidden><div id="mops-b"></div></section>
   <section class="view" id="v-buy" hidden><div id="buy-b"></div></section>
   <section class="view" id="v-qc" hidden><div id="qc-b"></div></section>
+  <section class="view" id="v-prep11" hidden><div id="prep11-b"></div></section>
   <section class="view" id="v-report" hidden><div id="report-b"></div></section>
   <section class="view" id="v-clients" hidden><div id="clients-b"></div></section>
 </main>
@@ -527,7 +530,7 @@ const GROUPS={prod:'Произведено',in:'Прочий приход',ship:
 const MONTHS=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 const START_Y=2026, START_M=1;
 const TABS=[['home','Главная','home'],['tasks','Задачи','tasks'],['orders','Заказы','office'],['returns','Возвраты','office'],['clients','Клиенты и долги','office'],
-  ['porders','Заказы в работе','p11'],['grease11','Смазка форм','p11'],['cast11','Заливка','p11'],['dry11','Сушка','p11'],['demold11','Распалубка','p11'],['cut11','Резка','p11'],['pack11','Упаковка','p11'],['grout','Затирки и колер','p11'],['wh11','Склад','p11'],
+  ['porders','Заказы в работе','p11'],['prep11','Приготовление','p11'],['grease11','Смазка форм','p11'],['cast11','Заливка','p11'],['dry11','Сушка','p11'],['demold11','Распалубка','p11'],['cut11','Резка','p11'],['pack11','Упаковка','p11'],['grout','Затирки и колер','p11'],['wh11','Склад','p11'],
   ['porders9','Заказы в работе','p9'],['cast9','Заливка','p9'],['dry9','Сушка','p9'],['demold9','Распалубка','p9'],['sand9','Шкурение','p9'],['pack9','Упаковка','p9'],['wh9','Склад','p9'],
   ['sorders','Заказы','store'],['input','Ввод и перемещения','store'],['journal','Журнал','store'],['stock','Остатки','store'],['period','За период','store'],['sizes','По размерам','store'],['months','По месяцам','store'],['plan','План','store'],['report','Сводка','store'],['mstock','Остатки','mat'],['mops','Приход и расход','mat'],['buy','Закупки','mat'],['qc','Формы качества','qc'],['catalog','Справочник','ref'],['chat','Сообщения','chat']];
 const TGROUPS=[['home','Главная'],['chat','Сообщения'],['tasks','Задачи'],['office','Офис'],['p11','Производство 11'],['p9','Производство 9'],['store','Склад'],['mat','Материалы'],['qc','Качество'],['ref','Справочник']];
@@ -1570,7 +1573,7 @@ function renderOrderDetail(){
   const iss=o.iss||[];
   if(iss.length){
     h+='<h3 style="margin:18px 0 8px">Выдачи</h3><div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Склад</th><th>Что выдано</th><th></th></tr></thead><tbody>';
-    iss.forEach((s,k)=>{h+='<tr><td>'+fmtDate(s.d)+'</td><td>'+esc(s.wh)+'</td><td class="wrap">'+(s.lines||[]).map(l=>{const it=(o.items||[])[l.i]||{};return esc(it.n)+(it.s?' '+esc(it.s):'')+' — '+fmt(l.q)+' '+esc(unit(it.c));}).join('<br>')+'</td><td class="act"><button type="button" class="ghost" data-print="act" data-k="'+k+'">Печать актов</button>'+(ro?'':' <button type="button" class="ghost del" data-unissue="'+k+'">Отменить выдачу</button>')+'</td></tr>';});
+    iss.forEach((s,k)=>{const bt=allOps().filter(x=>x.op==='ship'&&x.order===o.id&&x.d===s.d).map(opBatches).filter(Boolean);h+='<tr><td>'+fmtDate(s.d)+'</td><td>'+esc(s.wh)+'</td><td class="wrap">'+(s.lines||[]).map(l=>{const it=(o.items||[])[l.i]||{};return esc(it.n)+(it.s?' '+esc(it.s):'')+' — '+fmt(l.q)+' '+esc(unit(it.c));}).join('<br>')+(bt.length?'<br><small class="muted">партии: '+esc(bt.join('; '))+'</small>':'')+'</td><td class="act"><button type="button" class="ghost" data-print="act" data-k="'+k+'">Печать актов</button>'+(ro?'':' <button type="button" class="ghost del" data-unissue="'+k+'">Отменить выдачу</button>')+'</td></tr>';});
     h+='</tbody></table></div><p class="note">Отмена выдачи удаляет её отгрузки из журнала склада, остаток вернётся.</p>';
   }
   h+='</div>';
@@ -1936,7 +1939,8 @@ function castView(k,cfg){
           fld('Вид','<div class="chips names" data-pn2>'+names.map(n=>'<button type="button" class="chip" data-v="'+esc(n)+'" aria-pressed="'+(n===f.n)+'">'+esc(n)+'</button>').join('')+'</div><input type="text" id="'+k+'-n" placeholder="или впишите вид вручную" value="'+esc(f.n||'')+'" style="max-width:320px">')+
           (cfg.forms&&f.n?castFormsHtml(k,f):'')+
           numIn(k+'-pcs',cfg.qtyLabel,f.pcs,'шт.')+dateField(k+'-d','Дата',f.d)+
-          '<label class="fld" style="max-width:240px"><span>Бочка акрила №</span><input id="'+k+'-drum" value="'+esc(f.drum!=null?f.drum:ls.get('p.drum',''))+'" placeholder="напр. 15" list="'+k+'-drl"><datalist id="'+k+'-drl">'+[...new Set((MT.ops||[]).filter(o=>o.type==='in'&&o.party).map(o=>o.party))].slice(-10).map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+whoField(k,f)+
+          (()=>{const mx=PR.list.filter(x=>x.kind==='mix').sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at)));if(f.batch==null){const t=mx.find(x=>x.d===f.d);f.batch=t?t.batch:'';}
+            return '<label class="fld" style="max-width:240px"><span>Партия смеси</span><input id="'+k+'-batch" value="'+esc(f.batch||'')+'" placeholder="из «Приготовления»" list="'+k+'-bl"><datalist id="'+k+'-bl">'+mx.slice(0,15).map(x=>'<option value="'+esc(x.batch)+'">'+esc(fmtDate(x.d))+'</option>').join('')+'</datalist></label>';})()+whoField(k,f)+
           '<p class="hint" id="'+k+'-hint">'+cfg.note(f)+'</p><p class="err" id="'+k+'-err" hidden></p><div class="actions"><button type="submit" class="primary">Записать заливку</button></div></form>';
       }
       h+='</div><div class="panel"><div class="panel-head"><h2>Последние заливки</h2></div>'+recentTable(recentOps(o=>o.op==='cast'&&o.wh===cfg.to),cfg.cols)+'</div></div>'+whoList();
@@ -1955,7 +1959,7 @@ function castView(k,cfg){
           else if(!fsel)m='Выберите, на какие смазанные формы залили.';
           else if(pcs>fsel.q+1e-9)m='Смазано только '+fmt(fsel.q)+' форм ('+fsel.form+', '+fsel.pos+'), а залили '+pcs+'. Проверьте цифры или внесите смазку.';}
         pErr(k,m);if(m)return;const btn=form.querySelector('[type=submit]');btn.disabled=true;
-        try{await pWrite([{d:f.d,op:'cast',c:f.c,n:f.n,s:cfg.size,q:cfg.toQ(pcs),pcs,wh:cfg.to,who:f.who,step:'Заливка',...(fsel?{form:fsel.form,pos:fsel.pos}:{}),...(f.drum?{batch:f.drum+'-'+ddmmyy(f.d)}:{})}]);ls.set('p.who',f.who);if(f.drum)ls.set('p.drum',f.drum);toast('Записано: залили '+f.n+', '+pcs+' шт.');f.pcs='';this.update();}
+        try{await pWrite([{d:f.d,op:'cast',c:f.c,n:f.n,s:cfg.size,q:cfg.toQ(pcs),pcs,wh:cfg.to,who:f.who,step:'Заливка',...(fsel?{form:fsel.form,pos:fsel.pos}:{}),...(f.batch?{batch:f.batch}:{})}]);ls.set('p.who',f.who);toast('Записано: залили '+f.n+', '+pcs+' шт.');f.pcs='';this.update();}
         catch(x){pErr(k,dbErr(x));btn.disabled=false;}});
     }
   };
@@ -1981,7 +1985,7 @@ const pcsCols=[['Штук',o=>fmt(o.q)]];
 
 VIEWS.cast11=castView('cast11',{title:'Заливка',cats:['Плитка'],forms:true,to:W11.dry,size:'холст',qtyLabel:'Залили холстов',toQ:p=>r2(p*CANVAS),cols:stoneCols,
   hint:'Выберите вид, смазанные формы и впишите, сколько холстов залили. Метраж посчитается сам (1 холст = 0,72 м²). Всё залитое уходит в сушку.',
-  note:f=>{const p=pq(f.pcs);return (p>0?'Это <b>'+fmt(p*CANVAS)+' м²</b>. ':'')+(f.drum?'Номер партии: <b>'+esc(f.drum+'-'+ddmmyy(f.d))+'</b>':'');}});
+  note:f=>{const p=pq(f.pcs);return (p>0?'Это <b>'+fmt(p*CANVAS)+' м²</b>. ':'')+(f.batch?'Партия: <b>'+esc(f.batch)+'</b>':'');}});
 VIEWS.dry11=dryView('dry11',W11.dry,true);
 VIEWS.demold11=stepView('demold11',{title:'Распалубка',from:W11.dry,pickLabel:'Что снимаете (из сушки)',empty:'В сушке ничего нет.',qfn:r=>fmt(canv(r.q))+' хол.',btn:'Записать распалубку',listTitle:'Последние распалубки',
   hint:'Выберите вид из тех, что в сушке, и впишите, сколько холстов сняли. Холсты попадут на склад производства.',
@@ -2150,7 +2154,7 @@ const MT={cfg:null,ops:[],buy:[],sub:false,f:null,ef:null,wh:'',q:'',lowSeen:nul
 function matList(){return (MT.cfg&&MT.cfg.list)||[];}
 function matWhs(){const w=MT.cfg&&MT.cfg.whs;return Array.isArray(w)&&w.length?w:MAT_WH0;}
 function matById(id){return matList().find(m=>m.id===id);}
-function matTabs(){return ['mstock','mops','buy'].some(tabOk);}
+function matTabs(){return ['mstock','mops','buy','prep11'].some(tabOk);}
 function subscribeMats(){
   if(MT.sub||!db||!matTabs())return;MT.sub=true;
   const upd=()=>{if(['mstock','mops','buy','home'].includes(S.view))render();matBadge();};
@@ -2343,16 +2347,16 @@ const QF_DEFS=[
   {ru:'Отклонения и проблемы за смену',en:'Deviations / issues during the shift',items:[QT('l1','Компонент, проблема, что сделано (1)','Component, problem, action (1)'),QT('l2','Компонент, проблема, что сделано (2)','Component, problem, action (2)'),QT('l3','Компонент, проблема, что сделано (3)','Component, problem, action (3)')]},
   {ru:'Итоговый контроль смеси',en:'Final mixture control',items:[QY('f1','Смесь однородная','Mixture homogeneous'),QY('f2','Комки отсутствуют','No lumps'),QY('f3','Расслоение отсутствует','No delamination'),QY('f4','Цвет равномерный','Color uniform'),QY('f5','Смесь пригодна для формования','Mixture fit for molding'),QT('iso','Изолировано','Isolated'),QT('isor','Причина изоляции / брака','Reason for isolation / rejection',true)]},
   {ru:'Итоговое решение',en:'Final decision',items:[QP('dec','Решение','Decision',[['Смесь допущена к формованию','Approved for molding'],['Допущена после корректировки','Approved after correction'],['Частично изолирована','Partially isolated'],['Забракована','Rejected']])]}]},
- {k:'F03-1A',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Смазочный состав',en:'Release agent preparation',secs:[
+ {k:'F03-1A',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Смазочный состав',en:'Release agent preparation',auto:'lubp',batch:true,secs:[
   {ru:'Состав (сколько взяли)',en:'Composition',items:[QN('w','Вода','Water','л'),QN('soap','Хозяйственное мыло','Household soap','кг'),QN('oil','Индустриальное масло','Industrial oil','л'),QT('oilm','Марка масла','Oil grade'),QN('vol','Получилось состава','Volume prepared','л'),QT('how','Как готовили (нагрев, время перемешивания)','How it was prepared',true)]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Рецепт соблюдён','Formulation followed'),QY('k2','Консистенция однородная','Consistency uniform'),QY('k3','Нет осадка и комков мыла','No sediment / soap lumps')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
- {k:'F03-1B',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Колеровка посыпки',en:'Coloring of the dusting mix',secs:[
+ {k:'F03-1B',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Колеровка посыпки',en:'Coloring of the dusting mix',auto:'dustp',batch:true,secs:[
   {ru:'Состав',en:'Composition',items:[QT('ox','Оксид (цвет, марка)','Oxide (color, grade)'),QN('oxq','Оксида','Oxide','г'),QT('fr','Мраморная крошка (фракция)','Marble chips (fraction)'),QN('frq','Мраморной крошки','Marble chips','кг'),QT('pos','Какая посыпка получилась','Dusting mix name')]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Технология соблюдена','Technology followed'),QY('k2','Цвет соответствует образцу','Color matches the sample'),QY('k3','Окрас равномерный, без пятен','Even coloring, no spots')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
  {k:'F03-1C',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Подготовка и смазка форм',en:'Mold preparation and lubrication',auto:'grease',secs:[
-  {ru:'Чем и как смазывали',en:'Lubrication',items:[QT('agent','Чем смазывали (состав)','Release agent used'),QP('apply','Как наносили','Application method',QAPPLY),QN('layers','Слоёв','Layers','шт.'),QN('wait','Выдержка после смазки','Waiting time after lubrication','мин'),QT('pos','Посыпка','Dusting mix')]},
+  {ru:'Чем и как смазывали',en:'Lubrication',items:[QT('agent','Чем смазывали (состав)','Release agent used'),QT('lubb','Партия смазочного состава','Release agent batch'),QT('dustb','Партия посыпки','Dusting mix batch'),QP('apply','Как наносили','Application method',QAPPLY),QN('layers','Слоёв','Layers','шт.'),QN('wait','Выдержка после смазки','Waiting time after lubrication','мин'),QT('pos','Посыпка','Dusting mix')]},
   {ru:'Проверка',en:'Check',items:[QY('k1','Формы чистые','Molds clean'),QY('k2','Рельеф форм без повреждений','Mold relief undamaged'),QY('k3','Смазочный состав нанесён равномерно','Release agent applied evenly'),QY('k4','Посыпка нанесена по технологии (для серий с посыпкой)','Dusting applied per technology'),QY('k5','Формы готовы к заливке','Molds ready for pouring')]},
   {ru:'Отклонение',en:'Deviation',items:QDEV('x')}]},
  {k:'F03-1D',code:'KDK-QMS-F03-1',g:'Производство',dep:'III',ru:'Подготовка мембраны',en:'Membrane preparation',secs:[
@@ -2413,11 +2417,20 @@ function qcAuto(def,d,batch){const T=(head,rows)=>rows.length?'<div class="tbl-w
   if(def.auto==='in'){const L=(MT.ops||[]).filter(o=>o.type==='in').sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at))).slice(0,30);
     h=L.length?'<label class="fld"><span>Заполнить по приходу материала</span><select id="qc-pin"><option value="">— выберите приход —</option>'+L.map(o=>{const m=matById(o.mid)||{};return opt(o.id,fmtDate(o.d)+' · '+(m.n||'?')+' · '+fmt(o.q)+' '+(m.u||'')+(o.party?' · партия '+o.party:''),'');}).join('')+'</select></label>':'<p class="muted" style="margin:0">Приходов материалов пока нет (раздел «Материалы»).</p>';
     return {h,pre};}
-  if(def.auto==='mix'){const cs=qcOps(d,o=>o.op==='cast');const parts=[...new Set(cs.map(o=>o.batch).filter(Boolean))];
+  if(def.auto==='lubp'||def.auto==='dustp'||def.auto==='mix'){const kind=def.auto==='lubp'?'lub':def.auto==='dustp'?'dust':'mix';const L=PR.list.filter(x=>x.kind===kind&&x.d===d&&(!batch||x.batch===batch));
+    const T2=L.length?'<div class="tbl-wrap"><table><thead><tr><th>Партия</th><th>Из чего</th><th>Получилось</th><th>Кто</th></tr></thead><tbody>'+L.map(x=>'<tr><td><b>'+esc(x.batch)+'</b></td><td>'+(x.lines||[]).map(l=>esc((matById(l.mid)||{}).n||'?')+' '+fmt(l.q)+' '+esc((matById(l.mid)||{}).u||'')).join(', ')+'</td><td>'+(x.out?fmt(x.out)+' '+esc(x.u||''):'—')+'</td><td>'+esc(x.who||'')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0">За '+fmtDate(d)+' в «Приготовлении» ('+(PREP_K[kind]||[''])[0].toLowerCase()+') записей нет.</p>';
+    if(L.length===1){const x=L[0];if(!batch)pre._batch=x.batch;const by=re=>{const l=(x.lines||[]).find(l=>re.test((matById(l.mid)||{}).n||''));return l?String(l.q).replace('.',','):undefined;};const nm=re=>{const l=(x.lines||[]).find(l=>re.test((matById(l.mid)||{}).n||''));return l?(matById(l.mid)||{}).n:undefined;};
+      const M=kind==='lub'?{w:by(/вод/i),soap:by(/мыл/i),oil:by(/масл/i),oilm:nm(/масл/i),vol:x.out?String(x.out).replace('.',','):undefined}:kind==='dust'?{ox:nm(/оксид|пигмент/i),oxq:by(/оксид|пигмент/i),fr:nm(/крошк/i),frq:by(/крошк/i),pos:x.batch}:
+        {r_cem:by(/цемент/i),r_sand:by(/песок/i),r_marb:by(/мук/i),r_acr:by(/акрил/i),r_wat:by(/вод/i),r_thk:by(/загуст/i),r_pig:by(/оксид|пигмент/i),r_pigc:nm(/оксид|пигмент/i),vats:x.out?String(x.out).replace('.',','):undefined};
+      for(const k in M)if(M[k]!=null)pre[k]=M[k];}
+    if(kind!=='mix')return {h:T2,pre};
+    const cs=qcOps(d,o=>o.op==='cast');const parts=[...new Set(cs.map(o=>o.batch).filter(Boolean))];
     const acr=(MT.ops||[]).filter(o=>o.type==='in'&&o.party&&/акрил/i.test((matById(o.mid)||{}).n||'')).slice(-5).map(o=>o.party);
-    h='<p style="margin:0">Залито за день: <b>'+fmt(cs.reduce((a,o)=>a+(Number(o.pcs)||0),0))+'</b> шт. ('+fmt(cs.reduce((a,o)=>a+(Number(o.q)||0),0))+' м²)'+(parts.length?' · партии: <b>'+esc(parts.join(', '))+'</b>':'')+(acr.length?'<br>Последние бочки акрила (приход): '+esc([...new Set(acr)].join(', ')):'')+'</p>';
+    h=T2+'<p style="margin:6px 0 0">Залито за день: <b>'+fmt(cs.reduce((a,o)=>a+(Number(o.pcs)||0),0))+'</b> шт. ('+fmt(cs.reduce((a,o)=>a+(Number(o.q)||0),0))+' м²)'+(parts.length?' · партии: <b>'+esc(parts.join(', '))+'</b>':'')+(acr.length?'<br>Последние бочки акрила (приход): '+esc([...new Set(acr)].join(', ')):'')+'</p>';
     if(parts.length===1&&!batch)pre._batch=parts[0];return {h,pre};}
   if(def.auto==='grease'){const L=qcOps(d,o=>o.op==='grease');h=T(['Форма','Посыпка','Штук','Кто'],L.map(o=>[esc(o.n),esc(o.s||''),fmt(o.pcs||o.q),W(o)]));
+    const lp=PR.list.filter(x=>x.kind==='lub'&&x.d<=d).sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at)))[0];const dp=PR.list.filter(x=>x.kind==='dust'&&x.d<=d).sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at)))[0];
+    if(lp){pre.lubb=lp.batch;pre.agent='Смазочный состав партии '+lp.batch;}if(dp)pre.dustb=dp.batch;
     const ps=[...new Set(L.map(o=>o.s).filter(Boolean))];if(ps.length)pre.pos=ps.join(', ');return {h,pre};}
   if(def.auto==='cast'){let L=qcOps(d,o=>o.op==='cast');if(batch&&L.some(o=>o.batch===batch))L=L.filter(o=>o.batch===batch);
     h=T(['Вид','Холстов / шт.','м²','Формы','Партия','Кто'],L.map(o=>[esc(o.n),fmt(o.pcs||0),fmt(o.q),esc((o.form||'')+(o.pos?' · '+o.pos:'')),esc(o.batch||''),W(o)]));
@@ -2470,9 +2483,13 @@ VIEWS.qc={controls(){subscribeQc();subscribeMats();},update(){
 /* история партии: приход акрила → заливки → формы */
 function qcTrace(q){const casts=allOps().filter(o=>o.op==='cast'&&String(o.batch||'').toLowerCase().includes(q));const drum=q.split('-')[0];
   const ins=(MT.ops||[]).filter(o=>o.type==='in'&&o.party&&String(o.party).toLowerCase()===drum);
-  if(!casts.length&&!ins.length)return '';
+  const pr=PR.list.filter(x=>String(x.batch||'').toLowerCase().includes(q));const W=batchWhere(q);
+  if(!casts.length&&!ins.length&&!pr.length&&!W.where.length&&!W.given.length)return '';
   return '<div class="qauto" style="margin-bottom:10px"><b>История партии</b>'+(ins.length?'<p style="margin:4px 0">Бочка / партия «'+esc(drum)+'»: '+ins.map(o=>fmtDate(o.d)+' пришло '+esc((matById(o.mid)||{}).n||'')+' '+fmt(o.q)+' '+esc((matById(o.mid)||{}).u||'')+(o.note?' ('+esc(o.note)+')':'')).join('; ')+'</p>':'')+
-    (casts.length?'<p style="margin:4px 0">Заливки: '+casts.map(o=>fmtDate(o.d)+' '+esc(o.n)+' '+fmt(o.pcs||0)+' шт.'+(o.who?' ('+esc(o.who)+')':'')).join('; ')+'</p>':'')+'</div>';}
+    (pr.length?'<p style="margin:4px 0">Приготовлено: '+pr.map(x=>fmtDate(x.d)+' '+esc((PREP_K[x.kind]||[''])[0].toLowerCase())+' '+esc(x.batch)+' из '+(x.lines||[]).map(l=>esc((matById(l.mid)||{}).n||'?')+' '+fmt(l.q)).join(', ')+(x.who?' ('+esc(x.who)+')':'')).join('; ')+'</p>':'')+
+    (casts.length?'<p style="margin:4px 0">Заливки: '+casts.map(o=>fmtDate(o.d)+' '+esc(o.n)+' '+fmt(o.pcs||0)+' шт.'+(o.who?' ('+esc(o.who)+')':'')).join('; ')+'</p>':'')+
+    (W.where.length?'<p style="margin:4px 0">Где сейчас: '+esc(W.where.join('; '))+'</p>':'')+
+    (W.given.length?'<p style="margin:4px 0">Выдано клиентам: '+esc(W.given.join('; '))+'</p>':'')+'</div>';}
 function qcOpen(k,x){const def=QFD(k);QC.form=x?{...JSON.parse(JSON.stringify(x)),v:{...(x.v||{})}}:{f:k,d:todayStr(),batch:'',v:{},who:myName(),no:def.num?qcNextNo(k):''};const el=$('qc-b');if(el)el.innerHTML='';if(S.view!=='qc')go('qc');else VIEWS.qc.update();window.scrollTo(0,0);}
 function qcRead(){const F=QC.form;const el=$('qc-b');if(!F||!el)return;
   el.querySelectorAll('[data-qf]').forEach(i=>{F.v[i.dataset.qf]=i.value.trim();});
@@ -2702,6 +2719,84 @@ async function autoTask(kind,key,t,d,due,ord){
 function buyTask(m,q,left){return autoTask('buy',m.id||m.n,'Купить: '+m.n+(q?' — '+fmt(q)+' '+(m.u||''):''),'Материал в «Закупках»'+(left!=null?': осталось '+fmt(left)+' '+(m.u||'')+', минимум '+fmt(m.min||0):'')+'. Когда купите — отметьте задачу выполненной, а склад внесёт приход.','');}
 function dlvTask(o){if(!o||o.recv!=='Доставка')return;
   return autoTask('dlv',o.id,'Доставка: заказ №'+o.no+(o.obj?' · '+o.obj:''),[o.addr?'Адрес: '+o.addr:'',o.cli||o.firm?'Клиент: '+(o.cli||o.firm):'','Выдать до '+fmtDate(o.due),(o.items||[]).map(i=>i.n+(i.s?' '+i.s:'')+' — '+fmt(i.q)+' '+unit(i.c)).join('; '),o.note?'Примечание: '+o.note:''].filter(Boolean).join('\n'),o.due||'',{id:o.id,no:String(o.no||''),obj:o.obj||''});}
+
+/* ================= Приготовление: смесь, колеровка посыпки, смазочный состав — с партией и списанием материалов ================= */
+/* preps/{id} = {d,kind,batch,out,u,lines:[{mid,q}],wh,who,by,at}; списание — matops type 'out' с полем prep */
+const PREP_K={mix:['Смесь','чан'],dust:['Колеровка посыпки','кг'],lub:['Смазочный состав','л']};
+const PR={list:[],sub:false,f:null};
+function subscribePreps(){if(PR.sub||!db||!(tabOk('prep11')||tabOk('qc')||tabOk('cast11')))return;PR.sub=true;
+  db.collection('preps').onSnapshot(s=>{PR.list=s.docs.map(d=>({id:d.id,...d.data()}));if(['prep11','qc','cast11','grease11'].includes(S.view))render();},()=>{});}
+function prepAutoBatch(kind,d){const n=PR.list.filter(x=>x.kind===kind&&x.d===d).length+1;
+  if(kind==='mix'){const drum=ls.get('p.drum','');return (drum||'?')+'-'+ddmmyy(d)+(n>1?'/'+n:'');}
+  return (kind==='dust'?'П':'С')+'-'+ddmmyy(d)+'-'+n;}
+function prepForm(){if(PR.f)return PR.f;const kind='mix';return PR.f=prepNew(kind);}
+function prepNew(kind,d){d=d||todayStr();let rec=[];try{rec=JSON.parse(ls.get('prep.rec.'+kind,'[]'))||[];}catch(e){}
+  const whs=matWhs();return {kind,d,batch:'',out:'',lines:rec.length?rec.map(x=>({mid:x.mid,q:''})):[{mid:'',q:''}],wh:ls.get('prep.wh','')||whs.find(w=>/11/.test(w))||whs[0],who:ls.get('p.who',''),drum:ls.get('p.drum','')};}
+VIEWS.prep11={controls(){subscribeMats();subscribePreps();},update(){
+  const el=$('prep11-b');if(!el)return;if(!MT.cfg){el.innerHTML='<div class="panel empty">Загружаем…</div>';return;}
+  if(document.activeElement&&el.contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+  const ro=RO('prep11');const f=prepForm();const L=matList();const K=PREP_K[f.kind];
+  const bal=matBal();const msel=(i,v)=>'<select data-pl="'+i+'" data-k="mid"><option value="">— материал —</option>'+L.map(x=>opt(x.id,x.n+(x.u?' ('+x.u+')':''),v)).join('')+'</select>';
+  const auto=f.kind==='mix'?((f.drum||'?')+'-'+ddmmyy(f.d)):prepAutoBatch(f.kind,f.d);
+  let h='<div class="input-grid"><div class="panel"><div class="panel-head"><h2>Приготовление</h2>'+(tabOk('qc')&&!RO('qc')?'<button type="button" class="ghost" data-qc-go="'+(f.kind==='mix'?'F02':f.kind==='dust'?'F03-1B':'F03-1A')+'" style="font-size:13px">📋 Форма качества</button>':'')+'</div>'+
+    '<p class="muted" style="margin:0 0 12px;font-size:13px">Запишите, что приготовили и из чего. Материалы спишутся со склада материалов, а у приготовленного будет номер партии — по нему партия прослеживается до выдачи клиенту.</p>';
+  if(ro)h+='<p class="muted">Только просмотр.</p>';
+  else{h+='<div class="chips ops" style="margin-bottom:10px">'+Object.entries(PREP_K).map(([k,v])=>'<button type="button" class="chip" data-prk="'+k+'" aria-pressed="'+(f.kind===k)+'">'+v[0]+'</button>').join('')+'</div>'+
+    '<div class="filters"><label class="fld"><span>Дата</span><input type="date" id="pr-d" value="'+esc(f.d)+'" max="'+todayStr()+'"></label>'+
+    (f.kind==='mix'?'<label class="fld"><span>Бочка акрила №</span><input type="text" id="pr-drum" value="'+esc(f.drum||'')+'" style="max-width:110px" list="pr-drl"><datalist id="pr-drl">'+[...new Set((MT.ops||[]).filter(o=>o.type==='in'&&o.party).map(o=>o.party))].slice(-10).map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>':'')+
+    '<label class="fld"><span>Номер партии</span><input type="text" id="pr-batch" value="'+esc(f.batch||'')+'" placeholder="'+esc(auto)+'" style="max-width:170px"></label>'+
+    '<label class="fld"><span>Получилось, '+K[1]+(f.kind==='mix'?'ов':'')+'</span><input type="text" inputmode="decimal" id="pr-out" value="'+esc(f.out||'')+'" style="max-width:110px"></label>'+
+    '<label class="fld"><span>Списать со склада</span><select id="pr-wh">'+matWhs().map(w=>opt(w,w,f.wh)).join('')+'</select></label>'+
+    '<label class="fld"><span>Кто делал</span><input type="text" id="pr-who" value="'+esc(f.who||'')+'" list="p-who-list"></label></div>'+
+    '<div class="fld"><span>Из чего (сколько ушло)</span>'+f.lines.map((l,i)=>{const m=matById(l.mid);const have=m?r2((bal[m.id]||{})[f.wh]||0):null;return '<div class="prline">'+msel(i,l.mid)+'<input type="text" inputmode="decimal" data-pl="'+i+'" data-k="q" value="'+esc(l.q)+'" placeholder="0" style="max-width:100px"> <span class="muted">'+esc(m?m.u||'':'')+(have!=null?' · есть '+fmt(have):'')+'</span> <button type="button" class="link" data-prdel="'+i+'">✕</button></div>';}).join('')+
+    '<button type="button" class="link" data-pradd>+ ещё материал</button></div>'+
+    (L.length?'':'<p class="muted">Сначала добавьте материалы в разделе «Материалы» → «Остатки».</p>')+
+    '<p class="err" id="pr-err" hidden></p><div class="actions"><button type="button" class="primary" data-prsave>Записать</button></div>';}
+  h+='</div><div class="panel"><div class="panel-head"><h2>Последние</h2></div>';
+  const R=[...PR.list].sort((a,b)=>String(b.d+b.at).localeCompare(String(a.d+a.at))).slice(0,40);
+  h+=R.length?'<div class="tbl-wrap"><table><thead><tr><th>Дата</th><th>Что</th><th>Партия</th><th>Из чего</th><th>Кто</th><th></th></tr></thead><tbody>'+R.map(x=>'<tr><td>'+fmtDate(x.d)+'</td><td>'+esc((PREP_K[x.kind]||[x.kind])[0])+(x.out?'<br><small class="muted">'+fmt(x.out)+' '+esc(x.u||'')+'</small>':'')+'</td><td><b>'+esc(x.batch)+'</b></td><td class="wrap"><small>'+(x.lines||[]).map(l=>{const m=matById(l.mid)||{};return esc(m.n||'?')+' '+fmt(l.q)+' '+esc(m.u||'');}).join(', ')+'</small></td><td class="muted">'+esc(x.who||'')+'</td><td>'+(ro?'':'<button type="button" class="link" data-prrm="'+esc(x.id)+'">✕</button>')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted">Записей пока нет.</p>';
+  el.innerHTML=h+'</div></div>'+whoList();}};
+function prepRead(){const f=PR.f;if(!f)return;const g=id=>{const e=$(id);return e?e.value.trim():null;};
+  for(const [id,k] of [['pr-d','d'],['pr-batch','batch'],['pr-out','out'],['pr-wh','wh'],['pr-who','who'],['pr-drum','drum']]){const v=g(id);if(v!=null)f[k]=v;}
+  document.querySelectorAll('#prep11-b [data-pl]').forEach(e=>{const l=f.lines[Number(e.dataset.pl)];if(l)l[e.dataset.k]=e.value.trim();});}
+async function prepSave(){prepRead();const f=PR.f;const er=$('pr-err');const fail=t=>{er.textContent=t;er.hidden=false;};
+  const lines=f.lines.filter(l=>l.mid&&parseQ(l.q)>0).map(l=>({mid:l.mid,q:r2(parseQ(l.q))}));
+  if(!lines.length)return fail('Впишите, из каких материалов и сколько ушло.');if(!f.who)return fail('Впишите, кто делал.');
+  const batch=f.batch||(f.kind==='mix'?(f.drum||'?')+'-'+ddmmyy(f.d):prepAutoBatch(f.kind,f.d));
+  if(f.kind==='mix'&&!f.batch&&!f.drum)return fail('Впишите номер бочки акрила или номер партии.');
+  const now=new Date().toISOString();const K=PREP_K[f.kind];
+  try{const r=await db.collection('preps').add({d:f.d,kind:f.kind,batch,out:r2(parseQ(f.out)||0),u:K[1],lines,wh:f.wh,who:f.who,by:S.me||'',at:now});
+    for(const l of lines)await db.collection('matops').add({d:f.d,type:'out',mid:l.mid,q:l.q,wh:f.wh,note:K[0]+', партия '+batch,prep:r.id,batch,by:S.me||'',name:myName(),at:now});
+    ls.set('prep.rec.'+f.kind,JSON.stringify(lines.map(l=>({mid:l.mid}))));ls.set('prep.wh',f.wh);ls.set('p.who',f.who);if(f.drum)ls.set('p.drum',f.drum);
+    const b1=matBal();const low=matLow(b1).filter(z=>lines.some(l=>l.mid===z.id));if(low.length)toast('Записано. ⚠️ Пора закупить: '+low.map(z=>z.n).join(', '));else toast('Записано: '+K[0].toLowerCase()+', партия '+batch);
+    PR.f={...prepNew(f.kind,f.d)};VIEWS.prep11.update();}catch(e){fail(dbErr(e));}}
+document.addEventListener('click',async e=>{const t=e.target;if(!t.closest('#prep11-b'))return;let b;
+  if((b=t.closest('[data-prk]'))){prepRead();PR.f=prepNew(b.dataset.prk,PR.f.d);VIEWS.prep11.update();return;}
+  if(t.closest('[data-pradd]')){prepRead();PR.f.lines.push({mid:'',q:''});VIEWS.prep11.update();return;}
+  if((b=t.closest('[data-prdel]'))){prepRead();PR.f.lines.splice(Number(b.dataset.prdel),1);if(!PR.f.lines.length)PR.f.lines.push({mid:'',q:''});VIEWS.prep11.update();return;}
+  if(t.closest('[data-prsave]')){await prepSave();return;}
+  if((b=t.closest('[data-prrm]'))){const x=PR.list.find(z=>z.id===b.dataset.prrm);if(!x||!confirm('Удалить запись «'+(PREP_K[x.kind]||[''])[0]+' '+x.batch+'»? Списание материалов отменится.'))return;
+    try{for(const o of MT.ops.filter(o=>o.prep===x.id))await db.doc('matops/'+o.id).delete();await db.doc('preps/'+x.id).delete();toast('Удалено');}catch(err){toast(dbErr(err));}return;}
+});
+document.addEventListener('change',e=>{const t=e.target;if(!t.closest||!t.closest('#prep11-b'))return;if(t.tagName==='SELECT'||t.id==='pr-d'||t.id==='pr-drum'){prepRead();t.blur();VIEWS.prep11.update();}});
+
+/* ================= Прослеживание партии по складу: FIFO по каждому складу и товару ================= */
+const BF={ver:-1,alloc:null,pools:null};
+function batchFlow(){if(BF.ver===S.opsVer&&BF.alloc)return BF;
+  const ops=allOps().slice().sort((a,b)=>(a.d+(a.at||'')).localeCompare(b.d+(b.at||'')));
+  const pools=new Map(),alloc=new Map();const K=e=>e.wh+'\u0001'+e.c+'\u0001'+e.n+'\u0001'+e.s;
+  const take=(k,q)=>{const P=pools.get(k)||[];const out=[];let r=q;while(r>1e-9&&P.length){const h=P[0];const t=Math.min(h.q,r);out.push({b:h.b,q:t});h.q-=t;r-=t;if(h.q<=1e-9)P.shift();}if(r>1e-9)out.push({b:'',q:r});pools.set(k,P);return out;};
+  const put=(k,parts)=>{const P=pools.get(k)||[];for(const x of parts){if(x.q<=1e-9)continue;const l=P[P.length-1];if(l&&l.b===x.b)l.q+=x.q;else P.push({b:x.b,q:x.q});}pools.set(k,P);};
+  for(const o of ops){const es=effects(o);if(!es.length)continue;
+    if((o.op==='cut'||o.op==='move')&&es.length===2){const got=take(K(es[0]),-es[0].q);const tot=got.reduce((a,x)=>a+x.q,0);const sc=o.op==='cut'&&tot>0?es[1].q/tot:1;put(K(es[1]),got.map(x=>({b:x.b,q:x.q*sc})));alloc.set(o.id,got);continue;}
+    for(const e of es){if(e.q>0)put(K(e),[{b:o.batch||'',q:e.q}]);else if(e.q<0)alloc.set(o.id,take(K(e),-e.q));}}
+  BF.ver=S.opsVer;BF.alloc=alloc;BF.pools=pools;return BF;}
+function batchTxt(parts){const m=new Map();for(const x of parts||[])m.set(x.b,(m.get(x.b)||0)+x.q);return [...m].filter(([,q])=>q>1e-6).map(([b,q])=>(b||'без партии')+' — '+fmt(q)).join('; ');}
+function opBatches(o){return batchTxt(batchFlow().alloc.get(o.id));}
+/* где сейчас партия и кому выдана */
+function batchWhere(q){const F=batchFlow();const where=new Map();for(const [k,P] of F.pools)for(const x of P)if(x.b&&String(x.b).toLowerCase().includes(q)&&x.q>1e-6){const [wh,c,n,s]=k.split('\u0001');const key=wh+' · '+n+(s&&s!=='холст'?' '+s:'');where.set(key,(where.get(key)||0)+x.q);}
+  const given=[];for(const o of allOps()){if(o.op!=='ship')continue;const a=(F.alloc.get(o.id)||[]).filter(x=>x.b&&String(x.b).toLowerCase().includes(q));if(a.length){const ord=S.orders.find(z=>z.id===o.order);given.push(fmtDate(o.d)+' '+(ord?'заказ №'+ord.no+' '+(ord.cli||ord.obj||''):(o.amo||'отгрузка'))+': '+o.n+' '+fmt(a.reduce((s,x)=>s+x.q,0))+' '+unit(o.c));}}
+  return {where:[...where].map(([k,v])=>k+' — '+fmt(v)),given};}
 
 /* ================= Сообщения ================= */
 /* Общий чат (все, у кого есть доступ), группы (видят только участники) и личные чаты (видят только двое).
@@ -3795,7 +3890,7 @@ function watchMonth(m,live){
   if(!db||S.watched.has(m))return;
   S.watched.add(m);S.pending.add(m);
   const col=db.collection('months/'+m+'/ops');
-  const apply=snap=>{S.monthOps[m]=snap.docs.map(d=>{const o=Object.assign({id:d.id,m},d.data());o.wh=mapWH(o.wh,o.c);if(o.to)o.to=mapWH(o.to,o.c);return o;});if(!snap.metadata.fromCache)S.pending.delete(m);render();};
+  const apply=snap=>{S.opsVer=(S.opsVer||0)+1;S.monthOps[m]=snap.docs.map(d=>{const o=Object.assign({id:d.id,m},d.data());o.wh=mapWH(o.wh,o.c);if(o.to)o.to=mapWH(o.to,o.c);return o;});if(!snap.metadata.fromCache)S.pending.delete(m);render();};
   const fail=e=>{S.pending.delete(m);S.err=e&&e.code;render();};
   if(live)col.onSnapshot({includeMetadataChanges:true},apply,fail);else col.get().then(apply,fail);
 }
@@ -3814,7 +3909,7 @@ function subscribe(){
     render();
   },e=>{S.err=e.code;render();});
   subscribeOrders();
-  subscribeMats();subscribeQc();subscribeClients();setTimeout(fileBackupAuto,15000);
+  subscribeMats();subscribeQc();subscribeClients();subscribePreps();setTimeout(fileBackupAuto,15000);
   if(tabOk('plan'))db.doc('config/plan').onSnapshot(s=>{S.plan=s.exists?s.data():null;render();},e=>{S.err=e.code;render();});
   setTimeout(()=>{if(S.pending.size||!S.catalog)setSync(S.pending.size?'данные загружаются дольше обычного, проверьте интернет':'');setTimeout(()=>setSync(''),8000);},10000);
   // midnight rollover: start watching the new month

@@ -20,8 +20,8 @@ service cloud.firestore {
       || canView('porders') || canView('cast11') || canView('dry11') || canView('demold11') || canView('cut11')
       || canView('pack11') || canView('grout') || canView('cast9') || canView('dry9') || canView('demold9')
       || canView('sand9') || canView('pack9') || canView('grease11') || canView('porders9')
-      || canView('wh11') || canView('wh9') || canView('sorders'); }
-    function matView() { return canView('mstock') || canView('mops') || canView('buy'); }
+      || canView('wh11') || canView('wh9') || canView('sorders') || canView('qc') || canView('report') || canView('prep11'); }
+    function matView() { return canView('mstock') || canView('mops') || canView('buy') || canView('prep11'); }
     function opsEdit() { return canEdit('input') || canEdit('journal') || canEdit('stock'); }
     function prodEdit() { return canEdit('grease11') || canEdit('cast11') || canEdit('demold11') || canEdit('cut11') || canEdit('pack11')
       || canEdit('grout') || canEdit('cast9') || canEdit('demold9') || canEdit('sand9') || canEdit('pack9'); }
@@ -131,14 +131,20 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if canEdit('tasks');
     }
+    match /preps/{id} {
+      allow read: if canView('prep11') || canView('qc') || canView('cast11') || matView();
+      allow write: if canEdit('prep11');
+    }
     match /config/mats {
       allow read: if matView();
       allow write: if canEdit('mstock');
     }
     match /matops/{id} {
       allow read: if matView();
-      allow create: if canEdit('mops') && request.resource.data.by == me();
-      allow update, delete: if canEdit('mops');
+      allow create: if (canEdit('mops') || (canEdit('prep11') && request.resource.data.get('prep', '') != ''))
+        && request.resource.data.by == me();
+      allow update: if canEdit('mops');
+      allow delete: if canEdit('mops') || (canEdit('prep11') && resource.data.get('prep', '') != '');
     }
     match /buy/{id} {
       allow read: if matView();
