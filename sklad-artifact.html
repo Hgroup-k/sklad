@@ -130,7 +130,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
 #mdrawer{position:fixed;inset:0;z-index:60;display:flex}
 #mdrawer[hidden]{display:none}
 #mdrawer .md-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
-#mdrawer .md{position:relative;width:min(84vw,330px);height:100%;background:var(--surface);color:var(--ink);display:flex;flex-direction:column;overflow-y:auto;padding:calc(18px + env(safe-area-inset-top,0px)) 16px calc(14px + env(safe-area-inset-bottom,0px));box-shadow:4px 0 24px rgba(0,0,0,.25);animation:mdin .18s ease-out}
+#mdrawer .md{position:relative;width:min(84vw,330px);height:100%;background:var(--surface);color:var(--ink);display:flex;flex-direction:column;overflow-y:auto;padding:calc(18px + env(safe-area-inset-top,0px)) 16px calc(14px + env(safe-area-inset-bottom,0px));box-shadow:4px 0 24px rgba(0,0,0,.25)}
+#mdrawer.anim .md{animation:mdin .18s ease-out}
 @keyframes mdin{from{transform:translateX(-100%)}to{transform:none}}
 .md-me{display:flex;flex-direction:column;gap:6px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .md-me b{font-size:18px}
@@ -226,6 +227,7 @@ details.tk-done>summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
 .cmenu{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
 .cmenu button{font-size:12.5px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
 .cmenu button.del{color:#c0392b}
+.cvload{display:flex;align-items:center;justify-content:center;min-height:120px;min-width:200px;background:rgba(127,127,127,.12);border-radius:8px;color:var(--muted)}
 .crecbar{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12.5px;border-top:1px solid var(--line);color:var(--muted)}
 .crecdot{width:10px;height:10px;border-radius:50%;background:#e53935;flex:none;animation:recb 1s infinite}
 @keyframes recb{50%{opacity:.3}}
@@ -2114,10 +2116,11 @@ function msgHtml(m,prev){
   let body='';
   if(m.kind==='del'){const who=m.by&&m.by!==m.uid?(S.names[m.by]||'')+' удалил(а) сообщение':'Сообщение удалено';
     return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'" id="cm-'+esc(m.id)+'">'+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+'<div class="cdeleted">🗑 '+esc(who)+'</div><div class="ctime">'+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';}
-  if(m.kind==='file')body='<button type="button" class="cfile" data-cfile="'+esc(m.id)+'">📄 <span><b>'+esc(m.name||'файл')+'</b><br><small class="muted">'+fsize(m.size)+' · скачать</small></span></button>';
+  if(m.kind==='file'&&/^video\//.test(m.mime||''))body=videoHtml(m);
+  else if(m.kind==='file')body='<button type="button" class="cfile" data-cfile="'+esc(m.id)+'">📄 <span><b>'+esc(m.name||'файл')+'</b><br><small class="muted">'+fsize(m.size)+' · скачать</small></span></button>';
   else if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg>';
   else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="metadata" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button>'+(sttGet(m)?'<button type="button" class="vspeed" data-cact="tr" data-mid="'+esc(m.id)+'" title="Перевести текст">🌐</button>':'')+'</div>'+(VBAD.has(m.id)?'<div class="vtr muted">Это голосовое записано на компьютере в старом формате, iPhone его не проигрывает. Нажмите «Aa», чтобы прочитать текст.</div>':'')+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
-  else if(m.kind==='video')body='<video controls preload="metadata" src="'+esc(m.data)+'" class="cimg"></video>';
+  else if(m.kind==='video'||(m.kind==='file'&&/^video\//.test(m.mime||'')))body=videoHtml(m);
   if(m.fw)body='<div class="cfw">↪ Переслано'+(m.fw.name?' от '+esc(m.fw.name):'')+'</div>'+body;
   if(m.re)body=quoteHtml(m.re,true)+body;
   if(m.ord)body+=ordCard(m.ord);
@@ -2127,6 +2130,10 @@ function msgHtml(m,prev){
   const av=!mine&&!same&&window.SKLAD_AVA?'<span class="cava">'+window.SKLAD_AVA((CH.ava&&CH.ava[m.uid])||{name:S.names[m.uid]||'?'},28)+'</span>':'';
   return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+(av?' hasava':'')+'" id="cm-'+esc(m.id)+'">'+av+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+body+'<div class="ctime">'+(m.ed?'<span class="ced">изменено</span> ':'')+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия: ответить, копировать, переслать…">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';
 }
+/* видео прямо в чате (большое хранится частями, собираем при показе) */
+function videoHtml(m){const src=voiceSrc(m);
+  return '<div class="cvid">'+(src?'<video controls playsinline preload="metadata" src="'+esc(src)+'#t=0.1" class="cimg"></video>':'<div class="cimg cvload">🎬 Загружаем видео…</div>')+
+    (m.fid?'<button type="button" class="link" data-cfile="'+esc(m.id)+'" style="font-size:12px">⬇ Скачать'+(m.size?' ('+fsize(m.size)+')':'')+'</button>':'')+'</div>';}
 function fsize(n){n=Number(n)||0;return n>=1048576?(n/1048576).toFixed(1).replace('.',',')+' МБ':Math.max(1,Math.round(n/1024))+' КБ';}
 /* реакции смайликами: m.rx = {uid: '👍'} */
 const RX=['👍','❤️','😂','😮','😢','🙏','🔥','✅'];
@@ -2636,21 +2643,23 @@ function drawerHtml(){const me=window.SKLAD_ME;const p=me?me.p:{};const cur=(TAB
       return '<div class="md-row"><button type="button" class="md-item'+(g===cur?' on':'')+'" data-md-go="'+tabs[0][0]+'">'+(HOME_ICO[g]||(g==='home'?'🏠':'•'))+' '+esc(l)+'</button>'+(one?'':'<button type="button" class="md-exp" data-md-g="'+g+'" aria-expanded="'+op+'" title="Показать подпункты"><span class="md-arr">›</span></button>')+'</div>'+
         (!one&&op?tabs.map(t=>'<button type="button" class="md-item md-sub'+(t[0]===S.view?' cur':'')+'" data-md-go="'+t[0]+'">'+esc(t[1])+'</button>').join(''):'');}).join('')+
     '</nav>';}
-function openDrawer(){let d=document.getElementById('mdrawer');if(!d){d=document.createElement('div');d.id='mdrawer';document.body.appendChild(d);}MD.open=null;d.innerHTML=drawerHtml();d.hidden=false;document.body.style.overflow='hidden';}
+function openDrawer(){let d=document.getElementById('mdrawer');if(!d){d=document.createElement('div');d.id='mdrawer';document.body.appendChild(d);}MD.open=null;d.innerHTML=drawerHtml();d.classList.add('anim');setTimeout(()=>d.classList.remove('anim'),400);d.hidden=false;document.body.style.overflow='hidden';}
 function closeDrawer(){const d=document.getElementById('mdrawer');if(d)d.hidden=true;document.body.style.overflow='';}
 document.addEventListener('click',e=>{
   if(e.target.closest('#m-menu')){openDrawer();return;}
   if(e.target.closest('#m-chat')){CH.mobList=true;CH.form=null;go('chat');if(window.VIEWS&&VIEWS.chat)VIEWS.chat.update();window.scrollTo(0,0);return;}
   const d=e.target.closest('#mdrawer');if(!d)return;let b;
   if(e.target.closest('[data-md-x]')){closeDrawer();return;}
-  if((b=e.target.closest('[data-md-g]'))){const g=b.dataset.mdG;const cur=(TABS.find(x=>x[0]===S.view)||[])[2];const isOpen=MD.open===g||(MD.open===null&&g===cur);MD.open=isOpen?'':g;d.innerHTML=drawerHtml();return;}
+  if((b=e.target.closest('[data-md-g]'))){const g=b.dataset.mdG;const cur=(TABS.find(x=>x[0]===S.view)||[])[2];const isOpen=MD.open===g||(MD.open===null&&g===cur);MD.open=isOpen?'':g;mdRedraw(d);return;}
   if((b=e.target.closest('[data-md-go]'))){const v=b.dataset.mdGo;closeDrawer();if(v==='chat'){CH.mobList=true;CH.form=null;}go(v);window.scrollTo(0,0);return;}
   if(e.target.closest('[data-md-set]')){closeDrawer();window.SKLAD_ME&&window.SKLAD_ME.profile();return;}
   if(e.target.closest('[data-md-acc]')){closeDrawer();window.SKLAD_ME&&window.SKLAD_ME.access&&window.SKLAD_ME.access();return;}
   if(e.target.closest('[data-md-out]')){closeDrawer();window.SKLAD_ME&&window.SKLAD_ME.signOut();return;}
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
-window.SKLAD_ME_CHANGED=()=>{const d=document.getElementById('mdrawer');if(d&&!d.hidden)d.innerHTML=drawerHtml();};
+window.SKLAD_ME_CHANGED=()=>{const d=document.getElementById('mdrawer');if(d&&!d.hidden)mdRedraw(d);};
+/* перерисовка меню без «прыжка»: без анимации и с той же прокруткой */
+function mdRedraw(d){const n=d.querySelector('.md');const y=n?n.scrollTop:0;d.innerHTML=drawerHtml();const n2=d.querySelector('.md');if(n2)n2.scrollTop=y;}
 /* ---------- Главная: плитки разделов с короткой сводкой ---------- */
 const HOME_INFO={tasks:'поручения сотрудникам: кому, что и к какому сроку',chat:'общий чат, «Заказы», группы и личные',office:'заказы и возвраты',p11:'камень: смазка, заливка, резка, упаковка, затирки',p9:'карнизы: заливка, шкурение, упаковка',store:'остатки, приход, журнал, план',ref:'товары, размеры, списки'};
 const HOME_ICO={tasks:'✅',chat:'💬',office:'📋',p11:'🏭',p9:'🏗️',store:'📦',ref:'📚'};
@@ -2682,6 +2691,7 @@ document.addEventListener('change',async e=>{if(e.target.id!=='ch-file'&&e.targe
   if(e.target.id==='ch-doc'){try{await sendFile(f);}catch(x){toast(dbErr(x));}return;}
   try{if(/^image\//.test(f.type)){toast('Отправляем фото…');await chatSend({kind:'img',data:await imgToData(f)});}
     else if(/^video\//.test(f.type)&&f.size<=650000){await chatSend({kind:'video',data:await fileToData(f)});}
+    else if(/^video\//.test(f.type)&&f.size<=FMAX){toast('Отправляем видео…');const {fid,n}=await putParts(CH.sel,new Uint8Array(await f.arrayBuffer()));await chatSend({kind:'video',file:{fid,n,mime:f.type,size:f.size,name:f.name||'видео'}});toast('Видео отправлено');}
     else await sendFile(f);}catch(x){toast(dbErr(x));}});
 
 /* ---- уведомления на телефон и компьютер (Web Push через свой сервер уведомлений) ---- */
