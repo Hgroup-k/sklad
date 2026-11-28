@@ -1,0 +1,48 @@
+{
+  "packageId": "io.github.hgroup_k.sklad",
+  "host": "hgroup-k.github.io",
+  "name": "Общий учёт",
+  "launcherName": "Общий учёт",
+  "display": "standalone",
+  "themeColor": "#2E6A6C",
+  "themeColorDark": "#2E6A6C",
+  "navigationColor": "#2E6A6C",
+  "navigationColorDark": "#2E6A6C",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#F4F6F6",
+  "enableNotifications": true,
+  "startUrl": "/sklad/",
+  "iconUrl": "https://hgroup-k.github.io/sklad/icons/icon-512.png",
+  "maskableIconUrl": "https://hgroup-k.github.io/sklad/icons/icon-maskable-512.png",
+  
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "obshchiy-uchet"
+  },
+  "appVersionName": "1.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "unknown",
+  "webManifestUrl": "https://hgroup-k.github.io/sklad/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://hgroup-k.github.io/sklad/",
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "displayOverride": [],
+  "appVersion": "1.0"
+}
