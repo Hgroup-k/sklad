@@ -2076,7 +2076,7 @@ function msgHtml(m,prev){
     return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'" id="cm-'+esc(m.id)+'">'+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+'<div class="cdeleted">🗑 '+esc(who)+'</div><div class="ctime">'+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';}
   if(m.kind==='file')body='<button type="button" class="cfile" data-cfile="'+esc(m.id)+'">📄 <span><b>'+esc(m.name||'файл')+'</b><br><small class="muted">'+fsize(m.size)+' · скачать</small></span></button>';
   else if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg>';
-  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="none" src="'+esc(m.data)+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button></div>'+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
+  else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="'+(m.fid?'metadata':'none')+'" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button></div>'+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
   else if(m.kind==='video')body='<video controls preload="metadata" src="'+esc(m.data)+'" class="cimg"></video>';
   if(m.fw)body='<div class="cfw">↪ Переслано'+(m.fw.name?' от '+esc(m.fw.name):'')+'</div>'+body;
   if(m.re)body=quoteHtml(m.re,true)+body;
@@ -2087,7 +2087,12 @@ function msgHtml(m,prev){
   return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+(av?' hasava':'')+'" id="cm-'+esc(m.id)+'">'+av+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+body+'<div class="ctime">'+(m.ed?'<span class="ced">изменено</span> ':'')+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия: ответить, копировать, переслать…">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';
 }
 function fsize(n){n=Number(n)||0;return n>=1048576?(n/1048576).toFixed(1).replace('.',',')+' МБ':Math.max(1,Math.round(n/1024))+' КБ';}
-const VSPEED={},VTR=new Set(),STT={};
+const VSPEED={},VTR=new Set(),STT={},VURL={};
+/* длинное голосовое хранится частями (как документы) — собираем при показе */
+function voiceSrc(m){if(m.data)return m.data;if(!m.fid)return '';if(VURL[m.id]&&VURL[m.id]!=='load')return VURL[m.id];
+  if(!VURL[m.id]){VURL[m.id]='load';const chat=CH.sel;getParts(chat,m).then(ps=>{VURL[m.id]=URL.createObjectURL(new Blob(ps,{type:m.mime||'audio/webm'}));if(CH.sel===chat)VIEWS.chat.update();}).catch(()=>{delete VURL[m.id];});}
+  return '';}
+async function voiceData(m){if(m.data)return m.data;const ps=await getParts(CH.sel,m);return fileToData(new Blob(ps,{type:m.mime||'audio/webm'}));}
 /* текст голосового: из записи (Chrome) или расшифровка через наш сервер Cloudflare */
 function sttGet(m){if(m.tr)return m.tr;if(STT[m.id]&&STT[m.id].t!=null)return STT[m.id].t;try{const v=localStorage.getItem('sklad-stt-'+m.id);if(v!=null){STT[m.id]={t:v};return v;}}catch(_){}return null;}
 function vtrText(m){const t=sttGet(m);if(t!=null)return t?esc(t):'<span class="muted">в голосовом нет слов</span>';const r=STT[m.id]||{};
@@ -2096,7 +2101,7 @@ function vtrText(m){const t=sttGet(m);if(t!=null)return t?esc(t):'<span class="m
   return '';}
 async function sttRun(m){const c=pushCfg();if(!c||!c.url){STT[m.id]={s:'err',e:'noserver'};VIEWS.chat.update();return;}
   STT[m.id]={s:'load'};VIEWS.chat.update();
-  try{const tok=await idToken();const r=await fetch(c.url+'/stt',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify({audio:m.data})});
+  try{const tok=await idToken();const r=await fetch(c.url+'/stt',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify({audio:await voiceData(m)})});
     const j=await r.json().catch(()=>({}));if(!j.ok)throw j.error||'fail';STT[m.id]={t:j.text||''};try{localStorage.setItem('sklad-stt-'+m.id,j.text||'');}catch(_){}}
   catch(e){STT[m.id]={s:'err',e:String(e)};try{console.warn('stt',e);}catch(_){}}
   VIEWS.chat.update();}
@@ -2162,8 +2167,8 @@ async function msgAction(a,mid){const m=CH.msgs.find(x=>x.id===mid);CH.menu=null
   if(a==='del'){CH.delAsk=m.id;CH.menu=m.id;VIEWS.chat.update();return;}
   CH.delAsk=null;
   if(a==='hide'){try{await rawdb.doc('reads/'+S.me).set({hide:{[m.id]:1}},{merge:true});CH.reads.hide={...(CH.reads.hide||{}),[m.id]:1};toast('Удалено у вас');}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
-  if(a==='delall'){try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+m.id).set({uid:m.uid,at:m.at,kind:'del',del:new Date().toISOString(),by:S.me});if(m.kind==='file')delParts(CH.sel,m);}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
-  if(a==='wipe'){if(!confirm('Удалить сообщение полностью? Никто не увидит, что оно было.')){VIEWS.chat.update();return;}try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+m.id).delete();if(m.kind==='file')delParts(CH.sel,m);}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
+  if(a==='delall'){try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+m.id).set({uid:m.uid,at:m.at,kind:'del',del:new Date().toISOString(),by:S.me});if(m.fid)delParts(CH.sel,m);}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
+  if(a==='wipe'){if(!confirm('Удалить сообщение полностью? Никто не увидит, что оно было.')){VIEWS.chat.update();return;}try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+m.id).delete();if(m.fid)delParts(CH.sel,m);}catch(x){toast(dbErr(x));}VIEWS.chat.update();return;}
 }
 VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')!=='none'?'all':chatLv('orders')!=='none'?'orders':(CH.list[0]||{}).id||'all');},update(onlyMsgs){
   const el=$('chat-b');if(!el||!rawdb||!S.me)return;
@@ -2212,7 +2217,7 @@ function chatFormHtml(){const f=CH.form;const ppl=(CH.people||[]).filter(p=>p.ui
 async function chatSend(msg,to){
   const id=to||CH.sel;if(!id)return;const now=new Date().toISOString();
   const m={uid:S.me,at:now,kind:msg.kind||'text',t:msg.t||''};if(msg.data)m.data=msg.data;
-  if(msg.fw)m.fw=msg.fw;if(msg.ord)m.ord=msg.ord;if(msg.tr)m.tr=msg.tr;if(msg.file)Object.assign(m,msg.file);
+  if(msg.fw)m.fw=msg.fw;if(msg.ord)m.ord=msg.ord;if(msg.tr)m.tr=msg.tr;if(msg.file)Object.assign(m,msg.file);if(m.kind==='voice'&&!m.tr)delete m.tr;
   else if(!to&&id==='orders'&&CH.attach){m.ord={id:String(CH.attach.id||''),no:String(CH.attach.no||''),obj:String(CH.attach.obj||'')};}
   const rp=!to&&CH.reply;if(rp){m.re={uid:rp.uid,t:String(rp.t||'')};if(rp.id)m.re.id=rp.id;if(rp.ch)m.re.ch=rp.ch;if(rp.name)m.re.name=rp.name;}
   await rawdb.collection('chats/'+id+'/msgs').add(m);
@@ -2266,16 +2271,18 @@ async function imgToData(file){
 }
 async function startVoice(){
   if(!navigator.mediaDevices||!window.MediaRecorder){toast('Этот браузер не умеет записывать голос');return;}
-  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,sampleRate:48000}}).catch(()=>navigator.mediaDevices.getUserMedia({audio:true}));}catch(e){toast('Нет доступа к микрофону. Разрешите его в настройках браузера.');return;}
+  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:true});}catch(e){toast('Нет доступа к микрофону. Разрешите его в настройках браузера.');return;}
   const mt=['audio/webm;codecs=opus','audio/mp4','audio/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t))||'';
-  const r=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:48000}:{audioBitsPerSecond:48000});const parts=[];
+  const r=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:64000}:{audioBitsPerSecond:64000});const parts=[];
   let tr='',rec=null;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
   if(SR&&!ios){try{rec=new SR();rec.lang='ru-RU';rec.continuous=true;rec.interimResults=false;rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)tr+=(tr?' ':'')+e.results[i][0].transcript;};rec.onerror=()=>{};rec.start();}catch(e){rec=null;}}
   r.ondataavailable=e=>{if(e.data&&e.data.size)parts.push(e.data);};
   r.onstop=async()=>{if(rec){try{rec.stop();}catch(e){}await new Promise(z=>setTimeout(z,700));}st.getTracks().forEach(t=>t.stop());clearInterval(CH.recT);const sent=CH.rec&&CH.rec.send;CH.rec=null;VIEWS.chat.update();if(!sent||!parts.length)return;
-    const blob=new Blob(parts,{type:r.mimeType||mt||'audio/webm'});const d=await fileToData(blob);if(d.length>950000){toast('Голосовое слишком длинное. Запишите покороче.');return;}
-    try{await chatSend({kind:'voice',data:d,tr:tr.trim().slice(0,2000)});}catch(e){toast(dbErr(e));}};
-  CH.rec={r,send:true};CH.recSec=0;CH.recT=setInterval(()=>{CH.recSec++;const b=document.querySelector('#ch-go');if(b)b.textContent='⏹ '+CH.recSec+'с';if(CH.recSec>=110)stopVoice(true);},1000);
+    const mime=r.mimeType||mt||'audio/webm';const blob=new Blob(parts,{type:mime});
+    try{if(blob.size<=600000){const d=await fileToData(blob);await chatSend({kind:'voice',data:d,tr:tr.trim().slice(0,2000)});}
+      else{if(blob.size>FMAX){toast('Голосовое слишком большое.');return;}toast('Отправляем голосовое…');const {fid,n}=await putParts(CH.sel,new Uint8Array(await blob.arrayBuffer()));
+        await chatSend({kind:'voice',file:{fid,n,mime,size:blob.size},tr:tr.trim().slice(0,2000)});}}catch(e){toast(dbErr(e));}};
+  CH.rec={r,send:true};CH.recSec=0;CH.recT=setInterval(()=>{CH.recSec++;const b=document.querySelector('#ch-go');if(b)b.textContent='⏹ '+Math.floor(CH.recSec/60)+':'+String(CH.recSec%60).padStart(2,'0');if(CH.recSec>=1800)stopVoice(true);},1000);
   r.start();VIEWS.chat.update();
 }
 function stopVoice(send){if(!CH.rec)return;CH.rec.send=send;try{CH.rec.r.stop();}catch(e){}}
@@ -2301,6 +2308,7 @@ document.addEventListener('click',async e=>{
   if((b=t.closest('[data-cfwd],[data-cfwd-u]'))){const m=CH.fwd;if(!m)return;
     try{const to=b.dataset.cfwd||await openDm(b.dataset.cfwdU);const x={kind:m.kind,t:m.t||'',fw:{uid:m.fw?m.fw.uid:m.uid,name:m.fw?m.fw.name:(S.names[m.uid]||'')}};if(m.data)x.data=m.data;if(m.ord)x.ord=m.ord;
       if(m.kind==='del'){toast('Удалённое сообщение переслать нельзя');return;}
+      if(m.kind==='voice'&&m.fid){const parts=await getParts(CH.sel,m);const all=new Uint8Array(parts.reduce((s,p)=>s+p.length,0));let o=0;for(const p of parts){all.set(p,o);o+=p.length;}const r=await putParts(to,all);x.file={fid:r.fid,n:r.n,mime:m.mime,size:m.size};}
       if(m.kind==='file'){toast('Пересылаем файл…');const parts=await getParts(CH.sel,m);const all=new Uint8Array(parts.reduce((s,p)=>s+p.length,0));let o=0;for(const p of parts){all.set(p,o);o+=p.length;}const r=await putParts(to,all);x.file={name:m.name,size:m.size,mime:m.mime,fid:r.fid,n:r.n};}
       await chatSend(x,to);CH.fwd=null;CH.form=null;CH.mobList=false;if(CH.sel!==to){if(CH.msgUnsub){CH.msgUnsub();CH.msgUnsub=null;}openChat(to);}VIEWS.chat.update();toast('Сообщение переслано');}catch(x){toast(dbErr(x));}return;}
   if(CH.menu&&!t.closest('.cmenu')){CH.menu=null;VIEWS.chat.update();}
