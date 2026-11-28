@@ -2468,7 +2468,13 @@ function subscribeTasks(){
   if(!rawdb||!S.me||TK.unsub)return;
   const on=q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));TK.list=l;resolveNames(l.flatMap(x=>[x.to,x.by,...(x.cm||[]).map(c=>c.uid)]).filter(Boolean));tkBadge();if(S.view==='tasks')VIEWS.tasks.update();if(S.view==='home')VIEWS.home.update();};
   const err=e=>{try{console.error('tasks',e);}catch(_){}if(tkAll()&&!TK.fallback){TK.fallback=true;TK.unsub=null;TK.mine=true;subscribeTasks();}};
-  TK.unsub=(TK.mine||!tkAll()?rawdb.collection('tasks').where('to','==',S.me):rawdb.collection('tasks')).onSnapshot(on,err);
+  rawdb.doc('config/taskSees').onSnapshot(d=>{TK.sees=d.exists?(d.data().m||{}):{};if(S.view==='tasks')VIEWS.tasks.update();},()=>{});
+  if(TK.mine||!tkAll()){/* свои + поставленные мной + задачи сотрудников, которых мне разрешено видеть */
+    const parts={};const merge=()=>{const m=new Map();for(const k in parts)for(const x of parts[k])m.set(x.id,x);const l=[...m.values()];on({forEach:f=>l.forEach(x=>f({id:x.id,data:()=>x}))});};
+    const sub=(k,q)=>q.onSnapshot(r=>{const l=[];r.forEach(d=>l.push({id:d.id,...d.data()}));parts[k]=l;merge();},e=>{try{console.error('tasks '+k,e);}catch(_){}});
+    const u=[sub('to',rawdb.collection('tasks').where('to','==',S.me)),sub('by',rawdb.collection('tasks').where('by','==',S.me)),sub('w',rawdb.collection('tasks').where('watch','array-contains',S.me))];
+    TK.unsub=()=>u.forEach(f=>{try{f();}catch(_){}});}
+  else TK.unsub=rawdb.collection('tasks').onSnapshot(on,err);
 }
 function tkName(x){return S.names[x.to]||x.toName||'—';}
 function tkKey(x){return x.to||('n:'+(x.toName||''));}
@@ -2506,8 +2512,9 @@ function tkFormHtml(){const f=TK.form;const ppl=CH.people||[];
 VIEWS.tasks={controls(){if(!rawdb||!S.me)return;subscribeTasks();loadPeople().then(()=>{if(S.view==='tasks'&&TK.form)VIEWS.tasks.update();});},update(){
   const el=$('tasks-b');if(!el||!rawdb||!S.me)return;
   const ae=document.activeElement;if(ae&&el.contains(ae)&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)){TK.dirty=true;return;}TK.dirty=false;
-  const all=tkAll();const F=[['mine','Мои'],...(tkEdit()?[['by','Поставил(а) я']]:[]),...(all?[['all','Все']]:[])];if(!F.some(x=>x[0]===TK.f))TK.f='mine';
-  let L=TK.list.filter(x=>TK.f==='mine'?x.to===S.me:TK.f==='by'?x.by===S.me:true);
+  const all=tkAll();const team=!all&&TK.list.some(x=>(x.watch||[]).includes(S.me));
+  const F=[['mine','Мои'],...(tkEdit()||TK.list.some(x=>x.by===S.me&&x.to!==S.me)?[['by','Поставил(а) я']]:[]),...(team?[['team','Моих сотрудников']]:[]),...(all?[['all','Все']]:[])];if(!F.some(x=>x[0]===TK.f))TK.f='mine';
+  let L=TK.list.filter(x=>TK.f==='mine'?x.to===S.me:TK.f==='by'?x.by===S.me:TK.f==='team'?(x.watch||[]).includes(S.me):true);
   const whoOpts=TK.f==='mine'?[]:[...new Map(L.map(x=>[tkKey(x),tkName(x)])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'ru'));
   if(TK.who&&!whoOpts.some(o=>o[0]===TK.who))TK.who='';if(TK.who)L=L.filter(x=>tkKey(x)===TK.who);
   TK.shown=L;
@@ -2518,11 +2525,25 @@ VIEWS.tasks={controls(){if(!rawdb||!S.me)return;subscribeTasks();loadPeople().th
     '<div class="tk-top"><div class="chips">'+(F.length<2?'<b>Мои задачи</b>':'')+(F.length<2?[]:F).map(([k,l])=>'<button type="button" class="chip" data-tk-f="'+k+'" aria-pressed="'+(TK.f===k)+'">'+l+'</button>').join('')+'</div>'+
     (whoOpts.length>1?'<select id="tk-who" style="max-width:220px"><option value="">Все сотрудники</option>'+whoOpts.map(([k,n])=>'<option value="'+esc(k)+'"'+(TK.who===k?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>':'')+
     '<span style="flex:1"></span><button type="button" class="ghost" data-tk-prl>🖨 Печать списка</button>'+
-    (tkEdit()&&!TK.form?'<button type="button" class="primary" data-tk-new>+ Новая задача</button>':'')+'</div>'+
+    (tkEdit()&&!TK.form?'<button type="button" class="ghost" data-tk-sees>👥 Кто чьи задачи видит</button><button type="button" class="primary" data-tk-new>+ Новая задача</button>':'')+'</div>'+
+    (TK.seesForm?tkSeesHtml():'')+
     (L.length?L.map(tkCard).join(''):'<div class="panel empty">'+(TK.f==='mine'?'У вас нет открытых задач.':'Открытых задач нет.')+'</div>')+
     (done.length?'<details class="tk-done"'+(TK.showDone?' open':'')+'><summary>Готовые ('+done.length+')</summary>'+done.slice(0,60).map(tkCard).join('')+'</details>':'');
   window.scrollTo(0,keepY);
 }};
+/* кто видит задачи сотрудника: config/taskSees.m = { uid или 'n:Имя': [uid начальников] } */
+function tkWatch(to,toName){const m=TK.sees||{};return [...new Set([...(m[to]||[]),...(toName?(m['n:'+toName]||[]):[])])].filter(u=>u&&u!==to);}
+function tkSeesHtml(){const f=TK.seesForm;const users=(CH.people||[]);
+  const ppl=tkPeople();for(const x of TK.list)if(!x.to&&x.toName&&!ppl.some(o=>o.v==='n:'+x.toName))ppl.push({v:'n:'+x.toName,n:x.toName+' (без аккаунта)'});
+  return '<div class="panel tk-sees"><h3>Кто чьи задачи видит</h3><p class="muted" style="margin:0 0 10px;font-size:13px">У каждого сотрудника отметьте начальников, которые видят его задачи. Остальные сотрудники их не видят. Каждый всегда видит свои задачи, а тот, кто поставил задачу, тоже её видит. Право «Задачи всех сотрудников» в «Доступе» показывает все задачи сразу.</p>'+
+    ppl.map(o=>{const sel=f[o.v]||[];return '<div class="fld" style="margin-bottom:10px"><span><b>'+esc(o.n.replace(' (я)',''))+'</b> — его задачи видят:</span><div class="chips">'+users.filter(u=>u.uid!==o.v).map(u=>'<button type="button" class="chip" data-tks="'+esc(o.v)+'" data-tku="'+esc(u.uid)+'" aria-pressed="'+sel.includes(u.uid)+'">'+esc(u.name)+'</button>').join('')+'</div></div>';}).join('')+
+    '<div class="actions"><button type="button" class="primary" data-tk-sees-save>Сохранить</button><button type="button" class="ghost" data-tk-sees-x>Отмена</button></div></div>';}
+async function tkSeesSave(){const m={};for(const k in TK.seesForm){const v=TK.seesForm[k].filter(Boolean);if(v.length)m[k]=v;}
+  try{await rawdb.doc('config/taskSees').set({m,upd:new Date().toISOString(),by:S.me});TK.sees=m;
+    /* обновить, кто видит, во всех задачах */
+    let n=0;for(const x of TK.list){const w=tkWatch(x.to,x.toName);if(JSON.stringify([...(x.watch||[])].sort())!==JSON.stringify([...w].sort())){await rawdb.doc('tasks/'+x.id).update({watch:w});n++;}}
+    TK.seesForm=null;toast('Сохранено'+(n?', обновлено задач: '+n:''));}catch(e){toast(dbErr(e));}
+  VIEWS.tasks.update();}
 function tkStName(x){return (TST.find(s=>s[0]===x.st)||TST[0])[1];}
 function printTask(x){
   const row=(k,v)=>v?'<tr><td class="l" style="width:24mm;color:#555">'+esc(k)+'</td><td class="l"><b>'+esc(v)+'</b></td></tr>':'';
@@ -2546,6 +2567,10 @@ async function tkNotify(x,id,isNew){
 document.addEventListener('click',async e=>{
   if(!e.target.closest('#tasks-b'))return;const t=e.target;let b;
   if((b=t.closest('[data-tk-f]'))){TK.f=b.dataset.tkF;TK.who='';VIEWS.tasks.update();return;}
+  if(t.closest('[data-tk-sees]')){await loadPeople();TK.seesForm=TK.seesForm?null:JSON.parse(JSON.stringify(TK.sees||{}));VIEWS.tasks.update();return;}
+  if(t.closest('[data-tk-sees-x]')){TK.seesForm=null;VIEWS.tasks.update();return;}
+  if(t.closest('[data-tk-sees-save]')){await tkSeesSave();return;}
+  if((b=t.closest('[data-tks]'))){const k=b.dataset.tks,u=b.dataset.tku;const a=TK.seesForm[k]=TK.seesForm[k]||[];const i=a.indexOf(u);if(i>=0)a.splice(i,1);else a.push(u);b.setAttribute('aria-pressed',String(i<0));return;}
   if((b=t.closest('[data-tk-pr]'))){const x=TK.list.find(z=>z.id===b.dataset.tkPr);if(x)printTask(x);return;}
   if(t.closest('[data-tk-prl]')){printTaskList((TK.shown||[]).filter(x=>x.st!=='done'));return;}
   if(t.closest('[data-tk-new]')){await loadPeople();TK.form={to:'',due:''};VIEWS.tasks.update();window.scrollTo(0,0);const i=$('tk-t');if(i)i.focus();return;}
@@ -2556,7 +2581,7 @@ document.addEventListener('click',async e=>{
     if(!tt){er.textContent='Впишите, что нужно сделать.';er.hidden=false;return;}if(!to){er.textContent='Выберите, кому задача.';er.hidden=false;return;}
     const oid=$('tk-ord').value;const o=oid?S.orders.find(z=>z.id===oid):null;const now=new Date().toISOString();
     const isN=to.indexOf('n:')===0;const toName=isN?to.slice(2):((CH.people||[]).find(p=>p.uid===to)||{}).name||'';
-    const x={t:tt,d:$('tk-d').value.trim(),to:isN?'':to,toName,due:$('tk-due').value||'',ord:o?{id:o.id,no:String(o.no||''),obj:o.obj||''}:null,upd:now};
+    const x={t:tt,d:$('tk-d').value.trim(),to:isN?'':to,toName,watch:tkWatch(isN?'':to,toName),due:$('tk-due').value||'',ord:o?{id:o.id,no:String(o.no||''),obj:o.obj||''}:null,upd:now};
     try{if(f.id){await rawdb.doc('tasks/'+f.id).update(x);if(f.to!==x.to)tkNotify(x,f.id,true);}
       else{const r=await rawdb.collection('tasks').add({...x,st:'new',by:S.me,at:now,cm:[]});tkNotify(x,r.id,true);}
       TK.form=null;toast(f.id?'Задача сохранена':'Задача поставлена'+(x.to&&x.to!==S.me?', исполнитель получит уведомление':isN?'. У сотрудника нет аккаунта: распечатайте задачу':''));VIEWS.tasks.update();}catch(x2){er.textContent=dbErr(x2);er.hidden=false;}return;}

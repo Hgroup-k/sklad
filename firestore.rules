@@ -75,7 +75,8 @@ service cloud.firestore {
       }
     }
     match /tasks/{id} {
-      allow read: if signedIn() && (canView('tasks') || resource.data.to == me() || resource.data.by == me());
+      allow read: if signedIn() && (canView('tasks') || resource.data.to == me() || resource.data.by == me()
+        || me() in resource.data.get('watch', []));
       allow create: if canEdit('tasks') && request.resource.data.by == me();
       allow update: if canEdit('tasks') || (signedIn() && resource.data.to == me()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'cm', 'upd']));
@@ -122,6 +123,10 @@ service cloud.firestore {
     match /config/lists {
       allow read: if anyAccess();
       allow write: if canEdit('catalog');
+    }
+    match /config/taskSees {
+      allow read: if signedIn();
+      allow write: if canEdit('tasks');
     }
     match /config/backups {
       allow read, write: if isFull();
