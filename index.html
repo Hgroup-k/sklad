@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 10:18';</script>
-<script src="firebase-config.js?v=56376514"></script>
-<script src="shim.js?v=56376514"></script>
+<script>window.SKLAD_VERSION='28.11 10:29';</script>
+<script src="firebase-config.js?v=92b98c15"></script>
+<script src="shim.js?v=92b98c15"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -350,6 +350,13 @@ td.act button{font-size:13px;padding:3px 8px}
 @media (max-width:900px){.listp{max-height:none}}
 .rec.sel{background:var(--accent-soft)}
 .rec.urg{box-shadow:inset 3px 0 0 var(--danger)}
+.rec.nowr{box-shadow:inset 5px 0 0 #e53935;background:rgba(229,57,53,.08)}
+.badge.nowb{background:#e53935;color:#fff;font-size:11px;padding:1px 7px;font-weight:800;animation:nowp 1.2s infinite}
+@keyframes nowp{50%{opacity:.55}}
+.primary.nowbtn{background:#e53935;border-color:#e53935}
+#nowbar{background:#e53935;color:#fff;padding:8px 14px;font-size:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;grid-column:1/-1;flex-basis:100%;width:100%;box-sizing:border-box;border-radius:8px}
+#nowbar[hidden]{display:none}
+#nowbar .link{color:#fff;font-weight:700;text-decoration:underline}
 .osec{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:12px 4px 6px;border-bottom:1px solid var(--line)}
 .osec span{font-weight:500}
 .osec .osl{color:var(--danger);font-weight:600;margin-left:6px}.osec .osh{color:#b35c00;font-weight:600;margin-left:6px}
@@ -396,6 +403,7 @@ dl.info dt{color:var(--muted);font-size:13px}dl.info dd{margin:0}
   <div class="mbar"><button type="button" class="mbtn" id="m-menu" aria-label="Меню"><span></span><span></span><span></span></button><span class="mtitle"><span id="m-title"></span><small id="sync"></small></span><button type="button" class="mbtn mchat" id="m-chat" aria-label="Сообщения"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm0 4v2h8v-2H6z"/></svg><b class="cbadge" id="m-unread" hidden></b></button></div>
   <div class="brand"><h1>Общий учёт</h1></div>
   <nav class="groups" id="groups" aria-label="Разделы"></nav>
+  <div id="nowbar" hidden></div>
   <nav class="tabs" id="tabs" aria-label="Вкладки"></nav>
 </div></header>
 
@@ -1156,7 +1164,7 @@ document.addEventListener('change',e=>{
 function planByOrders(bal,f){
   const left=new Map(bal);
   const os=S.orders.filter(o=>!o.cancel).map(o=>({o,lines:(o.items||[]).map((it,i)=>({it,rest:r2((Number(it.q)||0)-issuedQ(o,i))})).filter(l=>l.rest>1e-9)})).filter(x=>x.lines.length)
-    .sort((a,b)=>(b.o.urgent?1:0)-(a.o.urgent?1:0)||(a.o.due||'9').localeCompare(b.o.due||'9')||String(a.o.no).localeCompare(String(b.o.no),'ru',{numeric:true}));
+    .sort((a,b)=>(isNow(b.o)?1:0)-(isNow(a.o)?1:0)||(b.o.urgent?1:0)-(a.o.urgent?1:0)||(a.o.due||'9').localeCompare(b.o.due||'9')||String(a.o.no).localeCompare(String(b.o.no),'ru',{numeric:true}));
   for(const x of os)for(const l of x.lines){const k=l.it.c+'\u0001'+l.it.n+'\u0001'+(l.it.s||'');const av=Math.max(0,left.get(k)||0);l.have=r2(Math.min(av,l.rest));l.make=r2(l.rest-l.have);left.set(k,av-l.have);}
   let list=os.map(x=>({...x,lines:x.lines.filter(l=>(!f.c||l.it.c===f.c)&&(!f.pr||prodOf(l.it.c)===f.pr)&&(!f.only||l.make>1e-9))})).filter(x=>x.lines.length);
   if(!list.length)return '<div class="panel empty">'+(S.ordersLoaded?'Открытых заказов'+(f.only?', для которых нужно что-то изготовить,':'')+' нет.':'Загружаем заказы…')+'</div>';
@@ -1386,6 +1394,9 @@ function dueState(o){const g=orderGroup(o);if((g!=='new'&&g!=='work')||!o.due)re
   const wl=workdaysLeft(o.due);if(wl>2)return null;return {k:'hot',r:1,t:wl===0?'Срок сегодня':wl===1?'Остался 1 день':'Осталось 2 дня'};}
 const dueBadge=o=>{const d=dueState(o);return d?'<span class="badge '+d.k+'">'+esc(d.t)+'</span>':'';};
 const URG=' <span class="badge late" style="font-size:11px;padding:0 6px">срочно</span>';
+/* «Выдать сейчас»: активна, пока заказ не выдан и не отменён */
+function isNow(o){if(!o||!o.now||o.cancel)return false;const g=orderGroup(o);return g!=='done'&&g!=='cancel';}
+const NOWB=' <span class="badge nowb">⚡ ВЫДАТЬ СЕЙЧАС</span>';
 function nextNo(){let m=0;for(const o of S.orders){const n=parseInt(o.no,10);if(n>m)m=n;}return m?String(m+1):'';}
 
 /* ---- Заказы: вид ---- */
@@ -1418,10 +1429,10 @@ VIEWS.orders={
     if(!list.length){el.innerHTML='<div class="empty">'+(S.ordersLoaded?(S.orders.length?'По этим условиям заказов нет.':'Заказов пока нет.'+(RO('orders')?'':' Нажмите «Новый заказ».')):'Загружаем…')+'</div>';return;}
     const SEC=[['new','Новые'],['work','В работе'],['ready','Готовы, ждут клиента'],['done','Выданные'],['cancel','Отменённые']];
     const rk=o=>{const d=dueState(o);return d?d.r:(o.urgent?2:3);};
-    const byDue=(a,b)=>rk(a)-rk(b)||(b.urgent?1:0)-(a.urgent?1:0)||(a.due||'9').localeCompare(b.due||'9')||(parseInt(a.no,10)||0)-(parseInt(b.no,10)||0);
+    const byDue=(a,b)=>(isNow(b)?1:0)-(isNow(a)?1:0)||rk(a)-rk(b)||(b.urgent?1:0)-(a.urgent?1:0)||(a.due||'9').localeCompare(b.due||'9')||(parseInt(a.no,10)||0)-(parseInt(b.no,10)||0);
     const byNew=(a,b)=>(b.d||'').localeCompare(a.d||'')||(parseInt(b.no,10)||0)-(parseInt(a.no,10)||0);
     const row=o=>{const [st,cls]=orderStatus(o);const n=(o.items||[]).length;const g=orderGroup(o);const ds=dueState(o);
-      return '<button type="button" class="rec'+(OV.sel===o.id?' sel':'')+(o.urgent&&g!=='done'&&g!=='cancel'?' urg':'')+(ds?' due-'+ds.k:'')+'" data-order="'+esc(o.id)+'"><span class="d">№'+esc(o.no)+'</span><span class="t"><div>'+(o.urgent?URG.trim()+' ':'')+esc(o.obj||'без объекта')+'</div><small>'+fmtDate(o.d).slice(0,5)+(o.due?' · до '+fmtDate(o.due).slice(0,5):'')+' · '+n+' поз.'+(o.recv?' · '+esc(o.recv.toLowerCase()):'')+'</small></span><span class="bdg"><span class="badge '+cls+'">'+esc(st)+'</span>'+dueBadge(o)+'</span></button>';};
+      return '<button type="button" class="rec'+(OV.sel===o.id?' sel':'')+(o.urgent&&g!=='done'&&g!=='cancel'?' urg':'')+(isNow(o)?' nowr':'')+(ds?' due-'+ds.k:'')+'" data-order="'+esc(o.id)+'"><span class="d">№'+esc(o.no)+'</span><span class="t"><div>'+(isNow(o)?NOWB.trim()+' ':'')+(o.urgent?URG.trim()+' ':'')+esc(o.obj||'без объекта')+'</div><small>'+fmtDate(o.d).slice(0,5)+(o.due?' · до '+fmtDate(o.due).slice(0,5):'')+' · '+n+' поз.'+(o.recv?' · '+esc(o.recv.toLowerCase()):'')+'</small></span><span class="bdg"><span class="badge '+cls+'">'+esc(st)+'</span>'+dueBadge(o)+'</span></button>';};
     let html='';
     for(const [g,title] of SEC){const part=list.filter(o=>orderGroup(o)===g).sort(g==='new'||g==='work'||g==='ready'?byDue:byNew);if(!part.length)continue;
       const nl=part.filter(o=>(dueState(o)||{}).k==='late').length,nh=part.filter(o=>(dueState(o)||{}).k==='hot').length;
@@ -1453,6 +1464,7 @@ function renderOrderEditor(){
     '<form id="o-form" class="oform" novalidate autocomplete="off">'+
     '<div class="row3">'+fld('Заказ №',inp('no',d.no,' inputmode="numeric"'))+fld('Дата заказа','<input type="date" data-in="d" value="'+esc(today)+'" max="'+todayStr()+'">')+fld('Выдать до <i class="opt">'+(d.dueManual?'вручную':'+10 раб. дней')+'</i>','<input type="date" data-in="due" value="'+esc(due)+'">')+'</div>'+
     fld('Срочность',chipsHtml('urgent',['Срочный заказ'],d.urgent?'Срочный заказ':''))+
+    fld('Выдача',chipsHtml('now',['⚡ Выдать сейчас'],d.now?'⚡ Выдать сейчас':''))+
     fld('Название объекта',inp('obj',d.obj))+
     fld('Оформил',chipsHtml('by',staff(),d.by))+
     '<div class="row2">'+fld('Оплата',chipsHtml('pay',PAY,d.pay))+fld('Способ выдачи',chipsHtml('recv',RECV,d.recv))+'</div>'+
@@ -1502,7 +1514,7 @@ async function saveOrder(ev){
   const clean=items.map(it=>({c:it.c,n:it.n,s:it.s||'',q:r2(parseQ(it.q)),pcs:it.pcs||0,...(it.ex?{ex:true}:{})}));
   if(d.id){const o=curOrder();if(o){const bad=clean.findIndex((it,i)=>it.q<issuedQ(o,i)-1e-9);if(bad>=0){oErr('Строка '+(bad+1)+': уже выдано '+fmt(issuedQ(o,bad))+', заказать меньше нельзя.');return;}}}
   if(!db){oErr('Нет связи с базой. Обновите страницу.');return;}
-  const data={no:String(d.no),d:d.d,due:d.due,urgent:!!d.urgent,obj:d.obj,by:d.by,pay:d.pay,recv:d.recv,addr:d.recv==='Доставка'?d.addr:'',whole:d.whole||'',inv:d.inv,firm:d.firm||'',note:d.note||'',items:clean};
+  const data={no:String(d.no),d:d.d,due:d.due,urgent:!!d.urgent,now:!!d.now,...(d.now&&!d.nowAt?{nowAt:new Date().toISOString(),nowBy:myName()}:{}),obj:d.obj,by:d.by,pay:d.pay,recv:d.recv,addr:d.recv==='Доставка'?d.addr:'',whole:d.whole||'',inv:d.inv,firm:d.firm||'',note:d.note||'',items:clean};
   oSaving=true;$('o-save').disabled=true;
   try{
     ls.set('o.by',d.by);
@@ -1519,7 +1531,7 @@ function renderOrderDetail(){
   const [st,cls]=orderStatus(o);const ro=RO('orders');
   const left=(o.items||[]).some((it,i)=>issuedQ(o,i)<(Number(it.q)||0)-1e-9);
   const info=[['Дата',fmtDate(o.d)],['Выдать до',fmtDate(o.due)],o.work&&o.work.d?['В работе с',fmtDate(o.work.d)]:null,o.ready?['Готов с',fmtDate(o.ready.d)]:null,['Оформил',o.by],['Оплата',o.pay],['Способ выдачи',o.recv+(o.whole?', '+o.whole.toLowerCase():'')],o.recv==='Доставка'?['Адрес',o.addr]:null,['Накладная',o.inv],o.firm?['Фирма',o.firm]:null,o.note?['Примечание',o.note]:null].filter(Boolean);
-  let h='<div class="panel"><div class="panel-head"><div><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj)+(o.urgent?URG:'')+'</h2></div><span class="bdg"><span class="badge '+cls+'">'+esc(st)+'</span>'+dueBadge(o)+'</span></div>'+
+  let h='<div class="panel"><div class="panel-head"><div><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj)+(isNow(o)?NOWB:'')+(o.urgent?URG:'')+'</h2></div><span class="bdg"><span class="badge '+cls+'">'+esc(st)+'</span>'+dueBadge(o)+'</span></div>'+
     (OV.justCreated===o.id?'<div class="banner">Заказ сохранён. <button type="button" class="link" data-print="nar">Напечатать наряды</button> для офиса, склада и производства.</div>':'')+
     (OV.issuedNow!=null&&(o.iss||[])[OV.issuedNow]?'<div class="banner">Выдача записана, товар списан со склада. <button type="button" class="primary" style="margin-left:8px;padding:6px 14px;font-size:14px" data-print="act" data-k="'+OV.issuedNow+'">Печать акта выдачи</button></div>':'')+
     '<dl class="info">'+info.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v||'—')+'</dd>').join('')+'</dl>'+
@@ -1533,6 +1545,7 @@ function renderOrderDetail(){
       (!ro&&!o.cancel&&left?'<button type="button" class="'+(o.ready||o.stage!=='work'?'ghost':'primary')+'" id="o-ready">'+(o.ready?'Снять «готов»':'Отметить: готов')+'</button>':'')+
       (!ro&&!o.cancel&&left&&o.stage==='work'&&!o.ready?'<button type="button" class="ghost" id="o-unwork">Вернуть в новые</button>':'')+
       (chatLv('orders')!=='none'?'<button type="button" class="ghost" data-ask-o="'+esc(o.id)+'">💬 Спросить по заказу</button>':'')+
+      (!ro&&!o.cancel&&left?'<button type="button" class="'+(o.now?'ghost':'primary nowbtn')+'" id="o-now">'+(o.now?'Снять «Выдать сейчас»':'⚡ Выдать сейчас')+'</button>':'')+
       (!ro&&!o.cancel&&left?'<button type="button" class="ghost" id="o-urg">'+(o.urgent?'Снять «срочно»':'Пометить срочным')+'</button>':'')+
       (!RO('returns')&&(o.iss||[]).length?'<button type="button" class="ghost" id="o-ret">Оформить возврат</button>':'')+
       (!ro&&!(o.iss||[]).length?'<button type="button" class="ghost del" id="o-del">'+(o.cancel?'Удалить':'Отменить заказ')+'</button>':'')+
@@ -1552,6 +1565,7 @@ function renderOrderDetail(){
   on('o-work',async()=>{try{await db.doc('orders/'+o.id).update({stage:'work',work:{d:todayStr(),at:new Date().toISOString()}});toast('Заказ №'+o.no+' в работе');}catch(e){toast(dbErr(e));}});
   on('o-unwork',async()=>{try{await db.doc('orders/'+o.id).update({stage:'new',work:null,prod:{}});toast('Заказ снова в новых');}catch(e){toast(dbErr(e));}});
   on('o-ready',async()=>{try{await db.doc('orders/'+o.id).update(o.ready?{ready:null}:{ready:{d:todayStr(),at:new Date().toISOString()}});toast(o.ready?'Отметка «готов» снята':'Заказ готов, ждёт клиента');}catch(e){toast(dbErr(e));}});
+  on('o-now',async()=>{try{await db.doc('orders/'+o.id).update(o.now?{now:false}:{now:true,nowAt:new Date().toISOString(),nowBy:myName()});toast(o.now?'Отметка снята':'Отмечено «Выдать сейчас», всем отправлено уведомление');}catch(e){toast(dbErr(e));}});
   on('o-urg',async()=>{try{await db.doc('orders/'+o.id).update({urgent:!o.urgent});toast(o.urgent?'Отметка «срочно» снята':'Заказ помечен срочным');}catch(e){toast(dbErr(e));}});
   on('o-ret',()=>{go('returns');newReturn(o);});
   on('o-uncancel',async()=>{try{await db.doc('orders/'+o.id).update({cancel:false});toast('Заказ снова в работе');}catch(e){toast(dbErr(e));}});
@@ -2035,12 +2049,12 @@ function myName(){return S.myName||window.SKLAD_ME_NAME||S.names[S.me]||'';}
 function pordersView(p){return {controls(){},update(){
   const k=p==='p9'?'porders9':'porders';const ro=RO(k);
   const list=S.orders.filter(o=>{const g=orderGroup(o);if(g!=='new'&&g!=='work')return false;const ps=prodSt(o,p);return !ps.ready&&prodLines(o,p).some(l=>l.rest>1e-9);})
-    .sort((a,b)=>(b.urgent?1:0)-(a.urgent?1:0)||(a.due||'9').localeCompare(b.due||'9'));
+    .sort((a,b)=>(isNow(b)?1:0)-(isNow(a)?1:0)||(b.urgent?1:0)-(a.urgent?1:0)||(a.due||'9').localeCompare(b.due||'9'));
   resolveNames(list.map(o=>o.uid));
   let h='';
   if(!list.length)h='<div class="panel empty">'+(S.ordersLoaded?'Новых заказов и заказов в работе для '+(p==='p9'?'производства 9':'производства 11')+' нет.':'Загружаем…')+'</div>';
   for(const o of list){const ps=prodSt(o,p);const inWork=!!ps.work;const ds=dueState(o);
-    h+='<div class="panel" style="margin-bottom:12px"><div class="panel-head"><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj||'')+(o.urgent?URG:'')+'</h2><span class="bdg"><span class="badge '+(inWork?'part':'new')+'">'+(inWork?'В работе':'Новый')+'</span>'+(ds?'<span class="badge '+ds.k+'">'+esc(ds.t)+'</span>':'')+'</span></div>'+
+    h+='<div class="panel" style="margin-bottom:12px"><div class="panel-head"><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj||'')+(isNow(o)?NOWB:'')+(o.urgent?URG:'')+'</h2><span class="bdg"><span class="badge '+(inWork?'part':'new')+'">'+(inWork?'В работе':'Новый')+'</span>'+(ds?'<span class="badge '+ds.k+'">'+esc(ds.t)+'</span>':'')+'</span></div>'+
       '<p class="muted" style="margin:0 0 8px">Выдать до '+fmtDate(o.due)+(o.by?' · дал в работу: '+esc(o.by):'')+(inWork&&ps.work.name?' · принял: '+esc(ps.work.name)+' '+fmtDate(ps.work.d):'')+'</p><div class="tbl-wrap"><table><thead><tr><th>Товар</th><th>Размер</th><th class="num">Нужно</th><th class="num">Есть готового</th><th>Что делать</th></tr></thead><tbody>';
     for(const l of prodLines(o,p)){const it=l.it,rest=l.rest;if(rest<=1e-9)continue;const av=r2(availFinished(it));
       const act=av>=rest-1e-9?'<b>Собрать со склада</b>':av>0?'Собрать '+fmt(av)+', <b>произвести '+fmt(r2(rest-av))+'</b>':'<b>Произвести '+fmt(rest)+'</b>';
@@ -2731,17 +2745,31 @@ async function idToken(){try{return window.SKLAD_ID_TOKEN?await window.SKLAD_ID_
 async function pushSend(p){const c=pushCfg();if(!c||!c.url)return;try{const tok=await idToken();if(!tok)return;fetch(c.url+'/notify',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+tok},body:JSON.stringify(p)}).catch(()=>{});}catch(e){}}
 /* изменения заказов: свои отправляем другим как push, чужие показываем здесь */
 let ORD_PREV=null;
+/* голос «Выдать сейчас» внутри открытой программы (громкость — как у звука на устройстве) */
+function voiceOn(){try{return localStorage.getItem('sklad-nowvoice')!=='0';}catch(_){return true;}}
+function sayNow(o){if(!voiceOn()||!('speechSynthesis' in window))return;try{
+  const vs=speechSynthesis.getVoices().filter(v=>/^ru/i.test(v.lang));
+  const fem=vs.find(v=>/milena|katya|катя|alena|алёна|irina|ирина|female|женск|google русский|svetlana|светлана|dariya|дария/i.test(v.name))||vs[0];
+  const u=new SpeechSynthesisUtterance('Выдать сейчас.'+(o.no?' Заказ номер '+o.no+'.':''));u.lang='ru-RU';if(fem)u.voice=fem;u.rate=0.95;u.pitch=1.05;u.volume=1;
+  speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+/* iPhone разрешает голос только после первого касания — «разблокируем» его */
+document.addEventListener('click',function unlockTts(){document.removeEventListener('click',unlockTts,true);try{if('speechSynthesis' in window){const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}}catch(_){}},true);
+function nowBar(){const el=document.getElementById('nowbar');if(!el)return;const L=(S.orders||[]).filter(isNow).sort((a,b)=>(a.nowAt||'').localeCompare(b.nowAt||''));
+  el.hidden=!L.length;el.innerHTML=L.length?'<b>⚡ Выдать сейчас:</b> '+L.map(o=>'<button type="button" class="link" data-nowo="'+esc(o.id)+'">№'+esc(o.no)+(o.obj?' '+esc(o.obj):'')+'</button>').join(' · ')+'<span style="flex:1"></span><button type="button" class="link" data-nowv title="Голос «Выдать сейчас» в программе">'+(voiceOn()?'🔊 голос вкл.':'🔇 голос выкл.')+'</button>':'';}
+document.addEventListener('click',e=>{if(!(e.target.closest&&e.target.closest('[data-nowv]')))return;try{localStorage.setItem('sklad-nowvoice',voiceOn()?'0':'1');}catch(_){}nowBar();if(voiceOn())sayNow({no:''});});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-nowo]');if(!b)return;if(tabOk('orders')&&S.see.orders!==false){go('orders');openOrder(b.dataset.nowo);}else if(tabOk('porders'))go('porders');});
 function orderEvents(docs,changes){
   const prev=ORD_PREV;ORD_PREV=new Map(docs.map(o=>[o.id,o]));if(!prev)return;
   for(const ch of changes||[]){const o=ch.o;const p=prev.get(o.id);let t='';
-    if(ch.type==='added'&&!p)t='Новый заказ';
+    if(ch.type==='added'&&!p)t=o.now?'⚡ Выдать сейчас':'Новый заказ';
+    else if(ch.type==='modified'&&p&&!p.now&&o.now)t='⚡ Выдать сейчас';
     else if(ch.type==='modified'&&p){
       if(!p.cancel&&o.cancel)t='Заказ отменён';
       else if((o.iss||[]).length>(p.iss||[]).length)t=orderStatus(o)[1]==='ok'?'Заказ выдан полностью':'Выдана часть заказа';
       else if(!p.ready&&o.ready)t='Заказ готов';
       else if(p.stage!=='work'&&o.stage==='work')t='Заказ взят в работу';}
     if(!t)continue;const body='№'+o.no+(o.obj?' · '+o.obj:'');
-    if(ch.local)pushSend({kind:'order',order:o.id,title:t,body});else showNote(t,body,'orders');}
+    if(ch.local)pushSend({kind:'order',order:o.id,title:t,body});else{showNote(t,body,'orders');if(o.now&&t.indexOf('Выдать сейчас')>=0)sayNow(o);}}
 }
 
 /* ================= Печать бланков ================= */
@@ -2851,7 +2879,7 @@ function wirePrintBar(){
 /* ---- подписки на заказы и возвраты ---- */
 function subscribeOrders(){
   if(!(tabOk('orders')||tabOk('porders')||tabOk('grout')))S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;
-    try{const ch=s.docChanges?s.docChanges().map(c=>({type:c.type,local:c.doc.metadata&&c.doc.metadata.hasPendingWrites,o:{id:c.doc.id,...c.doc.data()}})):[];orderEvents(S.orders,ch);}catch(e){}render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
+    try{const ch=s.docChanges?s.docChanges().map(c=>({type:c.type,local:c.doc.metadata&&c.doc.metadata.hasPendingWrites,o:{id:c.doc.id,...c.doc.data()}})):[];orderEvents(S.orders,ch);}catch(e){}try{nowBar();}catch(e){}render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
   if(!tabOk('returns'))S.returnsLoaded=true;else db.collection('returns').onSnapshot(s=>{S.returns=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.returnsLoaded=true;render();},e=>{S.returnsLoaded=true;S.err=e&&e.code;render();});
   db.doc('config/lists').onSnapshot(s=>{S.lists=s.exists?s.data():null;},()=>{});
 }
