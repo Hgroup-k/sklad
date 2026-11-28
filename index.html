@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 12:24';</script>
-<script src="firebase-config.js?v=b6e4d749"></script>
-<script src="shim.js?v=b6e4d749"></script>
+<script>window.SKLAD_VERSION='28.11 12:32';</script>
+<script src="firebase-config.js?v=ab59a329"></script>
+<script src="shim.js?v=ab59a329"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -411,6 +411,9 @@ td.act button{font-size:13px;padding:3px 8px}
 .badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;align-self:start;border:1px solid var(--line);color:var(--muted)}
 .badge.new{color:var(--accent-ink);border-color:var(--accent);background:var(--accent-soft)}
 .badge.part{color:var(--fg);border-color:var(--muted)}
+.badge.pre{color:#6A3D9A;border-color:#B48CDB;background:rgba(150,100,210,.12)}
+.prebox{border:1px dashed #B48CDB;border-radius:10px;padding:10px 12px;margin:8px 0;background:rgba(150,100,210,.07)}
+.pastebox{border:1px dashed var(--muted);border-radius:10px;padding:10px;margin:8px 0}.pastebox textarea{width:100%;font:13px/1.35 ui-monospace,Menlo,Consolas,monospace}
 .badge.ok{color:var(--muted)}
 .badge.ready{color:#1f6b3f;border-color:#2f8f57;background:#e2f3e8}
 .badge.late{color:var(--danger);border-color:var(--danger);background:var(--danger-soft)}
@@ -602,7 +605,7 @@ const ALL=['','все'];
 
 /* ---------- state ---------- */
 const S={
-  catalog:null, plan:null, orders:[], returns:[], lists:null, ordersLoaded:false, returnsLoaded:false, monthOps:{}, watched:new Set(), pending:new Set(), firstLoad:true,
+  catalog:null, plan:null, orders:[], allOrders:[], preOrders:[], returns:[], lists:null, ordersLoaded:false, returnsLoaded:false, monthOps:{}, watched:new Set(), pending:new Set(), firstLoad:true,
   me:null, readOnly:false, can:{input:true,journal:true,orders:true,returns:true,plan:true,catalog:true,full:true}, see:{}, names:{}, view:'input', edit:null, err:null,
   f:{
     journal:{from:monthStart(),to:todayStr(),op:'',c:'',wh:'',q:''},
@@ -1333,7 +1336,7 @@ function dbErr(e){try{console.error('db error',e);}catch(_){}const c=String(e&&e
 function opRef(m,id){return m+'/'+id;}
 async function addOp(data){const m=data.d.slice(0,7);watchMonth(m,true);const ref=await db.collection('months/'+m+'/ops').add({...data,by:S.me||'',at:new Date().toISOString()});return opRef(m,ref.id);}
 async function delOpRef(ref){const [m,id]=String(ref).split('/');if(m&&id)await db.doc('months/'+m+'/ops/'+id).delete();}
-function itemOk(it){return it.c&&it.n&&(!cat(it.c).sizes.length||it.s)&&parseQ(it.q)>0;}
+function itemOk(it,pre){return it.c&&it.n&&(!cat(it.c).sizes.length||it.s)&&(pre||parseQ(it.q)>0);}
 function itemsTable(items,cols){
   let h='<div class="tbl-wrap"><table><thead><tr><th>Наименование</th><th>Размер</th>'+cols.map(c=>'<th class="num">'+esc(c[0])+'</th>').join('')+'<th>Ед.</th></tr></thead><tbody>';
   items.forEach((it,i)=>{h+='<tr><td>'+esc(it.n)+' <span class="muted">'+esc(it.c)+(it.pcs?' · '+it.pcs+' шт.':'')+'</span>'+(it.ex?EXB:'')+'</td><td>'+esc(it.s)+'</td>'+cols.map(c=>numCell(c[1](it,i),c[2])).join('')+'<td class="muted">'+esc(unit(it.c))+'</td></tr>';});
@@ -1361,7 +1364,7 @@ function itemRowsHtml(d,lockFn){
   const items=d.items;const p=d.pick||(d.pick={c:'',n:'',s:'',q:'',f:''});
   let h='<div class="lines">'+(items.length?items.map((it,i)=>{const lock=lockFn&&lockFn(i);const note=pcsNote(it);
     return '<div class="line" data-line="'+i+'"><div class="lname"><b>'+esc(it.n)+'</b>'+(it.s?' · '+esc(it.s):'')+' <span class="muted">'+esc(it.c)+'</span>'+(it.ex?EXB:'')+(note?'<br><small class="muted">'+esc(note)+'</small>':'')+'</div>'+
-      '<label class="fld"><span>'+esc(unit(it.c))+'</span><input data-lq inputmode="decimal" value="'+esc(String(it.q).replace('.',','))+'"></label>'+
+      '<label class="fld"><span>'+esc(unit(it.c))+'</span><input data-lq inputmode="decimal" value="'+esc(Number(it.q)>0||String(it.q).trim()!=='0'&&String(it.q).trim()!==''?String(it.q).replace('.',','):'')+'"'+(d.pre?' placeholder="?"':'')+'></label>'+
       (lock?'<span class="item-x muted" title="Уже выдано, строку не убрать">·</span>':'<button type="button" class="ghost item-x" data-rm="'+i+'" aria-label="Убрать строку">✕</button>')+'</div>';}).join('')
     :'<p class="muted" style="margin:0">Товар ещё не добавлен. Выберите его ниже.</p>')+'</div>';
   const names=p.c?cat(p.c).names:[];const sizes=p.c?cat(p.c).sizes:[];
@@ -1389,10 +1392,10 @@ function addPick(d){
   const p=d.pick;if(p){p.n=String(p.n||'').trim();p.s=String(p.s||'').trim();}
   if(!p||!p.c||!p.n)return p&&p.x?'Впишите вид камня.':'Выберите раздел и наименование.';
   if(cat(p.c).sizes.length&&!p.s)return 'Выберите или впишите размер.';
-  const q=parseQ(p.q);if(!(q>0))return 'Впишите '+(unit(p.c)==='м²'?'метраж':'количество')+' больше нуля.';
+  const q=parseQ(p.q);if(!(q>0)&&!(d.pre&&!String(p.q||'').trim()))return 'Впишите '+(unit(p.c)==='м²'?'метраж':'количество')+' больше нуля'+(d.pre?' или оставьте пустым, если клиент ещё не знает.':'.');
   const ex=d.items.find(it=>it.c===p.c&&it.n===p.n&&(it.s||'')===(p.s||''));
   if(ex){const a=pieceArea(p.c,p.s);const base=ex.pcs&&a?ex.pcs*a:parseQ(ex.q);const r=roundArea(p.c,p.s,base+q);ex.q=r.q;ex.pcs=r.pcs;}
-  else{const r=roundArea(p.c,p.s,q);const it={c:p.c,n:p.n,s:p.s||'',q:r.q,pcs:r.pcs};if(p.x||!cat(p.c).names.includes(p.n))it.ex=true;d.items.push(it);}
+  else{const r=q>0?roundArea(p.c,p.s,q):{q:0,pcs:0};const it={c:p.c,n:p.n,s:p.s||'',q:r.q,pcs:r.pcs};if(p.x||!cat(p.c).names.includes(p.n))it.ex=true;d.items.push(it);}
   p.n='';p.s='';p.q='';p.f='';p.x=false;return '';
 }
 function bindItems(el,d,rerender,errFn){
@@ -1417,11 +1420,11 @@ function bindItems(el,d,rerender,errFn){
   el.addEventListener('change',e=>{
     if(e.target.matches('[data-pn],[data-ps]')){if(!el.querySelector('[data-pq]'))rerender();return;}
     if(!e.target.matches('[data-lq]'))return;const row=e.target.closest('[data-line]');const it=d.items[Number(row.dataset.line)];if(!it)return;
-    const q=parseQ(e.target.value);if(!(q>0)){errFn('Количество должно быть больше нуля. Чтобы убрать строку, нажмите ✕.');return;}
+    const q=parseQ(e.target.value);if(!(q>0)&&d.pre){it.q=0;it.pcs=0;errFn('');rerender();return;}if(!(q>0)){errFn('Количество должно быть больше нуля. Чтобы убрать строку, нажмите ✕.');return;}
     errFn('');const r=roundArea(it.c,it.s,q);it.q=r.q;it.pcs=r.pcs;rerender();
   });
 }
-function pendingPick(d){const p=d.pick;return p&&String(p.n||'').trim()&&String(p.q||'').trim()?addPick(d):'';}
+function pendingPick(d){const p=d.pick;return p&&String(p.n||'').trim()&&(String(p.q||'').trim()||(d.pre&&p.c&&(!cat(p.c).sizes.length||String(p.s||'').trim())))?addPick(d):'';}
 const EXB=' <span class="badge late" style="font-size:11px;padding:0 6px">эксклюзив</span>';
 /* открытые заказы: сколько ещё выдать по каждому товару */
 function orderDemand(){const m=new Map();for(const o of S.orders){if(o.cancel)continue;(o.items||[]).forEach((it,i)=>{const rest=r2((Number(it.q)||0)-issuedQ(o,i));if(rest<=1e-9)return;const k=it.c+'\u0001'+it.n+'\u0001'+(it.s||'');let r=m.get(k);if(!r){r={c:it.c,n:it.n,s:it.s||'',q:0,nos:[],ex:false};m.set(k,r);}r.q=r2(r.q+rest);if(!r.nos.includes(o.no))r.nos.push(o.no);if(it.ex)r.ex=true;});}return m;}
@@ -1438,6 +1441,7 @@ function bindChips(root,obj,after){
 function issuedQ(o,i){let t=0;for(const s of o.iss||[])for(const l of s.lines||[])if(l.i===i)t+=Number(l.q)||0;return r2(t);}
 function orderStatus(o){
   if(o.cancel)return ['Отменён','muted'];
+  if(o.pre)return ['Предзаказ · думает','pre'];
   const items=o.items||[];
   const left=items.some((it,i)=>issuedQ(o,i)<(Number(it.q)||0)-1e-9);
   const any=(o.iss||[]).length>0;
@@ -1447,7 +1451,7 @@ function orderStatus(o){
   return [any?'В работе, часть выдана':'В работе','part'];
 }
 function workdaysLeft(due){const t=todayStr();if(!due)return 99;if(due<t)return -1;let k=0,d=t;while(d<due&&k<50){d=addWorkdays(d,1);k++;}return k;}
-function orderGroup(o){if(o.cancel)return 'cancel';const c=orderStatus(o)[1];if(c==='ok')return 'done';if(c==='ready')return 'ready';return o.stage!=='work'?'new':'work';}
+function orderGroup(o){if(o.cancel)return 'cancel';if(o.pre)return 'pre';const c=orderStatus(o)[1];if(c==='ok')return 'done';if(c==='ready')return 'ready';return o.stage!=='work'?'new':'work';}
 /* срок: отдельно от стадии. Только для новых и в работе */
 function dueState(o){const g=orderGroup(o);if((g!=='new'&&g!=='work')||!o.due)return null;const t=todayStr();
   if(o.due<t){const dd=Math.round((new Date(t)-new Date(o.due))/864e5);return {k:'late',r:0,t:'Просрочен '+dd+' дн.'};}
@@ -1457,14 +1461,70 @@ const URG=' <span class="badge late" style="font-size:11px;padding:0 6px">сро
 /* «Выдать сейчас»: активна, пока заказ не выдан и не отменён */
 function isNow(o){if(!o||!o.now||o.cancel)return false;const g=orderGroup(o);return g!=='done'&&g!=='cancel';}
 const NOWB=' <span class="badge nowb">⚡ ВЫДАТЬ СЕЙЧАС</span>';
-function nextNo(){let m=0;for(const o of S.orders){const n=parseInt(o.no,10);if(n>m)m=n;}return m?String(m+1):'';}
+const allOrd=()=>S.allOrders&&S.allOrders.length?S.allOrders:S.orders;
+function blankOrder(x){return {no:nextNo(),obj:'',cli:'',by:ls.get('o.by',''),pay:'',recv:'',whole:'Весь заказ сразу',addr:'',inv:'',firm:'',note:'',items:[],...(x||{})};}
+const PRE_V='Предзаказ: клиент думает';
+function nextNo(){let m=0;for(const o of allOrd()){const n=parseInt(o.no,10);if(n>m)m=n;}return m?String(m+1):'';}
 
+/* ---- вставка списка товара из таблицы (Excel, Word, сайт) ---- */
+const normSz=x=>String(x||'').toLowerCase().replace(/см|cm|mm|мм/g,'').replace(/\s+/g,'').replace(/[x×*х]/g,'х').replace(/\./g,',');
+const SZ_RE=/\d\s*[xX×*хХ]\s*\d/;
+function pasteResolve(name,art,size){
+  name=String(name||'').trim();art=String(art||'').trim();
+  let code=art?art.split(/\s+/)[0]:'';
+  if(!code){const m=/brick\s*mix\s*([\d\/]+)/i.exec(name);if(m)code='BRmix-'+m[1];}
+  if(!code){const nl=name.toLowerCase();let best='';for(const [k,v] of Object.entries(TITLES)){const t=v.toLowerCase();if((nl.includes(t)||t.includes(nl)&&nl.length>4)&&t.length>(TITLES[best]||'').length)best=k;}if(best)code=best;}
+  if(!code)code=name.split(/\s+/)[0]||name;
+  const cs=cats();const up=code.toUpperCase();const ns=normSz(size);
+  const hasN=c=>cat(c).names.find(n=>n.toUpperCase()===up);
+  const hasS=c=>cat(c).sizes.find(z=>normSz(z)===ns);
+  let c=cs.find(c=>hasN(c)&&(!ns||hasS(c)));
+  if(c)return {c,n:hasN(c),s:ns?hasS(c):'',found:true,src:name};
+  const c2=cs.find(c=>hasN(c));if(c2&&!cs.some(c=>ns&&hasS(c)))return {c:c2,n:hasN(c2),s:size,found:false,src:name};
+  c=cs.includes('Плитка')&&(!ns||hasS('Плитка'))?'Плитка':(cs.find(c=>ns&&hasS(c))||cs[0]);
+  return {c,n:code,s:ns?(hasS(c)||size):'',found:false,src:name};
+}
+function parseOrderTable(txt){
+  const lines=String(txt||'').replace(/\r/g,'').split('\n').filter(l=>l.trim());
+  let hi=lines.findIndex(l=>l.split('\t').some(x=>SZ_RE.test(x)&&!/^\s*\d+([.,]\d+)?\s*(м|m)/i.test(x)));
+  if(hi<0||hi>3)return {err:'Не нашёл строку с размерами (например «30 × 60 см»). Скопируйте таблицу вместе с первой строкой-заголовком.'};
+  const head=lines[hi].split('\t');
+  let ni=head.findIndex(h=>/наимен|назван|name|товар/i.test(h));if(ni<0)ni=0;
+  const ai=head.findIndex(h=>/артик|код|art|sku/i.test(h));
+  const cols=head.map((h,i)=>SZ_RE.test(h)?{i,s:h.replace(/см|cm/ig,'').trim().replace(/\s+/g,'')}:null).filter(Boolean);
+  const out=[];
+  for(const l of lines.slice(hi+1)){const c=l.split('\t');const name=(c[ni]||'').trim();if(!name)continue;
+    for(const col of cols){const v=String(c[col.i]||'').trim();if(!v)continue;const q=parseQ(v.replace(/[^\d.,]/g,''));if(!(q>0))continue;
+      out.push({...pasteResolve(name,ai>=0?c[ai]:'',col.s),q});}}
+  if(!out.length)return {err:'В таблице не нашёл количеств. В клетках под размерами должны быть числа, например «10 м²».'};
+  return {rows:out};
+}
+function pasteBoxHtml(d){const P=OV.paste;
+  if(!P)return '<p style="margin:0 0 8px"><button type="button" class="ghost" data-paste-open>📋 Вставить список из таблицы (Excel)</button></p>';
+  return '<div class="pastebox"><b>📋 Вставить список из таблицы</b><p class="hint" style="margin:4px 0">Выделите таблицу в Excel вместе с заголовком (Наименование, Артикул, размеры), нажмите Ctrl+C, затем щёлкните в поле ниже и нажмите Ctrl+V.</p>'+
+    '<textarea id="o-paste" rows="6" placeholder="Наименование	Артикул	30 × 60 см	60 × 120 см">'+esc(P.t||'')+'</textarea>'+
+    (P.msg?'<p class="'+(P.bad?'err':'note')+'" style="margin:6px 0">'+P.msg+'</p>':'')+
+    '<div class="actions" style="margin-top:6px"><button type="button" class="primary" data-paste-go>Добавить в заказ</button><button type="button" class="ghost" data-paste-x>Закрыть</button></div></div>';}
+function bindPaste(f,d){
+  f.addEventListener('input',e=>{if(e.target.id==='o-paste'&&OV.paste)OV.paste.t=e.target.value;});
+  f.addEventListener('click',e=>{
+    if(e.target.closest('[data-paste-open]')){readHead(f,d);OV.paste={t:''};renderOrderEditor();const t=$('o-paste');if(t)t.focus();return;}
+    if(e.target.closest('[data-paste-x]')){readHead(f,d);OV.paste=null;renderOrderEditor();return;}
+    if(e.target.closest('[data-paste-go]')){readHead(f,d);const P=OV.paste;const r=parseOrderTable(P.t);
+      if(r.err){P.msg=esc(r.err);P.bad=true;renderOrderEditor();return;}
+      const miss=[];let n=0;const keep=d.pick;
+      for(const x of r.rows){d.pick={c:x.c,n:x.n,s:x.s,q:String(x.q).replace('.',','),x:!x.found};const m=addPick(d);if(!m){n++;if(!x.found)miss.push(x.src+' → '+x.n+(x.s?' '+x.s:''));}else miss.push(x.src+': '+m);}
+      d.pick=keep&&keep.c?keep:{c:'',n:'',s:'',q:'',f:''};
+      P.t='';P.bad=false;P.msg='Добавлено строк: <b>'+n+'</b>. Метраж округлён до целых плиток.'+(miss.length?'<br>Нет в справочнике, добавлены как <b>эксклюзив</b> (проверьте): '+miss.map(esc).join('; '):'');
+      renderOrderEditor();return;}
+  });
+}
 /* ---- Заказы: вид ---- */
 const OV={sel:null,mode:'list',draft:null,iss:null,q:'',flt:'all'};
 VIEWS.orders={
   controls(){
     $('orders-f').innerHTML='<label class="fld wide"><span>Поиск: №, объект, фирма, товар</span><input type="text" id="o-q" value="'+esc(OV.q)+'"></label>'+
-      '<label class="fld"><span>Показать</span><select id="o-flt">'+[['all','Все по разделам'],['open','Не выданные'],['hot','Горит и просроченные'],['new','Новые'],['work','В работе'],['ready','Готовы к выдаче'],['done','Выданные'],['cancel','Отменённые']].map(x=>opt(x[0],x[1],OV.flt)).join('')+'</select></label>'+
+      '<label class="fld"><span>Показать</span><select id="o-flt">'+[['all','Все по разделам'],['pre','Предзаказы (думают)'],['open','Не выданные'],['hot','Горит и просроченные'],['new','Новые'],['work','В работе'],['ready','Готовы к выдаче'],['done','Выданные'],['cancel','Отменённые']].map(x=>opt(x[0],x[1],OV.flt)).join('')+'</select></label>'+
       (RO('orders')?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" id="o-new">Новый заказ</button></label>');
     $('o-q').oninput=e=>{OV.q=e.target.value;this.list();};
     $('o-flt').onchange=e=>{OV.flt=e.target.value;this.list();};
@@ -1473,8 +1533,9 @@ VIEWS.orders={
   update(){this.list();if(OV.mode==='view')renderOrderDetail();if(OV.mode==='list')renderOrderEmpty();},
   list(){
     const q=OV.q.toLowerCase();
-    let list=S.orders.filter(o=>{
+    let list=allOrd().filter(o=>{
       const g=orderGroup(o);
+      if(OV.flt==='pre'&&g!=='pre')return false;
       if(OV.flt==='open'&&g!=='new'&&g!=='work'&&g!=='ready')return false;
       if(OV.flt==='new'&&g!=='new')return false;
       if(OV.flt==='work'&&g!=='work')return false;
@@ -1483,11 +1544,11 @@ VIEWS.orders={
       if(OV.flt==='done'&&g!=='done')return false;
       if(OV.flt==='cancel'&&g!=='cancel')return false;
       if(!q)return true;
-      return [o.no,o.obj,o.firm,o.note,...(o.items||[]).map(i=>i.n)].some(x=>String(x||'').toLowerCase().includes(q));
+      return [o.no,o.obj,o.cli,o.firm,o.note,...(o.items||[]).map(i=>i.n)].some(x=>String(x||'').toLowerCase().includes(q));
     }).sort((a,b)=>(b.d||'').localeCompare(a.d||'')||(parseInt(b.no,10)||0)-(parseInt(a.no,10)||0));
     const el=$('orders-list');
     if(!list.length){el.innerHTML='<div class="empty">'+(S.ordersLoaded?(S.orders.length?'По этим условиям заказов нет.':'Заказов пока нет.'+(RO('orders')?'':' Нажмите «Новый заказ».')):'Загружаем…')+'</div>';return;}
-    const SEC=[['new','Новые'],['work','В работе'],['ready','Готовы, ждут клиента'],['done','Выданные'],['cancel','Отменённые']];
+    const SEC=[['pre','🤔 Предзаказы: клиент думает'],['new','Новые'],['work','В работе'],['ready','Готовы, ждут клиента'],['done','Выданные'],['cancel','Отменённые']];
     const rk=o=>{const d=dueState(o);return d?d.r:(o.urgent?2:3);};
     const byDue=(a,b)=>(isNow(b)?1:0)-(isNow(a)?1:0)||rk(a)-rk(b)||(b.urgent?1:0)-(a.urgent?1:0)||(a.due||'9').localeCompare(b.due||'9')||(parseInt(a.no,10)||0)-(parseInt(b.no,10)||0);
     const byNew=(a,b)=>(b.d||'').localeCompare(a.d||'')||(parseInt(b.no,10)||0)-(parseInt(a.no,10)||0);
@@ -1503,14 +1564,14 @@ VIEWS.orders={
       return '<button type="button" class="rec'+(OV.sel===o.id?' sel':'')+'" data-order="'+esc(o.id)+'"><span class="d">№'+esc(o.no)+'</span><span class="t"><div>'+esc(o.obj||'без объекта')+'</div><small>'+fmtDate(o.d).slice(0,5)+(o.due?' · до '+fmtDate(o.due).slice(0,5):'')+' · '+n+' поз.'+(o.recv?' · '+esc(o.recv.toLowerCase()):'')+'</small></span><span class="badge '+cls+'">'+esc(st)+'</span></button>';}).join('');
   }
 };
-function curOrder(){return S.orders.find(o=>o.id===OV.sel)||null;}
+function curOrder(){return allOrd().find(o=>o.id===OV.sel)||null;}
 function renderOrderEmpty(){$('orders-d').innerHTML='<div class="panel empty">Выберите заказ слева'+(RO('orders')?'.':' или нажмите «Новый заказ».')+'</div>';}
 function openOrder(id){if(id!==OV.sel){OV.justCreated=null;OV.issuedNow=null;}OV.sel=id;OV.mode='view';VIEWS.orders.list();renderOrderDetail();if(window.innerWidth<900)$('orders-d').scrollIntoView({behavior:'smooth',block:'start'});}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-order]');if(b)openOrder(b.dataset.order);});
 
 function newOrder(from){
   OV.sel=null;OV.mode='edit';
-  OV.draft=from?JSON.parse(JSON.stringify(from)):{no:nextNo(),obj:'',by:ls.get('o.by',''),pay:'',recv:'',whole:'Весь заказ сразу',addr:'',inv:'',firm:'',note:'',items:[]};
+  OV.draft=from?JSON.parse(JSON.stringify(from)):blankOrder();OV.paste=null;
   VIEWS.orders.list();renderOrderEditor();
 }
 function renderOrderEditor(){
@@ -1520,11 +1581,14 @@ function renderOrderEditor(){
   if(!d.dueManual||!d.due)d.due=addWorkdays(d.d,10);
   const today=d.d,due=d.due;
   const issuedIdx=new Set();if(editing){const o=curOrder();if(o)(o.items||[]).forEach((_,i)=>{if(issuedQ(o,i)>0)issuedIdx.add(i);});}
-  const h='<div class="panel"><div class="panel-head"><h2>'+(editing?'Заказ №'+esc(d.no)+': изменение':'Новый заказ')+'</h2><button type="button" class="link" id="o-cancel">Отмена</button></div>'+
+  const pre=!!d.pre;
+  const h='<div class="panel"><div class="panel-head"><h2>'+(d.conv?'Предзаказ №'+esc(d.no)+' → заказ':pre?(editing?'Предзаказ №'+esc(d.no):'Новый предзаказ'):(editing?'Заказ №'+esc(d.no)+': изменение':'Новый заказ'))+'</h2><button type="button" class="link" id="o-cancel">Отмена</button></div>'+
     '<form id="o-form" class="oform" novalidate autocomplete="off">'+
     '<div class="row3">'+fld('Заказ №',inp('no',d.no,' inputmode="numeric"'))+fld('Дата заказа','<input type="date" data-in="d" value="'+esc(today)+'" max="'+todayStr()+'">')+fld('Выдать до <i class="opt">'+(d.dueManual?'вручную':'+10 раб. дней')+'</i>','<input type="date" data-in="due" value="'+esc(due)+'">')+'</div>'+
+    (d.conv?'<div class="banner">Клиент решил. Проверьте метраж, оплату и выдачу, затем нажмите «Оформить заказ». Предзаказ станет обычным заказом и уйдёт на склад и в производство.</div>':fld('Вид',chipsHtml('pre',[PRE_V],pre?PRE_V:'')))+
+    (pre?'<p class="prebox">🤔 <b>Предзаказ.</b> Клиент выбрал товар, но ещё думает. Метраж, оплату, выдачу и накладную можно не указывать. Предзаказ <b>не идёт</b> в производство, на склад и водителю. Когда клиент решит, откройте его и нажмите «✅ Клиент решил: оформить заказ».</p>':
     fld('Срочность',chipsHtml('urgent',['Срочный заказ'],d.urgent?'Срочный заказ':''))+
-    fld('Выдача',chipsHtml('now',['⚡ Выдать сейчас'],d.now?'⚡ Выдать сейчас':''))+
+    fld('Выдача',chipsHtml('now',['⚡ Выдать сейчас'],d.now?'⚡ Выдать сейчас':'')))+
     fld('Название объекта',inp('obj',d.obj))+
     '<div class="row2">'+fld('Клиент <i class="opt">для карточки клиента и долгов</i>',inp('cli',d.cli,' list="cli-list"')+'<datalist id="cli-list">'+cliAll().map(c=>'<option value="'+esc(c.n)+'">').join('')+'</datalist>')+fld('Сумма заказа, лей <i class="opt">если известна</i>',inp('total',d.total!=null&&d.total!==''?String(d.total).replace('.',','):'',' inputmode="decimal"'))+'</div>'+
     fld('Оформил',chipsHtml('by',staff(),d.by))+
@@ -1534,9 +1598,9 @@ function renderOrderEditor(){
     fld('Накладная',chipsHtml('inv',INV,d.inv))+
     fld('Название фирмы'+(isFact(d.inv)?'':' <i class="opt">если нужно</i>'),inp('firm',d.firm))+
     fld('Примечание',inp('note',d.note))+
-    '<h3 style="margin-top:6px">Товар</h3><div id="o-items">'+itemRowsHtml(d,i=>issuedIdx.has(i))+'</div>'+
+    '<h3 style="margin-top:6px">Товар</h3>'+pasteBoxHtml(d)+'<div id="o-items">'+itemRowsHtml(d,i=>issuedIdx.has(i))+'</div>'+
     '<p class="err" id="o-err" hidden></p>'+
-    '<div class="actions"><button type="submit" class="primary" id="o-save">'+(editing?'Сохранить изменения':'Сохранить заказ')+'</button>'+(editing?'':'<span class="muted" style="font-size:13px">После сохранения можно сразу напечатать наряды.</span>')+'</div>'+
+    '<div class="actions"><button type="submit" class="primary" id="o-save">'+(d.conv?'✅ Оформить заказ':pre?'Сохранить предзаказ':editing?'Сохранить изменения':'Сохранить заказ')+'</button>'+(editing?'':'<span class="muted" style="font-size:13px">После сохранения можно сразу напечатать наряды.</span>')+'</div>'+
     '</form></div>';
   $('orders-d').innerHTML=h;
   const f=$('o-form');
@@ -1546,6 +1610,7 @@ function renderOrderEditor(){
     if(k==='d'&&!d.d)d.d=todayStr();
     renderOrderEditor();});
   bindItems($('o-items'),d,()=>{readHead(f,d);renderOrderEditor();},oErr);
+  bindPaste(f,d);
   f.addEventListener('submit',saveOrder);
   $('o-cancel').onclick=()=>{if(d.id)openOrder(d.id);else{OV.mode='list';OV.draft=null;renderOrderEmpty();}};
 }
@@ -1558,31 +1623,33 @@ async function saveOrder(ev){
   const items=d.items;
   let err='';
   if(!d.no)err='Впишите номер заказа.';
-  else if(S.orders.some(o=>String(o.no)===String(d.no)&&o.id!==d.id))err='Заказ №'+d.no+' уже есть. Проверьте номер.';
+  else if(allOrd().some(o=>String(o.no)===String(d.no)&&o.id!==d.id)){const x=allOrd().find(o=>String(o.no)===String(d.no)&&o.id!==d.id);err=(x.pre?'Предзаказ':'Заказ')+' №'+d.no+' уже есть ('+(x.obj||x.cli||'')+'). Впишите другой номер.';}
   else if(!d.d)err='Укажите дату заказа.';
   else if(d.d>todayStr())err='Дата заказа не может быть в будущем.';
   else if(!d.due||d.due<d.d)err='Срок «выдать до» не может быть раньше даты заказа.';
-  else if(!d.obj)err='Впишите название объекта.';
+  else if(d.pre&&!d.obj&&!d.cli)err='Впишите клиента или название объекта.';
+  else if(!d.pre&&!d.obj)err='Впишите название объекта.';
   else if(!d.by)err='Выберите, кто оформил.';
+  else if(d.pre){if(!items.length)err='Добавьте хотя бы один товар, который выбрал клиент.';}
   else if(!d.pay)err='Выберите оплату.';
   else if(!d.recv)err='Выберите способ выдачи.';
   else if(d.recv==='Доставка'&&!d.addr)err='Впишите адрес доставки.';
   else if(!d.inv)err='Выберите накладную.';
   else if(isFact(d.inv)&&!d.firm)err='Для е-фактуры впишите название фирмы.';
   else if(!items.length)err='Добавьте хотя бы один товар.';
-  else{const bad=items.findIndex(it=>!itemOk(it));if(bad>=0)err='Строка '+(bad+1)+': проверьте количество.';}
+  else{const bad=items.findIndex(it=>!itemOk(it,d.pre));if(bad>=0)err='Строка '+(bad+1)+(parseQ(items[bad].q)>0?': проверьте количество.':': впишите '+(unit(items[bad].c)==='м²'?'метраж':'количество')+'.');}
   oErr(err);if(err)return;
   const clean=items.map(it=>({c:it.c,n:it.n,s:it.s||'',q:r2(parseQ(it.q)),pcs:it.pcs||0,...(it.ex?{ex:true}:{})}));
   if(d.id){const o=curOrder();if(o){const bad=clean.findIndex((it,i)=>it.q<issuedQ(o,i)-1e-9);if(bad>=0){oErr('Строка '+(bad+1)+': уже выдано '+fmt(issuedQ(o,bad))+', заказать меньше нельзя.');return;}}}
   if(!db){oErr('Нет связи с базой. Обновите страницу.');return;}
-  const data={no:String(d.no),d:d.d,due:d.due,urgent:!!d.urgent,now:!!d.now,...(d.now&&!d.nowAt?{nowAt:new Date().toISOString(),nowBy:myName()}:{}),obj:d.obj,cli:(d.cli||'').trim(),...(String(d.total||'').trim()!==''&&parseQ(d.total)>=0?{total:r2(parseQ(d.total))}:{}),by:d.by,pay:d.pay,recv:d.recv,addr:d.recv==='Доставка'?d.addr:'',whole:d.whole||'',inv:d.inv,firm:d.firm||'',note:d.note||'',items:clean};
+  const data={no:String(d.no),d:d.d,due:d.due,urgent:!!d.urgent,now:!!d.now,...(d.now&&!d.nowAt?{nowAt:new Date().toISOString(),nowBy:myName()}:{}),obj:d.obj||(d.cli||'').trim(),cli:(d.cli||'').trim(),pre:!!d.pre,...(String(d.total||'').trim()!==''&&parseQ(d.total)>=0?{total:r2(parseQ(d.total))}:{}),by:d.by,pay:d.pay,recv:d.recv,addr:d.recv==='Доставка'?d.addr:'',whole:d.whole||'',inv:d.inv,firm:d.firm||'',note:d.note||'',items:clean};
   oSaving=true;$('o-save').disabled=true;
   try{
     ls.set('o.by',d.by);
-    if(d.id){await db.doc('orders/'+d.id).update({...data,editedAt:new Date().toISOString()});toast('Заказ №'+data.no+' сохранён');openOrder(d.id);if(data.recv==='Доставка')dlvTask({...data,id:d.id});}
+    if(d.id){await db.doc('orders/'+d.id).update({...data,...(d.conv?{convAt:new Date().toISOString(),convBy:myName()}:{}),editedAt:new Date().toISOString()});toast((data.pre?'Предзаказ №':'Заказ №')+data.no+(d.conv?' оформлен как заказ':' сохранён'));openOrder(d.id);if(!data.pre&&data.recv==='Доставка')dlvTask({...data,id:d.id});}
     else{
       const ref=await db.collection('orders').add({...data,stage:'new',iss:[],uid:S.me||'',at:new Date().toISOString()});
-      toast('Заказ №'+data.no+' сохранён');OV.pending=ref.id;openOrder(ref.id);OV.justCreated=ref.id;if(data.recv==='Доставка')dlvTask({...data,id:ref.id});
+      toast((data.pre?'Предзаказ №':'Заказ №')+data.no+' сохранён');OV.pending=ref.id;openOrder(ref.id);if(!data.pre)OV.justCreated=ref.id;if(!data.pre&&data.recv==='Доставка')dlvTask({...data,id:ref.id});
     }
   }catch(e){oErr(dbErr(e));}
   finally{oSaving=false;const b=$('o-save');if(b)b.disabled=false;}
@@ -1593,12 +1660,14 @@ function renderOrderDetail(){
   const left=(o.items||[]).some((it,i)=>issuedQ(o,i)<(Number(it.q)||0)-1e-9);
   const info=[o.cli?['Клиент',o.cli]:null,['Дата',fmtDate(o.d)],['Выдать до',fmtDate(o.due)],o.work&&o.work.d?['В работе с',fmtDate(o.work.d)]:null,o.ready?['Готов с',fmtDate(o.ready.d)]:null,['Оформил',o.by],['Оплата',o.pay],['Способ выдачи',o.recv+(o.whole?', '+o.whole.toLowerCase():'')],o.recv==='Доставка'?['Адрес',o.addr]:null,['Накладная',o.inv],o.firm?['Фирма',o.firm]:null,o.note?['Примечание',o.note]:null].filter(Boolean);
   let h='<div class="panel"><div class="panel-head"><div><h2>Заказ №'+esc(o.no)+' · '+esc(o.obj)+(isNow(o)?NOWB:'')+(o.urgent?URG:'')+'</h2></div><span class="bdg"><span class="badge '+cls+'">'+esc(st)+'</span>'+dueBadge(o)+'</span></div>'+
+    (o.pre?'<p class="prebox">🤔 <b>Предзаказ: клиент думает.</b> Он не идёт в производство, на склад и водителю. Когда клиент решит, нажмите «✅ Клиент решил: оформить заказ» и впишите метраж.</p>':'')+
     (OV.justCreated===o.id?'<div class="banner">Заказ сохранён. <button type="button" class="link" data-print="nar">Напечатать наряды</button> для офиса, склада и производства.</div>':'')+
     (OV.issuedNow!=null&&(o.iss||[])[OV.issuedNow]?'<div class="banner">Выдача записана, товар списан со склада. <button type="button" class="primary" style="margin-left:8px;padding:6px 14px;font-size:14px" data-print="act" data-k="'+OV.issuedNow+'">Печать акта выдачи</button></div>':'')+
     '<dl class="info">'+info.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v||'—')+'</dd>').join('')+'</dl>'+
     itemsTable(o.items||[],[['Заказано',it=>it.q],['Выдано',(it,i)=>issuedQ(o,i)],['Осталось',(it,i)=>Math.max(0,r2(it.q-issuedQ(o,i))),'b'],['На складе',it=>balanceOf({c:it.c,n:it.n,s:it.s||''})]])+
-    (()=>{if(o.cancel)return '';const dm=orderDemand();const short=(o.items||[]).filter((it,i)=>{const rest=r2(it.q-issuedQ(o,i));if(rest<=1e-9)return false;const r=dm.get(it.c+'\u0001'+it.n+'\u0001'+(it.s||''));return r&&r.q>balanceOf({c:it.c,n:it.n,s:it.s||''})+1e-9;});return short.length?'<p class="note">Не хватает на складе: '+short.map(it=>esc(it.n)+(it.s?' '+esc(it.s):'')).join(', ')+'. Это уже в плане производства. <button type="button" class="link" data-go="plan">Открыть план</button></p>':'';})()+
+    (()=>{if(o.cancel||o.pre)return '';const dm=orderDemand();const short=(o.items||[]).filter((it,i)=>{const rest=r2(it.q-issuedQ(o,i));if(rest<=1e-9)return false;const r=dm.get(it.c+'\u0001'+it.n+'\u0001'+(it.s||''));return r&&r.q>balanceOf({c:it.c,n:it.n,s:it.s||''})+1e-9;});return short.length?'<p class="note">Не хватает на складе: '+short.map(it=>esc(it.n)+(it.s?' '+esc(it.s):'')).join(', ')+'. Это уже в плане производства. <button type="button" class="link" data-go="plan">Открыть план</button></p>':'';})()+
     '<div class="actions" style="margin-top:14px">'+
+      (o.pre?(!ro&&!o.cancel?'<button type="button" class="primary" id="o-conv">✅ Клиент решил: оформить заказ</button>':'')+(!ro?'<button type="button" class="ghost" id="o-edit">Изменить</button>':'')+(chatLv('orders')!=='none'?'<button type="button" class="ghost" data-ask-o="'+esc(o.id)+'">💬 Спросить по заказу</button>':'')+(!ro?'<button type="button" class="ghost del" id="o-del">'+(o.cancel?'Удалить':'Клиент отказался')+'</button>':'')+(!ro&&o.cancel?'<button type="button" class="ghost" id="o-uncancel">Вернуть</button>':''):
       '<button type="button" class="ghost" data-print="nar">Печать нарядов</button>'+
       (!ro&&left&&!o.cancel?'<button type="button" class="primary" id="o-issue">Выдать</button>':'')+
       (!ro?'<button type="button" class="ghost" id="o-edit">Изменить</button>':'')+
@@ -1610,7 +1679,7 @@ function renderOrderDetail(){
       (!ro&&!o.cancel&&left?'<button type="button" class="ghost" id="o-urg">'+(o.urgent?'Снять «срочно»':'Пометить срочным')+'</button>':'')+
       (!RO('returns')&&(o.iss||[]).length?'<button type="button" class="ghost" id="o-ret">Оформить возврат</button>':'')+
       (!ro&&!(o.iss||[]).length?'<button type="button" class="ghost del" id="o-del">'+(o.cancel?'Удалить':'Отменить заказ')+'</button>':'')+
-      (!ro&&o.cancel?'<button type="button" class="ghost" id="o-uncancel">Вернуть в работу</button>':'')+
+      (!ro&&o.cancel?'<button type="button" class="ghost" id="o-uncancel">Вернуть в работу</button>':''))+
     '</div>'+(tabOk('orders')?payPanel(o,ro):'');
   const iss=o.iss||[];
   if(iss.length){
@@ -1621,8 +1690,9 @@ function renderOrderDetail(){
   h+='</div>';
   $('orders-d').innerHTML=h;
   const on=(id,fn)=>{const b=$(id);if(b)b.onclick=fn;};
-  on('o-edit',()=>{OV.draft={...JSON.parse(JSON.stringify(o)),dueManual:null,items:(o.items||[]).map(it=>({...it,q:String(it.q).replace('.',',')}))};OV.mode='edit';renderOrderEditor();});
+  on('o-edit',()=>{OV.paste=null;OV.draft={...JSON.parse(JSON.stringify(o)),pre:o.pre?PRE_V:'',dueManual:null,items:(o.items||[]).map(it=>({...it,q:String(it.q).replace('.',',')}))};OV.mode='edit';renderOrderEditor();});
   on('o-issue',()=>startIssue(o));
+  on('o-conv',()=>{const dr=JSON.parse(JSON.stringify(o));OV.draft={...dr,pre:'',conv:true,d:todayStr(),due:'',dueManual:null,items:(o.items||[]).map(it=>({...it,q:Number(it.q)>0?String(it.q).replace('.',','):''}))};OV.paste=null;OV.mode='edit';renderOrderEditor();oErr('');});
   on('o-work',async()=>{try{await db.doc('orders/'+o.id).update({stage:'work',work:{d:todayStr(),at:new Date().toISOString()}});toast('Заказ №'+o.no+' в работе');}catch(e){toast(dbErr(e));}});
   on('o-unwork',async()=>{try{await db.doc('orders/'+o.id).update({stage:'new',work:null,prod:{}});toast('Заказ снова в новых');}catch(e){toast(dbErr(e));}});
   on('o-ready',async()=>{try{await db.doc('orders/'+o.id).update(o.ready?{ready:null}:{ready:{d:todayStr(),at:new Date().toISOString()}});toast(o.ready?'Отметка «готов» снята':'Заказ готов, ждёт клиента');}catch(e){toast(dbErr(e));}});
@@ -2638,7 +2708,7 @@ async function fullBackupData(){
   const col=async p=>{try{const q=await rawdb.collection(p).get();return q.docs.map(d=>({id:d.id,...d.data()}));}catch(e){return null;}};
   const doc=async p=>{try{const s=await rawdb.doc(p).get();return s.exists?s.data():null;}catch(e){return null;}};
   const [tasks,matops,buy,qc,clients,mats,taskSees]=await Promise.all([col('tasks'),col('matops'),col('buy'),col('qc'),col('clients'),doc('config/mats'),doc('config/taskSees')]);
-  return {v:2,at:new Date().toISOString(),catalog:S.catalog,plan:S.plan||null,lists:S.lists||null,orders:S.orders.map(o=>({...o})),returns:S.returns.map(r=>({...r})),ops,tasks,matops,buy,qc,clients,mats,taskSees};}
+  return {v:2,at:new Date().toISOString(),catalog:S.catalog,plan:S.plan||null,lists:S.lists||null,orders:allOrd().map(o=>({...o})),returns:S.returns.map(r=>({...r})),ops,tasks,matops,buy,qc,clients,mats,taskSees};}
 async function fileBackup(manual){if(!dl||!rawdb)return;try{const snap=await fullBackupData();const t=new Date();
   await dl.save({filename:'Общий учёт копия '+t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate())+'.json',data:JSON.stringify(snap)});ls.set('bk.file',todayStr());if(manual)toast('Копия скачана в папку «Загрузки»');if(S.view==='home')VIEWS.home.update();}
   catch(e){if(manual)toast('Не удалось сохранить копию');}}
@@ -2656,9 +2726,9 @@ const cliKey=s=>String(s||'').trim().toLowerCase();
 function orderCli(o){return o.cli||o.firm||o.obj||'';}
 function paidSum(o){return r2((o.pays||[]).reduce((a,p)=>a+(Number(p.sum)||0),0));}
 function payState(o){const t=Number(o.total)||0,p=paidSum(o);if(o.cancel)return null;if(!t&&!p)return null;if(t&&p>=t-0.005)return ['оплачен','ok'];if(p>0)return ['частично','part'];return ['долг','late'];}
-function debtOf(o){if(o.cancel)return 0;const t=Number(o.total)||0;return t?Math.max(0,r2(t-paidSum(o))):0;}
+function debtOf(o){if(o.cancel||o.pre)return 0;const t=Number(o.total)||0;return t?Math.max(0,r2(t-paidSum(o))):0;}
 const money=x=>fmt(x)+' лей';
-function cliOrders(c){const ks=new Set([cliKey(c.n),cliKey(c.firm)].filter(Boolean));return S.orders.filter(o=>ks.has(cliKey(o.cli))||ks.has(cliKey(o.firm))||ks.has(cliKey(o.obj)));}
+function cliOrders(c){const ks=new Set([cliKey(c.n),cliKey(c.firm)].filter(Boolean));return allOrd().filter(o=>ks.has(cliKey(o.cli))||ks.has(cliKey(o.firm))||ks.has(cliKey(o.obj)));}
 function payPanel(o,ro){const st=payState(o);const t=Number(o.total)||0;const p=paidSum(o);
   return '<div class="panel" style="margin-top:12px"><div class="panel-head"><h3>💰 Оплата</h3>'+(st?'<span class="badge '+st[1]+'">'+st[0]+'</span>':'')+'</div>'+
     '<p style="margin:0 0 8px">Сумма заказа: <b>'+(t?money(t):'не указана')+'</b> · оплачено: <b>'+money(p)+'</b>'+(t?' · долг: <b class="'+(debtOf(o)>0?'warn':'')+'">'+money(debtOf(o))+'</b>':'')+'</p>'+
@@ -2674,7 +2744,7 @@ document.addEventListener('click',async e=>{const t=e.target;let b;
 });
 /* клиенты: из справочника клиентов и из названий в заказах */
 function cliAll(){const m=new Map();for(const c of CL.list)m.set(cliKey(c.n),{...c});
-  for(const o of S.orders){const n=orderCli(o);const k=cliKey(n);if(!k)continue;if(![...m.values()].some(c=>cliKey(c.n)===k||cliKey(c.firm)===k))m.set(k,{n,auto:true});}
+  for(const o of allOrd()){const n=orderCli(o);const k=cliKey(n);if(!k)continue;if(![...m.values()].some(c=>cliKey(c.n)===k||cliKey(c.firm)===k))m.set(k,{n,auto:true});}
   return [...m.values()].sort((a,b)=>String(a.n).localeCompare(String(b.n),'ru'));}
 VIEWS.clients={controls(){subscribeClients();},update(){
   const el=$('clients-b');if(!el)return;if(el.querySelector('.clform')&&document.activeElement&&el.contains(document.activeElement))return;
@@ -2683,24 +2753,28 @@ VIEWS.clients={controls(){subscribeClients();},update(){
     [['n','Имя / название'],['phone','Телефон'],['email','Почта'],['firm','Фирма'],['addr','Адрес']].map(([k,l])=>'<label class="fld"><span>'+l+'</span><input type="text" data-cf="'+k+'" value="'+esc(f[k]||'')+'"></label>').join('')+
     '</div><label class="fld"><span>Заметки</span><textarea data-cf="note" rows="2" style="width:100%">'+esc(f.note||'')+'</textarea></label><p class="err" id="cl-err" hidden></p><div class="actions"><button type="button" class="primary" data-cl-save>Сохранить</button><button type="button" class="ghost" data-cl-x>Отмена</button>'+(f.id?'<button type="button" class="ghost danger" data-cl-del>Удалить</button>':'')+'</div></div>';return;}
   const all=cliAll();const q=cliKey(CL.q);
-  const rows=all.map(c=>{const os=cliOrders(c);const debt=r2(os.reduce((a,o)=>a+debtOf(o),0));const tot=r2(os.reduce((a,o)=>a+(o.cancel?0:(Number(o.total)||0)),0));return {c,os,debt,tot};})
-    .filter(r=>(!q||(r.c.n+' '+(r.c.phone||'')+' '+(r.c.firm||'')).toLowerCase().includes(q))&&(CL.f!=='debt'||r.debt>0));
+  const rows=all.map(c=>{const os0=cliOrders(c);const os=os0.filter(o=>!o.pre);const pres=os0.filter(o=>o.pre&&!o.cancel);const debt=r2(os.reduce((a,o)=>a+debtOf(o),0));const tot=r2(os.reduce((a,o)=>a+(o.cancel?0:(Number(o.total)||0)),0));return {c,os,pres,debt,tot};})
+    .filter(r=>(!q||(r.c.n+' '+(r.c.phone||'')+' '+(r.c.firm||'')).toLowerCase().includes(q))&&(CL.f!=='debt'||r.debt>0)&&(CL.f!=='pre'||r.pres.length));
   const sumDebt=r2(all.reduce((a,c)=>a+cliOrders(c).reduce((x,o)=>x+debtOf(o),0),0));
-  let h='<div class="filters"><label class="fld"><span>Поиск</span><input type="text" id="cl-q" value="'+esc(CL.q)+'" placeholder="имя, телефон, фирма"></label><div class="fld"><span>Показать</span><div class="chips">'+[['all','Все клиенты'],['debt','Должники']].map(([k,l])=>'<button type="button" class="chip" data-clf="'+k+'" aria-pressed="'+(CL.f===k)+'">'+l+'</button>').join('')+'</div></div>'+
+  let h='<div class="filters"><label class="fld"><span>Поиск</span><input type="text" id="cl-q" value="'+esc(CL.q)+'" placeholder="имя, телефон, фирма"></label><div class="fld"><span>Показать</span><div class="chips">'+[['all','Все клиенты'],['pre','🤔 Думают'],['debt','Должники']].map(([k,l])=>'<button type="button" class="chip" data-clf="'+k+'" aria-pressed="'+(CL.f===k)+'">'+l+'</button>').join('')+'</div></div>'+
     (ro?'':'<label class="fld"><span>&nbsp;</span><button type="button" class="primary" data-cl-new>+ Клиент</button></label>')+'</div>'+
     (sumDebt>0?'<p class="warn" style="margin:0 0 10px">Всего долгов: <b>'+money(sumDebt)+'</b></p>':'');
   const sel=CL.sel&&rows.find(r=>cliKey(r.c.n)===CL.sel);
   if(sel){const c=sel.c;h+='<div class="panel" style="margin-bottom:12px"><div class="panel-head"><h2>'+esc(c.n)+'</h2><span>'+(ro?'':'<button type="button" class="link" data-cl-ed="'+esc(c.id||'')+'" data-n="'+esc(c.n)+'">✏️ Изменить</button> ')+'<button type="button" class="link" data-cl-sel="">✕</button></span></div>'+
     '<dl class="info"><dt>Телефон</dt><dd>'+(c.phone?'<a href="tel:'+esc(c.phone.replace(/[^\d+]/g,''))+'">'+esc(c.phone)+'</a>':'—')+'</dd><dt>Фирма</dt><dd>'+esc(c.firm||'—')+'</dd><dt>Адрес</dt><dd>'+esc(c.addr||'—')+'</dd><dt>Почта</dt><dd>'+esc(c.email||'—')+'</dd><dt>Заказов</dt><dd>'+sel.os.length+'</dd><dt>На сумму</dt><dd>'+money(sel.tot)+'</dd><dt>Долг</dt><dd><b class="'+(sel.debt>0?'warn':'')+'">'+money(sel.debt)+'</b></dd></dl>'+(c.note?'<p class="muted">'+esc(c.note)+'</p>':'')+
+    (ro||!tabOk('orders')?'':'<div class="actions" style="margin:6px 0 10px"><button type="button" class="ghost" data-cl-pre="'+esc(c.n)+'">🤔 + Предзаказ</button><button type="button" class="ghost" data-cl-ord="'+esc(c.n)+'">+ Заказ</button></div>')+
+    (sel.pres.length?'<div class="prebox"><b>🤔 Предзаказы: клиент думает</b><div class="tbl-wrap"><table><tbody>'+sel.pres.map(o=>'<tr><td><button type="button" class="link" data-plan-order="'+esc(o.id)+'">№'+esc(o.no)+'</button> '+esc(o.obj||'')+'</td><td>'+fmtDate(o.d)+'</td><td class="wrap">'+esc((o.items||[]).map(it=>it.n+(it.s?' '+it.s:'')+(Number(it.q)>0?' — '+fmt(it.q)+' '+unit(it.c):' — метраж ?')).join('; '))+'</td><td>'+(ro?'':'<button type="button" class="primary" style="padding:5px 10px;font-size:13px" data-pre-conv="'+esc(o.id)+'">✅ Решил: оформить</button>')+'</td></tr>').join('')+'</tbody></table></div></div>':'')+
     (c.auto?'<p class="muted" style="font-size:13px">Этого клиента нет в справочнике: он взят из заказов. Нажмите «Изменить», чтобы добавить телефон.</p>':'')+
     '<div class="tbl-wrap"><table><thead><tr><th>Заказ</th><th>Дата</th><th>Статус</th><th class="num">Сумма</th><th class="num">Оплачено</th><th>Оплата</th></tr></thead><tbody>'+sel.os.sort((a,b)=>String(b.d).localeCompare(String(a.d))).map(o=>{const ps=payState(o);return '<tr><td><button type="button" class="link" data-plan-order="'+esc(o.id)+'">№'+esc(o.no)+'</button> '+esc(o.obj||'')+'</td><td>'+fmtDate(o.d)+'</td><td>'+esc(o.cancel?'отменён':orderStatus(o)[0])+'</td><td class="num">'+(o.total?fmt(o.total):'—')+'</td><td class="num">'+fmt(paidSum(o))+'</td><td>'+(ps?'<span class="badge '+ps[1]+'">'+ps[0]+'</span>':'')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
-  h+=rows.length?'<div class="tbl-wrap"><table><thead><tr><th>Клиент</th><th>Телефон</th><th class="num">Заказов</th><th class="num">Сумма</th><th class="num">Долг</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><button type="button" class="link" data-cl-sel="'+esc(cliKey(r.c.n))+'">'+esc(r.c.n)+'</button>'+(r.c.firm&&r.c.firm!==r.c.n?' <span class="muted">'+esc(r.c.firm)+'</span>':'')+'</td><td>'+esc(r.c.phone||'')+'</td><td class="num">'+r.os.length+'</td><td class="num">'+(r.tot?fmt(r.tot):'—')+'</td><td class="num'+(r.debt>0?' neg b':'')+'">'+(r.debt?fmt(r.debt):'–')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="panel empty">'+(CL.f==='debt'?'Должников нет.':'Клиентов пока нет.')+'</div>';
-  h+='<p class="note">Клиенты берутся из справочника и из поля «Клиент» (или фирмы, объекта) в заказах. Долг — сумма заказа минус оплаты. Сумму и оплаты вносят в карточке заказа (блок «💰 Оплата»).</p>';
+  h+=rows.length?'<div class="tbl-wrap"><table><thead><tr><th>Клиент</th><th>Телефон</th><th class="num">Думает</th><th class="num">Заказов</th><th class="num">Сумма</th><th class="num">Долг</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><button type="button" class="link" data-cl-sel="'+esc(cliKey(r.c.n))+'">'+esc(r.c.n)+'</button>'+(r.c.firm&&r.c.firm!==r.c.n?' <span class="muted">'+esc(r.c.firm)+'</span>':'')+'</td><td>'+esc(r.c.phone||'')+'</td><td class="num">'+(r.pres.length?'<span class="badge pre">'+r.pres.length+'</span>':'')+'</td><td class="num">'+r.os.length+'</td><td class="num">'+(r.tot?fmt(r.tot):'—')+'</td><td class="num'+(r.debt>0?' neg b':'')+'">'+(r.debt?fmt(r.debt):'–')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="panel empty">'+(CL.f==='debt'?'Должников нет.':'Клиентов пока нет.')+'</div>';
+  h+='<p class="note">Клиенты берутся из справочника и из поля «Клиент» (или фирмы, объекта) в заказах. Долг — сумма заказа минус оплаты. «Думает» — предзаказы: клиент выбрал товар, но ещё не решил (метраж и оплата могут быть не указаны). Сумму и оплаты вносят в карточке заказа (блок «💰 Оплата»).</p>';
   el.innerHTML=h;}};
 document.addEventListener('click',async e=>{const t=e.target;if(!t.closest('#clients-b'))return;let b;
   if((b=t.closest('[data-clf]'))){CL.f=b.dataset.clf;VIEWS.clients.update();return;}
   if((b=t.closest('[data-cl-sel]'))){CL.sel=b.dataset.clSel||null;VIEWS.clients.update();window.scrollTo(0,0);return;}
   if(t.closest('[data-cl-new]')){CL.form={};VIEWS.clients.update();return;}
+  if((b=t.closest('[data-cl-pre],[data-cl-ord]'))){const n=b.dataset.clPre||b.dataset.clOrd;const c=cliAll().find(z=>z.n===n)||{};go('orders');newOrder(blankOrder({cli:n,firm:c.firm||'',addr:c.addr||'',...(b.dataset.clPre?{pre:PRE_V}:{})}));return;}
+  if((b=t.closest('[data-pre-conv]'))){go('orders');openOrder(b.dataset.preConv);const x=$('o-conv');if(x)x.click();return;}
   if((b=t.closest('[data-cl-ed]'))){const c=CL.list.find(z=>z.id===b.dataset.clEd)||{n:b.dataset.n};CL.form={...c};VIEWS.clients.update();return;}
   if(t.closest('[data-cl-x]')){CL.form=null;document.activeElement.blur();VIEWS.clients.update();return;}
   if(t.closest('[data-cl-save]')){const f={...CL.form};document.querySelectorAll('[data-cf]').forEach(i=>f[i.dataset.cf]=i.value.trim());if(!f.n){const er=$('cl-err');er.textContent='Впишите имя клиента.';er.hidden=false;return;}
@@ -3524,8 +3598,8 @@ function homeLine(g){
   if(g==='tasks'){const m=tkMineOpen();const nw=m.filter(x=>x.st==='new').length;const late=m.filter(x=>x.due&&x.due<todayStr()).length;
     return m.length?[nw?'<b class="hnew">новых: '+nw+'</b>':'','у меня открыто: '+m.length,late?'<b class="hnew" style="color:var(--danger,#c62828)">просрочено: '+late+'</b>':''].filter(Boolean).join(' · '):'у вас нет открытых задач';}
   if(g==='chat'){const n=CH.list.filter(chatUnread).length;return n?'<b class="hnew">непрочитанных чатов: '+n+'</b>':'новых сообщений нет';}
-  if(g==='office'&&tabOk('orders')){let nw=0,wk=0,rd=0;for(const o of S.orders){const x=orderGroup(o);if(x==='new')nw++;else if(x==='work')wk++;else if(x==='ready')rd++;}
-    return [nw?'<b class="hnew">новых: '+nw+'</b>':'',wk?'в работе: '+wk:'',rd?'готовы: '+rd:'',(()=>{const d=r2(S.orders.reduce((x,o)=>x+debtOf(o),0));return d>0?'<b class="hnew" style="color:var(--danger,#c62828)">долги: '+money(d)+'</b>':'';})()].filter(Boolean).join(' · ')||'активных заказов нет';}
+  if(g==='office'&&tabOk('orders')){let nw=0,wk=0,rd=0;const npre=(S.preOrders||[]).filter(o=>!o.cancel).length;for(const o of S.orders){const x=orderGroup(o);if(x==='new')nw++;else if(x==='work')wk++;else if(x==='ready')rd++;}
+    return [nw?'<b class="hnew">новых: '+nw+'</b>':'',npre?'думают: '+npre:'',wk?'в работе: '+wk:'',rd?'готовы: '+rd:'',(()=>{const d=r2(S.orders.reduce((x,o)=>x+debtOf(o),0));return d>0?'<b class="hnew" style="color:var(--danger,#c62828)">долги: '+money(d)+'</b>':'';})()].filter(Boolean).join(' · ')||'активных заказов нет';}
   if((g==='p11'||g==='p9')&&tabOk(g==='p9'?'porders9':'porders')){const n=S.orders.filter(o=>{const x=orderGroup(o);if(x!=='new'&&x!=='work')return false;const ps=prodSt(o,g);return !ps.ready&&prodLines(o,g).some(l=>l.rest>1e-9);}).length;
     return n?'<b class="hnew">заказов для производства: '+n+'</b>':'заказов для производства нет';}
   if(g==='store'&&tabOk('sorders')){const n=storeAlloc().filter(x=>!x.o.sk&&x.lines.some(l=>l.make>1e-9)).length;return n?'<b class="hnew">не хватает на складе для заказов: '+n+'</b>':'';}
@@ -3623,7 +3697,9 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
 function orderEvents(docs,changes){
   const prev=ORD_PREV;ORD_PREV=new Map(docs.map(o=>[o.id,o]));if(!prev)return;
   for(const ch of changes||[]){const o=ch.o;const p=prev.get(o.id);let t='';
-    if(ch.type==='added'&&!p)t=o.now?'⚡ Выдать сейчас':'Новый заказ';
+    if(o.pre)t='';
+    else if(ch.type==='added'&&!p)t=o.now?'⚡ Выдать сейчас':'Новый заказ';
+    else if(ch.type==='modified'&&p&&p.pre)t='Новый заказ (клиент решил)';
     else if(ch.type==='modified'&&p&&!p.now&&o.now)t='⚡ Выдать сейчас';
     else if(ch.type==='modified'&&p){
       if(!p.cancel&&o.cancel)t='Заказ отменён';
@@ -3740,8 +3816,8 @@ function wirePrintBar(){
 
 /* ---- подписки на заказы и возвраты ---- */
 function subscribeOrders(){
-  if(!(tabOk('orders')||tabOk('porders')||tabOk('porders9')||tabOk('grout')||tabOk('sorders')))S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.orders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.ordersLoaded=true;
-    try{const ch=s.docChanges?s.docChanges().map(c=>({type:c.type,local:c.doc.metadata&&c.doc.metadata.hasPendingWrites,o:{id:c.doc.id,...c.doc.data()}})):[];orderEvents(S.orders,ch);}catch(e){}try{nowBar();}catch(e){}render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
+  if(!(tabOk('orders')||tabOk('porders')||tabOk('porders9')||tabOk('grout')||tabOk('sorders')))S.ordersLoaded=true;else db.collection('orders').onSnapshot(s=>{S.allOrders=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.orders=S.allOrders.filter(o=>!o.pre);S.preOrders=S.allOrders.filter(o=>o.pre);S.ordersLoaded=true;
+    try{const ch=s.docChanges?s.docChanges().map(c=>({type:c.type,local:c.doc.metadata&&c.doc.metadata.hasPendingWrites,o:{id:c.doc.id,...c.doc.data()}})):[];orderEvents(S.allOrders,ch);}catch(e){}try{nowBar();}catch(e){}render();},e=>{S.ordersLoaded=true;S.err=e&&e.code;render();});
   if(!tabOk('returns'))S.returnsLoaded=true;else db.collection('returns').onSnapshot(s=>{S.returns=s.docs.map(d=>Object.assign({id:d.id},d.data()));S.returnsLoaded=true;render();},e=>{S.returnsLoaded=true;S.err=e&&e.code;render();});
   db.doc('config/lists').onSnapshot(s=>{S.lists=s.exists?s.data():null;},()=>{});
 }
@@ -3767,7 +3843,7 @@ async function backupNow(manual){
   try{
     const strip=o=>{const c={...o};delete c.m;return c;};
     const ops={};let nops=0;for(const m in S.monthOps){if(S.monthOps[m].length){ops[m]=S.monthOps[m].map(strip);nops+=ops[m].length;}}
-    const snap={v:1,at:new Date().toISOString(),catalog:S.catalog,plan:S.plan||null,lists:S.lists||null,orders:S.orders.map(o=>({...o})),returns:S.returns.map(r=>({...r})),ops};
+    const snap={v:1,at:new Date().toISOString(),catalog:S.catalog,plan:S.plan||null,lists:S.lists||null,orders:allOrd().map(o=>({...o})),returns:S.returns.map(r=>({...r})),ops};
     const json=JSON.stringify(snap);
     const list=((S.bk&&S.bk.list)||[]).slice();
     let slot;const used=new Set(list.map(x=>x.slot));
@@ -3818,7 +3894,7 @@ async function restoreBackup(slot){
   const put=(p,d)=>rawdb.doc(p).set(d);
   const clean=o=>{const c={...o};delete c.id;delete c.m;return c;};
   const keepO=new Set(snap.orders.map(o=>o.id)),keepR=new Set(snap.returns.map(o=>o.id));
-  for(const o of S.orders)if(!keepO.has(o.id))await rawdb.doc('orders/'+o.id).delete();
+  for(const o of allOrd())if(!keepO.has(o.id))await rawdb.doc('orders/'+o.id).delete();
   for(const o of snap.orders)await put('orders/'+o.id,clean(o));
   for(const o of S.returns)if(!keepR.has(o.id))await rawdb.doc('returns/'+o.id).delete();
   for(const o of snap.returns)await put('returns/'+o.id,clean(o));
