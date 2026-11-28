@@ -1534,10 +1534,10 @@ async function saveOrder(ev){
   oSaving=true;$('o-save').disabled=true;
   try{
     ls.set('o.by',d.by);
-    if(d.id){await db.doc('orders/'+d.id).update({...data,editedAt:new Date().toISOString()});toast('Заказ №'+data.no+' сохранён');openOrder(d.id);}
+    if(d.id){await db.doc('orders/'+d.id).update({...data,editedAt:new Date().toISOString()});toast('Заказ №'+data.no+' сохранён');openOrder(d.id);if(data.recv==='Доставка')dlvTask({...data,id:d.id});}
     else{
       const ref=await db.collection('orders').add({...data,stage:'new',iss:[],uid:S.me||'',at:new Date().toISOString()});
-      toast('Заказ №'+data.no+' сохранён');OV.pending=ref.id;openOrder(ref.id);OV.justCreated=ref.id;
+      toast('Заказ №'+data.no+' сохранён');OV.pending=ref.id;openOrder(ref.id);OV.justCreated=ref.id;if(data.recv==='Доставка')dlvTask({...data,id:ref.id});
     }
   }catch(e){oErr(dbErr(e));}
   finally{oSaving=false;const b=$('o-save');if(b)b.disabled=false;}
@@ -2242,7 +2242,7 @@ async function mopsSave(){const f=mopsForm();const er=$('mo-err');const fail=t=>
   if(f.type==='in'){const bd=MT.buy.find(z=>z.mid===m.id);if(bd)db.doc('buy/'+bd.id).delete().catch(()=>{});}
   /* стало меньше минимума — сигнал в «Закупки» */
   const b1=matBal([...MT.ops,x]);const now=matLow(b1).filter(z=>!was.has(z.id));
-  if(now.length){toast('⚠️ Пора закупить: '+now.map(z=>z.n).join(', '));pushSend({kind:'buy',title:'⚠️ Пора закупить',body:now.map(z=>z.n+' (осталось '+fmt(matTotal(b1,z.id))+' '+(z.u||'')+')').join(', ')});}
+  if(now.length){for(const z of now)buyTask(z,r2(Math.max(0,Number(z.min)-matTotal(b1,z.id))),matTotal(b1,z.id));toast('⚠️ Пора закупить: '+now.map(z=>z.n).join(', '));pushSend({kind:'buy',title:'⚠️ Пора закупить',body:now.map(z=>z.n+' (осталось '+fmt(matTotal(b1,z.id))+' '+(z.u||'')+')').join(', ')});}
   else toast('Записано');
   if(m.test&&(f.type==='in'||f.type==='make')&&f.opyt){try{await opytTask(m,x,f.who);}catch(e){toast('Записано, но задачу поставить не удалось: '+dbErr(e));}}
   MT.f={...f,q:'',sq:'',note:'',party:'',opyt:true};VIEWS.mops.update();}
@@ -2266,7 +2266,7 @@ VIEWS.buy={controls(){subscribeMats();},update(){
         return '<tr class="mlow"><td>⚠️ '+esc(m.n)+'</td>'+numCell(t)+'<td class="num">'+fmt(m.min)+'</td><td class="num"><b>'+fmt(z&&z.q?z.q:need)+'</b></td><td class="muted">'+esc(m.u||'')+'</td><td>'+
         (z&&z.st==='ordered'?'<span class="badge part">заказано '+fmtDate(String(z.at||'').slice(0,10))+(z.name?' · '+esc(z.name):'')+'</span>'+(ro?'':' <button type="button" class="link" data-buy-un="'+esc(z.id)+'">отменить</button>'):
           (ro?'<span class="badge new">нужно купить</span>':'<button type="button" class="ghost" data-buy-ord="'+esc(m.id)+'" data-q="'+need+'">Заказано</button>'))+
-        (tabOk('mops')&&!RO('mops')?' <button type="button" class="link" data-buy-in="'+esc(m.id)+'">Пришло → приход</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>':
+        (ro?'':' <button type="button" class="link" data-buy-drv="'+esc(m.id)+'" data-q="'+need+'">🚚 водителю</button>')+(tabOk('mops')&&!RO('mops')?' <button type="button" class="link" data-buy-in="'+esc(m.id)+'">Пришло → приход</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>':
       '<p class="muted" style="margin:0">Всё в норме: всех материалов не меньше минимального запаса.'+(matList().some(m=>Number(m.min)>0)?'':' Минимальный запас задаётся в «Остатках» материалов (кнопка ✏️ у материала).')+'</p>')+'</div>';
   h+='<div class="panel"><h3 style="margin-bottom:8px">Ещё купить (вписано вручную)</h3>'+
     (man.length?'<div class="tbl-wrap"><table><tbody>'+man.map(z=>'<tr><td>'+esc(z.n)+'</td><td class="num">'+(z.q?fmt(z.q):'')+' <span class="muted">'+esc(z.u||'')+'</span></td><td class="muted">'+esc(z.name||'')+' '+fmtDate(String(z.at||'').slice(0,10))+'</td><td>'+(z.st==='ordered'?'<span class="badge part">заказано</span>':'')+'</td><td>'+(ro?'':(z.st!=='ordered'?'<button type="button" class="link" data-buy-mo="'+esc(z.id)+'">заказано</button> ':'')+'<button type="button" class="link" data-buy-done="'+esc(z.id)+'">✓ куплено</button>')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0 0 8px">Пусто.</p>')+
@@ -2297,12 +2297,13 @@ document.addEventListener('click',async e=>{const t=e.target;let b;
   if((b=t.closest('[data-mo-del]'))){const o=MT.ops.find(z=>z.id===b.dataset.moDel);if(!o||!confirm('Удалить запись «'+(MAT_T[o.type]||'')+' '+((matById(o.mid)||{}).n||'')+' '+fmt(o.q)+'»?'))return;try{await db.doc('matops/'+o.id).delete();toast('Запись удалена');}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-ord]'))){const m=matById(b.dataset.buyOrd);if(!m)return;const v=prompt('Сколько заказали ('+(m.u||'')+')?',String(b.dataset.q||'').replace('.',','));if(v===null)return;
     try{await db.doc('buy/'+m.id).set({mid:m.id,n:m.n,u:m.u||'',q:r2(parseQ(v)||0),st:'ordered',at:new Date().toISOString(),by:S.me||'',name:myName()});}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-drv]'))){const m=matById(b.dataset.buyDrv);if(m)await buyTask(m,Number(b.dataset.q)||0,matTotal(matBal(),m.id));return;}
   if((b=t.closest('[data-buy-un]'))){try{await db.doc('buy/'+b.dataset.buyUn).delete();}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-in]'))){MT.f={...mopsForm(),type:'in',mid:b.dataset.buyIn,q:''};go('mops');return;}
   if((b=t.closest('[data-buy-mo]'))){try{await db.doc('buy/'+b.dataset.buyMo).update({st:'ordered'});}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-done]'))){try{await db.doc('buy/'+b.dataset.buyDone).delete();toast('Отмечено как куплено');}catch(x){toast(dbErr(x));}return;}
   if(t.closest('[data-buy-add]')){const n=$('by-n').value.trim();if(!n){toast('Впишите, что купить');return;}
-    try{await db.collection('buy').add({n,q:r2(parseQ($('by-q').value)||0),u:$('by-u').value.trim(),st:'need',at:new Date().toISOString(),by:S.me||'',name:myName()});document.activeElement.blur();VIEWS.buy.update();}catch(x){toast(dbErr(x));}return;}
+    try{const bq=r2(parseQ($('by-q').value)||0),bu=$('by-u').value.trim();const r=await db.collection('buy').add({n,q:bq,u:bu,st:'need',at:new Date().toISOString(),by:S.me||'',name:myName()});buyTask({id:r.id,n,u:bu},bq);document.activeElement.blur();VIEWS.buy.update();}catch(x){toast(dbErr(x));}return;}
 });
 document.addEventListener('input',e=>{const t=e.target;
   if(t.id==='mt-q'){MT.q=t.value;const p=t.selectionStart;t.blur();VIEWS.mstock.update();const i=$('mt-q');if(i){i.focus();try{i.setSelectionRange(p,p);}catch(_){}}return;}
@@ -2679,6 +2680,23 @@ document.addEventListener('click',async e=>{if(!e.target.closest('[data-lb-print
   else{const sz=cat(c).sizes.length?cat(c).sizes:[''];for(const nm of cat(c).names)for(const s of sz)for(let i=0;i<n;i++)out.push({code:'SK|'+c+'|'+nm+'|'+s,t1:nm,t2:s,t3:c});}
   if(out.length>300){toast('Слишком много этикеток ('+out.length+'). Уменьшите число копий.');return;}
   await printLabels(out,'Этикетки — '+(c==='__mat'?'материалы':c));});
+
+/* ================= Водитель: задачи на закупку и доставку ставятся сами ================= */
+/* config/driver = {v:'uid' | 'n:Имя'} */
+function drvName(v){v=v||TK.driver;if(!v)return '';if(v.indexOf('n:')===0)return v.slice(2);const p=(CH.people||[]).find(x=>x.uid===v);return p?p.name:(S.names[v]||'');}
+function drvHtml(){const ps=tkPeople();return '<div class="panel" style="margin:10px 0"><h3 style="margin-bottom:6px">🚚 Водитель</h3><p class="muted" style="margin:0 0 8px;font-size:13px">Ему сами ставятся задачи: «Купить …», когда материал попадает в «Закупки», и «Доставка …», когда в заказе выбрана доставка.</p><div class="filters"><label class="fld"><span>Кто водитель</span><select id="drv-sel"><option value="">— не выбран —</option>'+ps.map(p=>opt(p.v,p.n,TK.driver||'')).join('')+'</select></label><label class="fld"><span>&nbsp;</span><button type="button" class="primary" data-drv-save>Сохранить</button></label><label class="fld"><span>&nbsp;</span><button type="button" class="ghost" data-drv-x>Отмена</button></label></div></div>';}
+document.addEventListener('click',async e=>{if(e.target.closest('[data-drv]')){await loadPeople();TK.drvForm=!TK.drvForm;VIEWS.tasks.update();return;}
+  if(e.target.closest('[data-drv-x]')){TK.drvForm=false;VIEWS.tasks.update();return;}
+  if(e.target.closest('[data-drv-save]')){const v=$('drv-sel').value;try{await rawdb.doc('config/driver').set({v,upd:new Date().toISOString(),by:S.me});TK.driver=v;TK.drvForm=false;toast(v?'Водитель: '+drvName(v):'Водитель не выбран');VIEWS.tasks.update();}catch(x){toast(dbErr(x));}}});
+async function autoTask(kind,key,t,d,due,ord){
+  const drv=TK.driver;if(!drv){toast('Задачу водителю не поставили: водитель не выбран (Задачи → «🚚 Водитель»)');return;}
+  try{const ex=await rawdb.collection('tasks').where('akey','==',kind+':'+key).get();if(ex.docs.some(x=>x.data().st!=='done'))return;}catch(_){}
+  await loadPeople();const isN=drv.indexOf('n:')===0;const to=isN?'':drv;const toName=drvName(drv);const now=new Date().toISOString();
+  const x={t,d,to,toName,watch:tkWatch(to,toName),due:due||'',ord:ord||null,upd:now,st:'new',by:S.me,at:now,cm:[],auto:kind,akey:kind+':'+key};
+  try{const r=await rawdb.collection('tasks').add(x);tkNotify(x,r.id,true);toast('Задача водителю ('+toName+'): '+t);}catch(err){toast('Задачу водителю поставить не удалось: '+dbErr(err));}}
+function buyTask(m,q,left){return autoTask('buy',m.id||m.n,'Купить: '+m.n+(q?' — '+fmt(q)+' '+(m.u||''):''),'Материал в «Закупках»'+(left!=null?': осталось '+fmt(left)+' '+(m.u||'')+', минимум '+fmt(m.min||0):'')+'. Когда купите — отметьте задачу выполненной, а склад внесёт приход.','');}
+function dlvTask(o){if(!o||o.recv!=='Доставка')return;
+  return autoTask('dlv',o.id,'Доставка: заказ №'+o.no+(o.obj?' · '+o.obj:''),[o.addr?'Адрес: '+o.addr:'',o.cli||o.firm?'Клиент: '+(o.cli||o.firm):'','Выдать до '+fmtDate(o.due),(o.items||[]).map(i=>i.n+(i.s?' '+i.s:'')+' — '+fmt(i.q)+' '+unit(i.c)).join('; '),o.note?'Примечание: '+o.note:''].filter(Boolean).join('\n'),o.due||'',{id:o.id,no:String(o.no||''),obj:o.obj||''});}
 
 /* ================= Сообщения ================= */
 /* Общий чат (все, у кого есть доступ), группы (видят только участники) и личные чаты (видят только двое).
@@ -3175,6 +3193,7 @@ function subscribeTasks(){
   if(!rawdb||!S.me||TK.unsub)return;
   const on=q=>{const l=[];q.forEach(d=>l.push({id:d.id,...d.data()}));TK.list=l;resolveNames(l.flatMap(x=>[x.to,x.by,...(x.cm||[]).map(c=>c.uid)]).filter(Boolean));tkBadge();if(S.view==='tasks')VIEWS.tasks.update();if(S.view==='home')VIEWS.home.update();};
   const err=e=>{try{console.error('tasks',e);}catch(_){}if(tkAll()&&!TK.fallback){TK.fallback=true;TK.unsub=null;TK.mine=true;subscribeTasks();}};
+  rawdb.doc('config/driver').onSnapshot(d=>{TK.driver=d.exists?(d.data().v||''):'';},()=>{});
   rawdb.doc('config/taskSees').onSnapshot(d=>{TK.sees=d.exists?(d.data().m||{}):{};if(S.view==='tasks')VIEWS.tasks.update();},()=>{});
   if(TK.mine||!tkAll()){/* свои + поставленные мной + задачи сотрудников, которых мне разрешено видеть */
     const parts={};const merge=()=>{const m=new Map();for(const k in parts)for(const x of parts[k])m.set(x.id,x);const l=[...m.values()];on({forEach:f=>l.forEach(x=>f({id:x.id,data:()=>x}))});};
@@ -3232,8 +3251,8 @@ VIEWS.tasks={controls(){if(!rawdb||!S.me)return;subscribeTasks();loadPeople().th
     '<div class="tk-top"><div class="chips">'+(F.length<2?'<b>Мои задачи</b>':'')+(F.length<2?[]:F).map(([k,l])=>'<button type="button" class="chip" data-tk-f="'+k+'" aria-pressed="'+(TK.f===k)+'">'+l+'</button>').join('')+'</div>'+
     (whoOpts.length>1?'<select id="tk-who" style="max-width:220px"><option value="">Все сотрудники</option>'+whoOpts.map(([k,n])=>'<option value="'+esc(k)+'"'+(TK.who===k?' selected':'')+'>'+esc(n)+'</option>').join('')+'</select>':'')+
     '<span style="flex:1"></span><button type="button" class="ghost" data-tk-prl>🖨 Печать списка</button>'+
-    (tkEdit()&&!TK.form?'<button type="button" class="ghost" data-tk-sees>👥 Кто чьи задачи видит</button><button type="button" class="primary" data-tk-new>+ Новая задача</button>':'')+'</div>'+
-    (TK.seesForm?tkSeesHtml():'')+
+    (tkEdit()&&!TK.form?'<button type="button" class="ghost" data-drv>🚚 Водитель'+(TK.driver?': '+esc(drvName()):'')+'</button><button type="button" class="ghost" data-tk-sees>👥 Кто чьи задачи видит</button><button type="button" class="primary" data-tk-new>+ Новая задача</button>':'')+'</div>'+
+    (TK.drvForm?drvHtml():'')+(TK.seesForm?tkSeesHtml():'')+
     (L.length?L.map(tkCard).join(''):'<div class="panel empty">'+(TK.f==='mine'?'У вас нет открытых задач.':'Открытых задач нет.')+'</div>')+
     (done.length?'<details class="tk-done"'+(TK.showDone?' open':'')+'><summary>Готовые ('+done.length+')</summary>'+done.slice(0,60).map(tkCard).join('')+'</details>':'');
   window.scrollTo(0,keepY);

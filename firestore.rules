@@ -79,7 +79,9 @@ service cloud.firestore {
     match /tasks/{id} {
       allow read: if signedIn() && (canView('tasks') || resource.data.to == me() || resource.data.by == me()
         || me() in resource.data.get('watch', []));
-      allow create: if (canEdit('tasks') || (canEdit('mops') && request.resource.data.get('auto', '') == 'opyt'))
+      allow create: if (canEdit('tasks') || (canEdit('mops') && request.resource.data.get('auto', '') == 'opyt')
+          || ((canEdit('mops') || canEdit('buy')) && request.resource.data.get('auto', '') == 'buy')
+          || (canEdit('orders') && request.resource.data.get('auto', '') == 'dlv'))
         && request.resource.data.by == me();
       allow update: if canEdit('tasks') || (signedIn() && resource.data.to == me()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['st', 'cm', 'upd']));
@@ -124,6 +126,10 @@ service cloud.firestore {
     match /clients/{id} {
       allow read: if canView('clients') || canView('orders');
       allow write: if canEdit('clients') || canEdit('orders');
+    }
+    match /config/driver {
+      allow read: if signedIn();
+      allow write: if canEdit('tasks');
     }
     match /config/mats {
       allow read: if matView();
