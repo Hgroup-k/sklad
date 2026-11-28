@@ -265,6 +265,8 @@ details.tk-done>summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
 .cfile b{word-break:break-all}
 .cedopt{font-size:12px;display:flex;gap:4px;align-items:center}
 .cimg{max-width:100%;max-height:320px;border-radius:8px;display:block;cursor:pointer}
+img.cimg[width]{width:auto;height:auto}
+.cvbox{width:300px;max-width:100%;height:240px;max-height:none;background:#000;object-fit:contain}
 .cmsg audio{max-width:240px}
 .cord{border:1px solid var(--line);border-radius:8px;padding:5px 8px;margin:2px 0 4px;background:var(--surface);font-size:13px}
 .cattach{padding:6px 10px;border-top:1px solid var(--line)}
@@ -2121,6 +2123,9 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.view===
 function hhmm(iso){const d=new Date(iso);return pad(d.getHours())+':'+pad(d.getMinutes());}
 function ordCard(o,x){const cur=S.orders.find(z=>z.id===o.id);const st=cur?(cur.cancel?'отменён':orderStatus(cur)[0]):'';
   return '<div class="cord"><button type="button" class="link" data-cord="'+esc(o.id)+'">📦 Заказ №'+esc(o.no)+'</button> '+esc(o.obj||'')+(st?' <span class="muted">· '+esc(st)+'</span>':'')+(x?' <button type="button" class="link" data-cattach-x>✕</button>':'')+'</div>';}
+const VEXT=/\.(mp4|mov|m4v|webm|3gp|mkv|avi)$/i;
+function isVidFile(m){return m.kind==='file'&&(/^video\//.test(m.mime||'')||VEXT.test(m.name||''));}
+const IMGSZ={};
 function msgHtml(m,prev){
   const mine=m.uid===S.me;const day=String(m.at||'').slice(0,10);const pday=prev?String(prev.at||'').slice(0,10):'';
   let h=day!==pday?'<div class="cday">'+fmtDate(day)+'</div>':'';
@@ -2128,11 +2133,11 @@ function msgHtml(m,prev){
   let body='';
   if(m.kind==='del'){const who=m.by&&m.by!==m.uid?(S.names[m.by]||'')+' удалил(а) сообщение':'Сообщение удалено';
     return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+'" id="cm-'+esc(m.id)+'">'+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+'<div class="cdeleted">🗑 '+esc(who)+'</div><div class="ctime">'+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';}
-  if(m.kind==='file'&&/^video\//.test(m.mime||''))body=videoHtml(m);
+  if(isVidFile(m))body=videoHtml(m);
   else if(m.kind==='file')body='<button type="button" class="cfile" data-cfile="'+esc(m.id)+'">📄 <span><b>'+esc(m.name||'файл')+'</b><br><small class="muted">'+fsize(m.size)+' · скачать</small></span></button>';
-  else if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg>';
+  else if(m.kind==='img')body='<img src="'+esc(m.data)+'" alt="фото" class="cimg" data-cimg data-mk="'+esc(m.id)+'"'+(IMGSZ[m.id]?' width="'+IMGSZ[m.id][0]+'" height="'+IMGSZ[m.id][1]+'"':'')+'>';
   else if(m.kind==='voice')body='<div class="vrow"><audio controls preload="metadata" src="'+esc(voiceSrc(m))+'" data-vid="'+esc(m.id)+'"></audio><button type="button" class="vspeed" data-vspeed="'+esc(m.id)+'" title="Скорость">'+(VSPEED[m.id]||1)+'×</button>'+'<button type="button" class="vspeed" data-vtr="'+esc(m.id)+'" title="Текст голосового">Aa</button>'+(sttGet(m)?'<button type="button" class="vspeed" data-cact="tr" data-mid="'+esc(m.id)+'" title="Перевести текст">🌐</button>':'')+'</div>'+(VBAD.has(m.id)?'<div class="vtr muted">Это голосовое записано на компьютере в старом формате, iPhone его не проигрывает. Нажмите «Aa», чтобы прочитать текст.</div>':'')+(VTR.has(m.id)?'<div class="vtr">'+vtrText(m)+'</div>':'');
-  else if(m.kind==='video'||(m.kind==='file'&&/^video\//.test(m.mime||'')))body=videoHtml(m);
+  else if(m.kind==='video')body=videoHtml(m);
   if(m.fw)body='<div class="cfw">↪ Переслано'+(m.fw.name?' от '+esc(m.fw.name):'')+'</div>'+body;
   if(m.re)body=quoteHtml(m.re,true)+body;
   if(m.ord)body+=ordCard(m.ord);
@@ -2144,7 +2149,7 @@ function msgHtml(m,prev){
 }
 /* видео прямо в чате (большое хранится частями, собираем при показе) */
 function videoHtml(m){const src=voiceSrc(m);
-  return '<div class="cvid">'+(src?'<video controls playsinline preload="metadata" src="'+esc(src)+'#t=0.1" class="cimg"></video>':'<div class="cimg cvload">🎬 Загружаем видео…</div>')+
+  return '<div class="cvid">'+(src?'<video controls playsinline preload="metadata" src="'+esc(src)+'#t=0.1" class="cimg cvbox" data-mk="'+esc(m.id)+'"></video>':'<div class="cimg cvbox cvload">🎬 Загружаем видео…</div>')+
     '<div class="vrow" style="margin-top:4px"><button type="button" class="vspeed" data-vinfo="'+esc(m.id)+'" title="Что говорится и что происходит в видео">Aa</button>'+(m.fid?'<button type="button" class="link" data-cfile="'+esc(m.id)+'" style="font-size:12px;margin-left:8px">⬇ Скачать'+(m.size?' ('+fsize(m.size)+')':'')+'</button>':'')+'</div>'+
     (VTR.has(m.id)?'<div class="vtr">'+vinfoHtml(m)+'</div>':'')+'</div>';}
 /* текст и описание видео: речь — через расшифровку на сервере, картинка — через ИИ-описание кадров */
@@ -2188,7 +2193,7 @@ document.addEventListener('error',e=>{const a=e.target;if(a&&a.tagName==='AUDIO'
 const VSPEED={},VTR=new Set(),STT={},VURL={};
 /* длинное голосовое хранится частями (как документы) — собираем при показе */
 function voiceSrc(m){if(m.data){if(!VURL[m.id]){try{const i=m.data.indexOf(',');const mime=(m.data.slice(5,i).split(';')[0])||'audio/webm';const bin=atob(m.data.slice(i+1));const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);VURL[m.id]=URL.createObjectURL(new Blob([u],{type:mime}));}catch(e){return m.data;}}return VURL[m.id];}if(!m.fid)return '';if(VURL[m.id]&&VURL[m.id]!=='load')return VURL[m.id];
-  if(!VURL[m.id]){VURL[m.id]='load';const chat=CH.sel;getParts(chat,m).then(ps=>{VURL[m.id]=URL.createObjectURL(new Blob(ps,{type:m.mime||'audio/webm'}));if(CH.sel===chat)VIEWS.chat.update();}).catch(()=>{delete VURL[m.id];});}
+  if(!VURL[m.id]){VURL[m.id]='load';const chat=CH.sel;getParts(chat,m).then(ps=>{VURL[m.id]=URL.createObjectURL(new Blob(ps,{type:(m.kind==='video'||isVidFile(m))?((m.mime&&!/quicktime/.test(m.mime))?m.mime:'video/mp4'):(m.mime||'audio/webm')}));if(CH.sel===chat)VIEWS.chat.update();}).catch(()=>{delete VURL[m.id];});}
   return '';}
 async function voiceData(m){if(m.data)return m.data;const ps=await getParts(CH.sel,m);return fileToData(new Blob(ps,{type:m.mime||'audio/webm'}));}
 /* текст голосового: из записи (Chrome) или расшифровка через наш сервер Cloudflare */
@@ -2322,6 +2327,7 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
   /* якорь: первое видимое сообщение и его отступ — чтобы после перерисовки чат не прыгал */
   let anc=null;if(box){const bt=box.getBoundingClientRect().top;for(const el of box.querySelectorAll('.cmsg')){const r=el.getBoundingClientRect();if(r.bottom>bt+2){anc={id:el.id,d:r.top-bt};break;}}}
   const NF=CH.newFrom&&CH.newFrom.chat===c.id&&CH.newFrom.at!==undefined?CH.newFrom:null;
+  const keepM=new Map();if(box)box.querySelectorAll('[data-mk]').forEach(e=>keepM.set(e.dataset.mk+'|'+e.getAttribute('src'),e));
   const firstNew=NF?(visMsgs().find(m=>m.uid!==S.me&&m.kind!=='del'&&(!NF.at||m.at>NF.at))||{}).id:'';
   const otherUnread=CH.list.filter(x=>x.id!==c.id&&chatUnread(x)).length;
   P.innerHTML='<div class="chead"><button type="button" class="link cback" data-cback>← Чаты'+(otherUnread?' <span class="cbadge">'+otherUnread+'</span>':'')+'</button><b>'+esc(chatName(c))+'</b>'+(c.type==='group'?' <span class="muted" style="font-size:12px">'+(c.members||[]).length+' участн.</span><button type="button" class="link" data-cmembers>Участники</button>':'')+'</div>'+
@@ -2341,12 +2347,23 @@ VIEWS.chat={controls(){if(!rawdb||!S.me)return;if(!CH.sel)openChat(chatLv('all')
   syncGo();
   const nb=$('ch-msgs');
   if(nb){
+    /* уже загруженные фото и видео переносим как есть: не перезагружаются, высота не меняется, видео не останавливается */
+    nb.querySelectorAll('[data-mk]').forEach(e=>{const o=keepM.get(e.dataset.mk+'|'+e.getAttribute('src'));if(o&&o!==e)e.replaceWith(o);});
+    /* когда фото/видео догрузилось и стало выше: внизу — остаёмся внизу, иначе держим на месте то, что читаем */
+    const ancNow=()=>{const bt=nb.getBoundingClientRect().top;for(const el of nb.querySelectorAll('.cmsg')){const r=el.getBoundingClientRect();if(r.bottom>bt+2)return {id:el.id,d:r.top-bt};}return null;};
+    let st={bottom:true,a:null};const rec=()=>{st={bottom:nb.scrollHeight-nb.scrollTop-nb.clientHeight<60,a:ancNow()};};
+    nb.addEventListener('scroll',rec,{passive:true});
+    const grow=e=>{const t=e.target;if(t&&t.tagName==='IMG'&&t.dataset.mk&&t.naturalWidth)IMGSZ[t.dataset.mk]=[t.naturalWidth,t.naturalHeight];
+      if(CH.scrollGoal&&Date.now()<CH.scrollGoal.until)return;
+      if(st.bottom)nb.scrollTop=nb.scrollHeight;else if(st.a){const el=document.getElementById(st.a.id);if(el)nb.scrollTop+=el.getBoundingClientRect().top-nb.getBoundingClientRect().top-st.a.d;}};
+    nb.addEventListener('load',grow,true);nb.addEventListener('loadedmetadata',grow,true);
+    nb.addEventListener('error',e=>{const t=e.target;if(t&&t.tagName==='VIDEO'&&!t.dataset.bad){t.dataset.bad=1;const n=document.createElement('div');n.className='vtr muted';n.textContent='Это видео не открывается на этом устройстве (формат iPhone). Нажмите «Скачать» — откроется в обычном плеере.';t.after(n);}},true);
     if(CH.scrollInit&&CH.loaded){CH.scrollInit=false;CH.scrollGoal={chat:c.id,until:Date.now()+2500};chatScrollGoal();
       nb.addEventListener('load',()=>{if(CH.scrollGoal&&Date.now()<CH.scrollGoal.until)chatScrollGoal();},true);
       const stop=()=>{CH.scrollGoal=null;};for(const ev of ['wheel','touchstart','pointerdown','keydown'])nb.addEventListener(ev,stop,{passive:true,once:true});}
     else if(atBottom||CH.mineNew||onlyMsgs===true)nb.scrollTop=nb.scrollHeight;
     else{nb.scrollTop=prevTop;const el=anc&&document.getElementById(anc.id);if(el)nb.scrollTop+=el.getBoundingClientRect().top-nb.getBoundingClientRect().top-anc.d;}
-    CH.mineNew=false;}
+    CH.mineNew=false;rec();}
   if(focused){const i=$('ch-in');try{i.focus({preventScroll:true});}catch(_){i.focus();}i.setSelectionRange(i.value.length,i.value.length);}
   markRead();
 }};
