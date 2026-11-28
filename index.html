@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 12:01';</script>
-<script src="firebase-config.js?v=aaf4b351"></script>
-<script src="shim.js?v=aaf4b351"></script>
+<script>window.SKLAD_VERSION='28.11 12:02';</script>
+<script src="firebase-config.js?v=ebb25943"></script>
+<script src="shim.js?v=ebb25943"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2306,12 +2306,12 @@ VIEWS.buy={controls(){subscribeMats();},update(){
     (low.length?'<div class="tbl-wrap"><table><thead><tr><th>Материал</th><th class="num">Осталось</th><th class="num">Мин. запас</th><th class="num">Купить</th><th>Ед.</th><th>Статус</th></tr></thead><tbody>'+
       low.map(m=>{const t=matTotal(b,m.id);const need=r2(Math.max(0,Number(m.min)-t));const z=byMid.get(m.id);
         return '<tr class="mlow"><td>⚠️ '+esc(m.n)+'</td>'+numCell(t)+'<td class="num">'+fmt(m.min)+'</td><td class="num"><b>'+fmt(z&&z.q?z.q:need)+'</b></td><td class="muted">'+esc(m.u||'')+'</td><td>'+
-        (z&&z.st==='ordered'?'<span class="badge part">заказано '+fmtDate(String(z.at||'').slice(0,10))+(z.name?' · '+esc(z.name):'')+'</span>'+(ro?'':' <button type="button" class="link" data-buy-un="'+esc(z.id)+'">отменить</button>'):
+        (z&&z.st==='ordered'?'<span class="badge part">заказано '+fmtDate(String(z.at||'').slice(0,10))+(z.name?' · '+esc(z.name):'')+'</span>'+(ro?'':' <button type="button" class="link" data-buy-un="'+esc(z.id)+'">↩ ещё не заказано</button> <button type="button" class="link" data-buy-eq="'+esc(z.id)+'">✏️</button>'):
           (ro?'<span class="badge new">нужно купить</span>':'<button type="button" class="ghost" data-buy-ord="'+esc(m.id)+'" data-q="'+need+'">Заказано</button>'))+
         (ro?'':' <button type="button" class="link" data-buy-drv="'+esc(m.id)+'" data-q="'+need+'">🚚 водителю</button>')+(tabOk('mops')&&!RO('mops')?' <button type="button" class="link" data-buy-in="'+esc(m.id)+'">Пришло → приход</button>':'')+'</td></tr>';}).join('')+'</tbody></table></div>':
       '<p class="muted" style="margin:0">Всё в норме: всех материалов не меньше минимального запаса.'+(matList().some(m=>Number(m.min)>0)?'':' Минимальный запас задаётся в «Остатках» материалов (кнопка ✏️ у материала).')+'</p>')+'</div>';
   h+='<div class="panel"><h3 style="margin-bottom:8px">Ещё купить (вписано вручную)</h3>'+
-    (man.length?'<div class="tbl-wrap"><table><tbody>'+man.map(z=>'<tr><td>'+esc(z.n)+'</td><td class="num">'+(z.q?fmt(z.q):'')+' <span class="muted">'+esc(z.u||'')+'</span></td><td class="muted">'+esc(z.name||'')+' '+fmtDate(String(z.at||'').slice(0,10))+'</td><td>'+(z.st==='ordered'?'<span class="badge part">заказано</span>':'')+'</td><td>'+(ro?'':(z.st!=='ordered'?'<button type="button" class="link" data-buy-mo="'+esc(z.id)+'">заказано</button> ':'')+'<button type="button" class="link" data-buy-done="'+esc(z.id)+'">✓ куплено</button>')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0 0 8px">Пусто.</p>')+
+    (man.length?'<div class="tbl-wrap"><table><tbody>'+man.map(z=>'<tr><td>'+esc(z.n)+'</td><td class="num">'+(z.q?fmt(z.q):'')+' <span class="muted">'+esc(z.u||'')+'</span></td><td class="muted">'+esc(z.name||'')+' '+fmtDate(String(z.at||'').slice(0,10))+'</td><td>'+(z.st==='ordered'?'<span class="badge part">заказано</span>':'<span class="badge new">нужно купить</span>')+'</td><td>'+(ro?'':(z.st!=='ordered'?'<button type="button" class="link" data-buy-mo="'+esc(z.id)+'">заказано</button> ':'<button type="button" class="link" data-buy-mu="'+esc(z.id)+'">↩ ещё не заказано</button> ')+'<button type="button" class="link" data-buy-ed="'+esc(z.id)+'">✏️</button> <button type="button" class="link" data-buy-done="'+esc(z.id)+'">✓ куплено</button> <button type="button" class="link" data-buy-rm="'+esc(z.id)+'">✕</button>')+'</td></tr>').join('')+'</tbody></table></div>':'<p class="muted" style="margin:0 0 8px">Пусто.</p>')+
     (ro?'':'<div class="filters" style="margin-top:10px"><label class="fld" style="flex:1;min-width:180px"><span>Что купить</span><input type="text" id="by-n" placeholder="например, перчатки"></label><label class="fld"><span>Сколько</span><input type="text" id="by-q" inputmode="decimal" style="max-width:100px"></label><label class="fld"><span>Ед.</span><input type="text" id="by-u" style="max-width:80px" value="шт."></label><label class="fld"><span>&nbsp;</span><button type="button" class="primary" data-buy-add>Добавить</button></label></div>')+'</div>';
   h+='<p class="note">Материал попадает сюда сам, когда его остаток (на всех складах материалов вместе) меньше минимального запаса. Когда товар пришёл, внесите «Приход» — строка исчезнет сама.</p>';
   el.innerHTML=h;}};
@@ -2342,6 +2342,11 @@ document.addEventListener('click',async e=>{const t=e.target;let b;
   if((b=t.closest('[data-buy-drv]'))){const m=matById(b.dataset.buyDrv);if(m)await buyTask(m,Number(b.dataset.q)||0,matTotal(matBal(),m.id));return;}
   if((b=t.closest('[data-buy-un]'))){try{await db.doc('buy/'+b.dataset.buyUn).delete();}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-in]'))){MT.f={...mopsForm(),type:'in',mid:b.dataset.buyIn,q:''};go('mops');return;}
+  if((b=t.closest('[data-buy-mu]'))){try{await db.doc('buy/'+b.dataset.buyMu).update({st:'need'});}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-eq]'))){const z=MT.buy.find(y=>y.id===b.dataset.buyEq);if(!z)return;const v=prompt('Сколько заказали ('+(z.u||'')+')?',String(z.q||'').replace('.',','));if(v===null)return;try{await db.doc('buy/'+z.id).update({q:r2(parseQ(v)||0)});}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-ed]'))){const z=MT.buy.find(y=>y.id===b.dataset.buyEd);if(!z)return;const n=prompt('Что купить?',z.n||'');if(n===null||!n.trim())return;const q=prompt('Сколько?',String(z.q||'').replace('.',','));if(q===null)return;const u=prompt('Единица (шт., кг, л…)',z.u||'шт.');if(u===null)return;
+    try{await db.doc('buy/'+z.id).update({n:n.trim(),q:r2(parseQ(q)||0),u:u.trim()});toast('Изменено');}catch(x){toast(dbErr(x));}return;}
+  if((b=t.closest('[data-buy-rm]'))){if(!confirm('Убрать из закупок?'))return;try{await db.doc('buy/'+b.dataset.buyRm).delete();}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-mo]'))){try{await db.doc('buy/'+b.dataset.buyMo).update({st:'ordered'});}catch(x){toast(dbErr(x));}return;}
   if((b=t.closest('[data-buy-done]'))){try{await db.doc('buy/'+b.dataset.buyDone).delete();toast('Отмечено как куплено');}catch(x){toast(dbErr(x));}return;}
   if(t.closest('[data-buy-add]')){const n=$('by-n').value.trim();if(!n){toast('Впишите, что купить');return;}
