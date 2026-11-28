@@ -38,9 +38,9 @@ details.sa-person>*+*{margin-top:8px}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>window.SKLAD_VERSION='28.11 09:43';</script>
-<script src="firebase-config.js?v=a87c322a"></script>
-<script src="shim.js?v=a87c322a"></script>
+<script>window.SKLAD_VERSION='28.11 09:46';</script>
+<script src="firebase-config.js?v=0e256d6a"></script>
+<script src="shim.js?v=0e256d6a"></script>
 </head><body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2150,7 +2150,7 @@ function rxHtml(m){const rx=m.rx||{};const cnt={};for(const u in rx){const e=rx[
 async function setRx(mid,e){const m=CH.msgs.find(x=>x.id===mid);if(!m)return;const cur=(m.rx||{})[S.me];const v=cur===e?'':e;
   CH.menu=null;try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+mid).set({rx:{[S.me]:v}},{merge:true});}catch(x){toast(dbErr(x));}VIEWS.chat.update();}
 const VBAD=new Set();
-document.addEventListener('error',e=>{const a=e.target;if(a&&a.tagName==='AUDIO'&&a.dataset.vid&&a.src&&!VBAD.has(a.dataset.vid)){const m=CH.msgs.find(x=>x.id===a.dataset.vid);if(m&&/webm/.test(m.mime||m.data&&m.data.slice(0,40)||'')){VBAD.add(m.id);VIEWS.chat.update();}}},true);
+document.addEventListener('error',e=>{const a=e.target;if(a&&a.tagName==='AUDIO'&&a.dataset.vid&&a.src&&!VBAD.has(a.dataset.vid)&&/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)&&'ontouchend' in document){const m=CH.msgs.find(x=>x.id===a.dataset.vid);if(m&&/webm/.test(m.mime||m.data&&m.data.slice(0,40)||'')){VBAD.add(m.id);VIEWS.chat.update();}}},true);
 const VSPEED={},VTR=new Set(),STT={},VURL={};
 /* длинное голосовое хранится частями (как документы) — собираем при показе */
 function voiceSrc(m){if(m.data){if(!VURL[m.id]){try{const i=m.data.indexOf(',');const mime=(m.data.slice(5,i).split(';')[0])||'audio/webm';const bin=atob(m.data.slice(i+1));const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);VURL[m.id]=URL.createObjectURL(new Blob([u],{type:mime}));}catch(e){return m.data;}}return VURL[m.id];}if(!m.fid)return '';if(VURL[m.id]&&VURL[m.id]!=='load')return VURL[m.id];
