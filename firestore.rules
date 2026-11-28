@@ -57,6 +57,9 @@ service cloud.firestore {
           (resource.data.uid == me() && request.resource.data.uid == me()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['t', 'ed'])
             && (request.resource.data.diff(resource.data).affectedKeys().hasAll(['ed']) || clean()))
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rx'])
+            && request.resource.data.rx.diff(resource.data.get('rx', {})).affectedKeys().hasOnly([me()])
+            && (fx(id) ? clv(fk(id)) != 'none' : me() in get(/databases/$(database)/documents/chats/$(id)).data.members))
           || ((resource.data.uid == me() || clean()) && request.resource.data.kind == 'del'
             && request.resource.data.uid == resource.data.uid
             && request.resource.data.keys().hasOnly(['uid', 'at', 'kind', 'del', 'by'])));

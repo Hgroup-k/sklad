@@ -219,6 +219,10 @@ details.tk-done>summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
 .cmenu{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
 .cmenu button{font-size:12.5px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
 .cmenu button.del{color:#c0392b}
+.crxpick button{font-size:18px;padding:2px 6px;background:none;border-color:transparent}
+.crxpick button.on,.crx button.on{background:rgba(46,125,110,.18);border-color:var(--accent)}
+.crx{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.crx button{font-size:14px;padding:1px 8px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
 .cquote{border-left:3px solid var(--accent);padding:2px 8px;margin:2px 0 4px;font-size:12.5px;background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:0 6px 6px 0;cursor:pointer}
 .cquote b{display:block;font-size:12px}
 .cfw{font-size:11.5px;font-style:italic;opacity:.75}
@@ -2083,10 +2087,17 @@ function msgHtml(m,prev){
   if(m.ord)body+=ordCard(m.ord);
   if(m.t)body+='<div class="ctext">'+esc(m.t).replace(/\n/g,'<br>')+'</div>';
   if(TRX[m.id])body+=trxHtml(m.id);
+  body+=rxHtml(m);
   const av=!mine&&!same&&window.SKLAD_AVA?'<span class="cava">'+window.SKLAD_AVA((CH.ava&&CH.ava[m.uid])||{name:S.names[m.uid]||'?'},28)+'</span>':'';
   return h+'<div class="cmsg'+(mine?' mine':'')+(same?' same':'')+(av?' hasava':'')+'" id="cm-'+esc(m.id)+'">'+av+(!mine&&!same?'<div class="cwho">'+esc(S.names[m.uid]||'…')+'</div>':'')+body+'<div class="ctime">'+(m.ed?'<span class="ced">изменено</span> ':'')+hhmm(m.at)+' <button type="button" class="link cmbtn" data-cmenu="'+esc(m.id)+'" title="Действия: ответить, копировать, переслать…">⋯</button></div>'+(CH.menu===m.id?menuHtml(m):'')+'</div>';
 }
 function fsize(n){n=Number(n)||0;return n>=1048576?(n/1048576).toFixed(1).replace('.',',')+' МБ':Math.max(1,Math.round(n/1024))+' КБ';}
+/* реакции смайликами: m.rx = {uid: '👍'} */
+const RX=['👍','❤️','😂','😮','😢','🙏','🔥','✅'];
+function rxHtml(m){const rx=m.rx||{};const cnt={};for(const u in rx){const e=rx[u];if(!e)continue;(cnt[e]=cnt[e]||[]).push(u);}const ks=Object.keys(cnt);if(!ks.length)return '';
+  return '<div class="crx">'+ks.map(e=>'<button type="button" data-crx="'+esc(e)+'" data-mid="'+esc(m.id)+'" class="'+(rx[S.me]===e?'on':'')+'" title="'+esc(cnt[e].map(u=>S.names[u]||'…').join(', '))+'">'+esc(e)+(cnt[e].length>1?' '+cnt[e].length:'')+'</button>').join('')+'</div>';}
+async function setRx(mid,e){const m=CH.msgs.find(x=>x.id===mid);if(!m)return;const cur=(m.rx||{})[S.me];const v=cur===e?'':e;
+  CH.menu=null;try{await rawdb.doc('chats/'+CH.sel+'/msgs/'+mid).set({rx:{[S.me]:v}},{merge:true});}catch(x){toast(dbErr(x));}VIEWS.chat.update();}
 const VSPEED={},VTR=new Set(),STT={},VURL={};
 /* длинное голосовое хранится частями (как документы) — собираем при показе */
 function voiceSrc(m){if(m.data)return m.data;if(!m.fid)return '';if(VURL[m.id]&&VURL[m.id]!=='load')return VURL[m.id];
@@ -2141,7 +2152,8 @@ function canWrite(id){return chatLv(id)==='edit';}
 function menuHtml(m){const mine=m.uid===S.me;
   if(m.kind==='del'){const B0=(a,l)=>'<button type="button" class="del" data-cact="'+a+'" data-mid="'+esc(m.id)+'">'+l+'</button>';return '<div class="cmenu">'+B0('hide','🗑 Убрать у себя')+(S.chatMod?B0('wipe','🗑 Удалить без следа'):'')+'</div>';}const c=CH.list.find(x=>x.id===CH.sel)||{id:CH.sel};const w=canWrite(CH.sel);const pinned=pinsOf(c).some(x=>x.id===m.id);
   const B=(a,l,cl)=>'<button type="button" data-cact="'+a+'" data-mid="'+esc(m.id)+'"'+(cl?' class="'+cl+'"':'')+'>'+l+'</button>';
-  return '<div class="cmenu">'+(w?B('reply','↩ Ответить'):'')+(!mine&&c.type!=='dm'?B('dm','💬 Ответить лично'):'')+(m.t?B('copy','📋 Копировать'):'')+B('fwd','↪ Переслать')+(m.t||sttGet(m)?B('tr','🌐 Перевести'):'')+
+  const my=(m.rx||{})[S.me];
+  return '<div class="cmenu crxpick">'+RX.map(e=>'<button type="button" data-crx="'+e+'" data-mid="'+esc(m.id)+'"'+(my===e?' class="on"':'')+'>'+e+'</button>').join('')+'</div><div class="cmenu">'+(w?B('reply','↩ Ответить'):'')+(!mine&&c.type!=='dm'?B('dm','💬 Ответить лично'):'')+(m.t?B('copy','📋 Копировать'):'')+B('fwd','↪ Переслать')+(m.t||sttGet(m)?B('tr','🌐 Перевести'):'')+
     (w?B('pin',pinned?'📌 Открепить':'📌 Закрепить'):'')+(mine&&m.t&&m.kind!=='del'?B('edit','✏️ Изменить'):'')+B('del','🗑 Удалить','del')+'</div>'+
     (CH.delAsk===m.id?'<div class="cmenu"><span class="muted" style="font-size:12.5px;align-self:center">Удалить:</span>'+B('hide','у себя')+((mine||S.chatMod)&&m.kind!=='del'?B('delall','у всех','del'):'')+(S.chatMod?B('wipe','без следа','del'):'')+'</div>':'');}
 function jumpTo(id){const el=document.getElementById('cm-'+id);if(!el){toast('Это сообщение уже не загружено');return;}el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1500);}
@@ -2299,6 +2311,7 @@ document.addEventListener('click',async e=>{
   if((b=t.closest('[data-vtr]'))){const id=b.dataset.vtr;if(VTR.has(id)){VTR.delete(id);VIEWS.chat.update();return;}VTR.add(id);
     const m=CH.msgs.find(x=>x.id===id);if(m&&sttGet(m)==null&&(!STT[id]||STT[id].s!=='load'))sttRun(m);else VIEWS.chat.update();return;}
   if((b=t.closest('[data-cfile]'))){const m=CH.msgs.find(x=>x.id===b.dataset.cfile);if(m)await downloadFile(m);return;}
+  if((b=t.closest('[data-crx]'))){await setRx(b.dataset.mid,b.dataset.crx);return;}
   if((b=t.closest('[data-cmenu]'))){CH.delAsk=null;CH.menu=CH.menu===b.dataset.cmenu?null:b.dataset.cmenu;VIEWS.chat.update();return;}
   if((b=t.closest('[data-cact]'))){await msgAction(b.dataset.cact,b.dataset.mid);return;}
   if((b=t.closest('[data-cunpin]'))){const c=CH.list.find(x=>x.id===CH.sel)||{};const pins=pinsOf(c).filter(x=>x.id!==b.dataset.cunpin);CH.pinIdx=0;try{await rawdb.doc('chats/'+CH.sel).set({pins,pin:null},{merge:true});}catch(x){toast(dbErr(x));}return;}
